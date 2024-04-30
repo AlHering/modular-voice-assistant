@@ -1,0 +1,38 @@
+langchain==0.0.245
+pymupdf==1.23.14
+chromadb==0.3.22
+openai==0.27.7
+pygpt4all==1.1.0
+pygptj==2.0.3
+llama-cpp-python==0.2.56
+urllib3==2.0.2
+python-dotenv==1.0.0
+pydantic==1.10.9
+accelerate==0.20.3
+protobuf==3.20.3
+nvitop==1.1.2
+tqdm==4.65.0
+requests==2.31.0
+lxml==4.9.2
+pandas==1.5.3
+loralib==0.1.1
+scikit-learn==1.2.2
+pillow==9.5.0
+transformers==4.35.2
+bitsandbytes==0.41.1
+xformers==0.0.20
+peft==0.5.*
+fastapi==0.99.1
+python-multipart==0.0.6
+uvicorn==0.23.1
+SQLAlchemy==2.0.15
+
+streamlit==1.29.0
+streamlit-code-editor==0.1.10
+streamlit-extras==0.3.6
+
+https://github.com/PanQiWei/AutoGPTQ/releases/download/v0.4.2/auto_gptq-0.4.2+cu117-cp310-cp310-linux_x86_64.whl; platform_system == "Linux" and platform_machine == "x86_64"
+https://github.com/jllllll/exllama/releases/download/0.0.17/exllama-0.0.17+cu117-cp310-cp310-linux_x86_64.whl; platform_system == "Linux" and platform_machine == "x86_64"
+https://github.com/jllllll/llama-cpp-python-cuBLAS-wheels/releases/download/textgen-webui/llama_cpp_python_cuda-0.2.26+cu117-cp310-cp310-manylinux_2_31_x86_64.whl; platform_system == "Linux" and platform_machine == "x86_64"
+https://github.com/jllllll/GPTQ-for-LLaMa-CUDA/releases/download/0.1.0/gptq_for_llama-0.1.0+cu117-cp310-cp310-linux_x86_64.whl; platform_system == "Linux" and platform_machine == "x86_64"
+https://github.com/jllllll/ctransformers-cuBLAS-wheels/releases/download/AVX2/ctransformers-0.2.27+cu117-py3-none-any.whl
