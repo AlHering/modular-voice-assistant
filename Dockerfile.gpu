@@ -9,8 +9,8 @@ ENV TZ=Europe/Berlin
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Setting up working directory
-ADD ./ container/
-WORKDIR /container
+ADD ./ modular-voice-assistant/
+WORKDIR /modular-voice-assistant
 ENV RUNNING_IN_DOCKER True
 ENV CUDA_SUPPORT True
 
@@ -35,8 +35,8 @@ RUN if [ ! -d "venv" ]; \
 ENV PORT 9090
 EXPOSE $PORT
 
-# Setup invokeai
-RUN cd /container && /bin/bash install.sh
+# Setup
+RUN cd /modular-voice-assistant && /bin/bash install.sh
 
-# Command for starting webui
+# Command for starting modular-voice-assistant
 CMD ["/bin/bash", "run.sh"]
