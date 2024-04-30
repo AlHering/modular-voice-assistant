@@ -5,29 +5,30 @@
 *            (c) 2023 Alexander Hering             *
 ****************************************************
 """
-from src.configuration import configuration as cfg, flask_frontend_config as flask_cfg
-from src.utility.bronze import json_utility
-from src.utility.silver.file_system_utility import safely_create_path
-from src.control.flask_frontend_controller import FlaskFrontendController
-from src.view.streamlit_frontends import llm_tutor_app as app
+import sys
+import os
+from src.configuration import configuration as cfg
 
 
-def run_streamlit() -> None:
+def run_streamlit_frontend() -> None:
     """
-    Function for running streamlit frontend.
+    Runner function for streamlit frontend.
     """
-    app.run_app_with_st_pages()
+    import streamlit.web.bootstrap as streamlit_bootstrap
+    if not os.path.exists(cfg.PATHS.FRONTEND_PATH):
+            os.makedirs(cfg.PATHS.FRONTEND_PATH)
+        streamlit_bootstrap.run(os.path.join(cfg.PATHS.SOURCE_PATH, "view", "streamlit", "ModularVoiceAssistant.py"),
+                                "", [], [],)
 
-
-def run_flask() -> None:
+def run_commandline_frontend() -> None:
     """
-    Function for running flask frontend.
+    Runner function for commandline frontend.
     """
-    app = FlaskFrontendController(
-        flask_cfg.global_config
-    )
-    app.run_app()
+    pass
 
 
 if __name__ == "__main__":
-    run_flask()
+    if "--cli" in sys.argv:
+         run_commandline_frontend()
+    else:
+         run_streamlit_frontend()
