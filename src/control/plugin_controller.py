@@ -70,7 +70,7 @@ class PluginController(object):
         Method for loading in plugins from plugin folders.
         :param path: Plugin folder path to load in.
         """
-        for root, dirs, files in os.walk(path):
+        for root, dirs, _ in os.walk(path):
             for folder in dirs:
                 info_path = file_system_utility.clean_path(
                     os.path.join(root, folder, "info.json"))
