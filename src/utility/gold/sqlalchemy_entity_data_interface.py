@@ -2,7 +2,6 @@
 """
 ****************************************************
 *                   Utility
-*            (c) 2023 Alexander Hering             *
 ****************************************************
 """
 # In-depth documentation can be found under utility/docs/entity_data_interfaces.md

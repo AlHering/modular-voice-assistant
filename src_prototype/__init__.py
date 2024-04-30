@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 ****************************************************
-*          Basic Language Model Backend            *
+*              Modular Voice Assistant             *
 ****************************************************
 """
-# TODO: Implement client interface

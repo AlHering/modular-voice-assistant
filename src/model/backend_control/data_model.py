@@ -2,7 +2,6 @@
 """
 ****************************************************
 *          Basic Language Model Backend            *
-*            (c) 2023 Alexander Hering             *
 ****************************************************
 """
 from sqlalchemy.orm import relationship, mapped_column, declarative_base
