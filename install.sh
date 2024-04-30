@@ -21,7 +21,7 @@ printf "\n%s\n" "${delimiter}"
 
 if [[ $CUDA_SUPPORT == "True" ]]
 then
-    source "${SCRIPT_DIR}/venv/bin/activate" && pip install --no-cache-dir -r ${SCRIPT_DIR}/requirements_gpu.txt
+    source "${SCRIPT_DIR}/venv/bin/activate" && CMAKE_ARGS="-DLLAMA_CUDA=on" pip install --no-cache-dir -r ${SCRIPT_DIR}/requirements_gpu.txt
 else
     source "${SCRIPT_DIR}/venv/bin/activate" && pip install --no-cache-dir -r ${SCRIPT_DIR}/requirements_cpu.txt
 fi 
