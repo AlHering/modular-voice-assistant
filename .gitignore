@@ -158,6 +158,7 @@ cython_debug/
 .vscode/
 
 # Custom additions
+*_venv/
 data/
 docs/literature/
 docs/api_analysis/
