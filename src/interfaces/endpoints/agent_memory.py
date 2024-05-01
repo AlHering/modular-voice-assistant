@@ -2,6 +2,7 @@
 """
 ****************************************************
 *               Command Line Agents                *
+*            (c) 2023 Alexander Hering             *
 ****************************************************
 """
 from typing import Callable, Optional, List

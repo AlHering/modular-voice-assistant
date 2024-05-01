@@ -2,6 +2,7 @@
 """
 ****************************************************
 *          Basic Language Model Backend            *
+*            (c) 2023 Alexander Hering             *
 ****************************************************
 """
 from src.configuration import configuration as cfg

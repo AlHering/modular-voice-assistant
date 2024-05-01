@@ -3,6 +3,7 @@
 """
 ****************************************************
 *          Basic Language Model Backend            *
+*            (c) 2023 Alexander Hering             *
 ****************************************************
 """
 from typing import List, Any, Callable, Optional, Type, Union
