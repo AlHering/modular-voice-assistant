@@ -16,7 +16,7 @@ scikit-learn==1.4.2
 pillow==9.5.0
 transformers==4.40.1
 bitsandbytes==0.43.1
-xformers==0.0.24
+
 peft==0.10.0
 fastapi==0.99.1
 python-multipart==0.0.6
@@ -34,6 +34,6 @@ exllamav2==0.0.20
 ctransformers==0.2.27
 
 -f https://download.pytorch.org/whl/torch_stable.html
-orch==2.2.0+cpu
+torch==2.2.0+cpu
 torchaudio==2.2.0+cpu
 torchvision==0.17.0+cpu
