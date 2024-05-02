@@ -14,7 +14,7 @@ WORKDIR /modular-voice-assistant
 ENV RUNNING_IN_DOCKER True
 ENV CUDA_SUPPORT True
 
-# Install prerequisits
+# Install prerequisites
 RUN apt-get update && apt-get install -y apt-utils \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa -y
@@ -24,6 +24,10 @@ RUN apt-get update && apt-get install -y \
     python3.10 python3.10-distutils python3.10-dev python3.10-venv \
     libgoogle-perftools4 libtcmalloc-minimal4 libgoogle-perftools-dev \
     pkg-config libcairo2-dev libjpeg-dev libgif-dev && apt-get clean -y
+
+# Project prerequisites
+RUN apt-get update && apt-get install -y \
+    portaudio19-dev python3-pyaudio && apt-get clean -y
 
 # Create venv
 RUN if [ ! -d "venv" ]; \
