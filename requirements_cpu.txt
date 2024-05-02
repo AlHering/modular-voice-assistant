@@ -4,6 +4,11 @@ tqdm==4.65.0
 
 pyaudio==0.2.14
 sounddevice==0.4.6
+vosk==0.3.45
+pocketsphinx==5.0.3
+openai-whisper==20231117
+faster-whisper==1.0.1
+speechrecognition==3.10.3
 
 urllib3==2.0.2
 requests==2.31.0
