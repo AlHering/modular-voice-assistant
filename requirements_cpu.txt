@@ -2,6 +2,8 @@ python-dotenv==1.0.0
 nvitop==1.1.2
 tqdm==4.65.0
 
+pyaudio==0.2.14
+
 urllib3==2.0.2
 requests==2.31.0
 lxml==4.9.2
