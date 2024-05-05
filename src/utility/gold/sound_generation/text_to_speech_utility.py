@@ -55,9 +55,9 @@ def play_wave(wave_file: str, chunk_size: int = 1024, stream_kwargs: dict = None
     pya.terminate()
 
 
-def get_tts_model(model_name_or_path: str, instantiation_kwargs: dict = None) -> TTS:
+def get_coqui_tts_model(model_name_or_path: str, instantiation_kwargs: dict = None) -> TTS:
     """
-    Returns a TTS based model instance.
+    Returns a Coqui TTS based model instance.
     :param model_name_or_path: Model name or path.
     :param instantiation_kwargs: Instatiation keyword arguments.
         Defaults to None in which case default values are used.
