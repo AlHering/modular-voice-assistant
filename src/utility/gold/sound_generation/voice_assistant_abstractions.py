@@ -53,8 +53,21 @@ class ConversationHandler(object):
         self.output_device_index = pya.get_default_output_device_info().get("index")
         pya.terminate()
 
+        self.stt_engine = None
+        self.tts_engine = None
         self.stt_processor = None
         self.tts_processor = None
+
+        self.set_stt_processor(
+            stt_engine=stt_engine,
+            stt_model=stt_model,
+            stt_instantiation_kwargs=stt_instantiation_kwargs
+        )
+        self.set_tts_processor(
+            tts_engine=tts_engine,
+            tts_model=tts_model,
+            tts_instantiation_kwargs=stt_instantiation_kwargs
+        )
 
         self.interrupt = False
 
@@ -99,10 +112,11 @@ class ConversationHandler(object):
         :param stt_model: STT model name or path.
         :param stt_instantiation_kwargs: STT model instantiation keyword arguments.
         """
+        self.sst_engine = self.supported_stt_engines[0] if stt_engine is None else stt_engine
         self.stt_processor = {
             "whisper": speech_to_text_utility.get_whisper_model,
             "faster-whisper": speech_to_text_utility.get_faster_whisper_model
-        }[self.supported_stt_engines[0] if stt_engine is None else stt_engine](
+        }[self.sst_engine](
             model_name_or_path=stt_model,
             instantiation_kwargs=stt_instantiation_kwargs
         )
@@ -118,10 +132,24 @@ class ConversationHandler(object):
         :param tts_model: TTS model name or path.
         :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
         """
+        self.tts_engine = self.supported_tts_engines[0] if tts_engine is None else tts_engine
         self.tts_processor = {
             "coqui-tts": text_to_speech_utility.get_coqui_tts_model
-        }[self.supported_tts_engines[0] if tts_engine is None else tts_engine](
+        }[self.tts_engine](
             model_name_or_path=tts_model,
             instantiation_kwargs=tts_instantiation_kwargs
         )
-            
+
+    def run_stt_process(self) -> None:
+        """
+        Runs STT process.
+        """
+        pass
+        
+    def run_tts_process(self) -> None:
+        """
+        Runs TTS process.
+        :param tts_engine: TTS engine.
+        """
+        pass
+             
