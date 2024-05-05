@@ -5,11 +5,12 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
+from typing import List, Union, Dict, Any
 import sounddevice
 import pyaudio
 
 
-def get_audio_devices(self, include_metadata: bool = False) -> list:
+def get_audio_devices(self, include_metadata: bool = False) -> List[Union[str, Dict[str, Any]]]:
     """
     Returns a list of available devices.
     :param include_metadata: Flag for including metadata.
@@ -17,7 +18,7 @@ def get_audio_devices(self, include_metadata: bool = False) -> list:
     """
     return [device if include_metadata else device["name"] for device in sounddevice.query_devices()]
 
-def get_input_devices(self, include_metadata: bool = False) -> list:
+def get_input_devices(self, include_metadata: bool = False) -> List[Union[str, Dict[str, Any]]]:
     """
     Returns a list of available input devices.
     :param include_metadata: Flag for including metadata.
@@ -25,7 +26,7 @@ def get_input_devices(self, include_metadata: bool = False) -> list:
     """
     return [device if include_metadata else device["name"] for device in sounddevice.query_devices() if device["max_input_channels"] > 0]
 
-def get_output_devices(self, include_metadata: bool = False) -> list:
+def get_output_devices(self, include_metadata: bool = False)  -> List[Union[str, Dict[str, Any]]]:
     """
     Returns a list of available input devices.
     :param include_metadata: Flag for including metadata.
