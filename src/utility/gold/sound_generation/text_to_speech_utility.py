@@ -83,8 +83,7 @@ def synthesize_with_tts_to_file(text: str, output_path: str = None, model: TTS =
         Defaults to None in which case default values are used.
     :returns: Output file path.
     """
-    if model is None:
-        model = get_coqui_tts_model(TTS.list_models()[0])
+    model = get_coqui_tts_model(TTS.list_models()[0]) if model is None else model
     output_path = "" if TEMPORARY_OUTPUT_PATH is None else output_path
     synthesis_kwargs = {} if synthesis_kwargs is None else synthesis_kwargs
     return model.tts_to_file(
