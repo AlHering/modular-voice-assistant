@@ -26,22 +26,17 @@ def play_wave(wave_file: str, chunk_size: int = 1024, stream_kwargs: dict = None
     :param chunk_size: Chunk size for file handling. 
         Defaults to 1024.
     :param stream_kwargs: Stream keyword arguments.
-        Defaults to None in which case
-        {
-            "rate": output_file.getnchannels(),
-            "format": pya.get_format_from_width(output_file.getsampwidth()),
-            "channels": output_file.getnchannels(),
-            "output": True
-        } is used.
+        Defaults to None in which case defaults are based on the wave file.
     """
     pya = pyaudio.PyAudio()
     output_file = wave.open(wave_file, "rb")
     stream_kwargs = {
         "rate": output_file.getnchannels(),
         "format": pya.get_format_from_width(output_file.getsampwidth()),
-        "channels": output_file.getnchannels(),
-        "output": True
+        "channels": output_file.getnchannels()
     } if stream_kwargs is None else stream_kwargs
+    if "output" not in stream_kwargs:
+        stream_kwargs["output"] = True
     stream = pya.open(
         **stream_kwargs
     )
