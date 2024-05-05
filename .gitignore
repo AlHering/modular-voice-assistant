@@ -168,6 +168,7 @@ configuration/*.env
 machine_learning_models/LORAS/*
 machine_learning_models/MODELS/*
 machine_learning_models/EMBEDDING_MODELS/*
+tmp*
 .desktop
 
 # Exceptions
