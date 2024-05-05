@@ -87,3 +87,41 @@ class ConversationHandler(object):
                 self.input_device_index = output_device if isinstance(output_device, int) else [device for device in get_output_devices(include_metadata=True) if device["name"] == output_device][0]
             except IndexError:
                 cfg.LOGGER.warning(f"Setting output device failed. Could not find device '{output_device}'.")
+
+    def set_stt_processor(self,
+                          stt_engine: str = None,
+                          stt_model: str = None,
+                          stt_instantiation_kwargs: dict = None) -> None:
+        """
+        Sets STT processor.
+        :param stt_engine: STT engine.
+            See AudioHandler.supported_stt_engines for supported engines.
+        :param stt_model: STT model name or path.
+        :param stt_instantiation_kwargs: STT model instantiation keyword arguments.
+        """
+        self.stt_processor = {
+            "whisper": speech_to_text_utility.get_whisper_model,
+            "faster-whisper": speech_to_text_utility.get_faster_whisper_model
+        }[self.supported_stt_engines[0] if stt_engine is None else stt_engine](
+            model_name_or_path=stt_model,
+            instantiation_kwargs=stt_instantiation_kwargs
+        )
+        
+    def set_tts_processor(self,
+                          tts_engine: str = None,
+                          tts_model: str = None,
+                          tts_instantiation_kwargs: dict = None) -> None:
+        """
+        Sets TTS processor.
+        :param tts_engine: TTS engine.
+            See AudioHandler.supported_tts_engines for supported engines.
+        :param tts_model: TTS model name or path.
+        :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
+        """
+        self.tts_processor = {
+            "coqui-tts": text_to_speech_utility.get_coqui_tts_model
+        }[self.supported_tts_engines[0] if tts_engine is None else tts_engine](
+            model_name_or_path=tts_model,
+            instantiation_kwargs=tts_instantiation_kwargs
+        )
+            
