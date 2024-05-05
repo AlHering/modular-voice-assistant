@@ -34,3 +34,16 @@ def get_whisper_model(model_name_or_path: str, instantiation_kwargs: dict = None
             **instantiation_kwargs)
 
 
+def get_faster_whisper_model(model_name_or_path: str, instantiation_kwargs: dict = None) -> WhisperModel:
+    """
+    Returns a faster whisper based model instance.
+    :param model_name_or_path: Model name or path.
+    :param instantiation_kwargs: Instatiation keyword arguments.
+        Defaults to None in which case default values are used.
+    :returns: Whisper model instance.
+    """
+    instantiation_kwargs = {} if instantiation_kwargs is None else instantiation_kwargs
+    return WhisperModel(
+        model_size_or_path=model_name_or_path,
+        **instantiation_kwargs
+    )
