@@ -160,6 +160,7 @@ cython_debug/
 # Custom additions
 *_venv/
 data/
+src_prototype/
 docs/literature/
 docs/api_analysis/
 docs/todo/
