@@ -5,12 +5,13 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from src.configuration import configuration as cfg
-from ...bronze.audio_utility import get_input_devices, get_output_devices
-from . import speech_to_text_utility, text_to_speech_utility
 from typing import Any, Union, Tuple, List
 import os
 import pyaudio
+from datetime import datetime as dt
+from src.configuration import configuration as cfg
+from ...bronze.audio_utility import get_input_devices, get_output_devices
+from . import speech_to_text_utility, text_to_speech_utility
 
 
 class ConversationHandler(object):
@@ -27,7 +28,8 @@ class ConversationHandler(object):
                  stt_instantiation_kwargs: dict = None,
                  tts_engine: str = None,
                  tts_model: str = None,
-                 tts_instantiation_kwargs: dict = None) -> None:
+                 tts_instantiation_kwargs: dict = None,
+                 history: List[dict] = None) -> None:
         """
         Initiation method.
         :param working_directory: Directory for productive files.
@@ -41,6 +43,8 @@ class ConversationHandler(object):
             Defaults to None in which case the first supported engine is used.
         :param tts_model: TTS model name or path.
         :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
+        :param history: History as list of dictionaries of the structure
+            {"process": <"tts"/"stt">, "text": <text content>, "metadata": {...}}
         """
         if not os.path.exists(working_directory):
             os.makedirs(working_directory)
@@ -69,6 +73,7 @@ class ConversationHandler(object):
             tts_instantiation_kwargs=stt_instantiation_kwargs
         )
 
+        self.history = [] if history is None else history
         self.interrupt = False
 
     def set_input_device(self, input_device: Union[int, str] = None) -> None:
