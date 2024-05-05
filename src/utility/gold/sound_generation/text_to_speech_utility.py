@@ -17,7 +17,6 @@ TEMPORARY_DATA_FOLDER = os.path.join(os.path.dirname(__file__), os.pardir, os.pa
 if not os.path.exists:
      os.makedirs(TEMPORARY_DATA_FOLDER)
 TEMPORARY_OUTPUT_PATH = os.path.join(TEMPORARY_DATA_FOLDER, "out.wav")
-DEFAULT_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def play_wave(wave_file: str, chunk_size: int = 1024, stream_kwargs: dict = None) -> None:
