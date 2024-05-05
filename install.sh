@@ -26,6 +26,8 @@ else
     source "${SCRIPT_DIR}/venv/bin/activate" && pip install --no-cache-dir -r ${SCRIPT_DIR}/requirements_cpu.txt
 fi 
 
+source "${SCRIPT_DIR}/venv/bin/activate" && pip install --no-cache-dir -r ${SCRIPT_DIR}/requirements.txt
+
 printf "\n%s\n" "${delimiter}"
 printf "Finished installation"
 printf "\n%s\n" "${delimiter}"

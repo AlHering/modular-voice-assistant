@@ -27,7 +27,9 @@ RUN apt-get update && apt-get install -y \
 
 # Project prerequisites
 RUN apt-get update && apt-get install -y \
-    portaudio19-dev libportaudio2 python3-pyaudio && apt-get clean -y
+    portaudio19-dev libportaudio2 python3-pyaudio \
+    libssl-dev libasound2 libsndfile1 espeak \
+    libcudnn8 libcudnn8-dev && apt-get clean -y
 
 # Create venv
 RUN if [ ! -d "venv" ]; \
