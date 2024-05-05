@@ -7,7 +7,6 @@
 """
 from typing import List, Union, Dict, Any
 import sounddevice
-import pyaudio
 
 
 def get_audio_devices(self, include_metadata: bool = False) -> List[Union[str, Dict[str, Any]]]:
