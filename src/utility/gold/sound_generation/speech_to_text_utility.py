@@ -285,8 +285,8 @@ def record_and_transcribe_speech_with_speech_recognition(transcription_callback:
         "chunk_size": chunk_size
     } if microphone_kwargs is None else microphone_kwargs
     microphone = speech_recognition.Microphone(**microphone_kwargs)
-    with microphone:
-        recognizer.adjust_for_ambient_noise(microphone)
+    with microphone as source:
+        recognizer.adjust_for_ambient_noise(source)
 
     def speech_recognition_callback(_, audio: speech_recognition.AudioData) -> None:
         """
