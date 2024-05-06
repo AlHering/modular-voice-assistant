@@ -85,6 +85,66 @@ def record_audio_with_pyaudio(interrupt_method: InterruptMethod = InterruptMetho
 
     return frames
 
+def record_audio_with_pyaudio_to_file(wave_file: str = None, 
+                                      interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
+                                      interrupt_handle: Any = 5.0,
+                                      chunk_size: int = 2024,
+                                      stream_kwargs: dict = None):
+    """
+    Records audio with pyaudio and saves it to wave file.
+    :param wave_file: Wave file path.
+    :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT". 
+        Defaults to "TIME_INTERVAL".
+    :param interrupt_handle: Interrupt handle as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT".
+        Defaults to 5.0 in connection with the "TIME_INTERVAL" method. 
+    :param chunk_size: Chunk size for file handling. 
+        Defaults to 1024.
+    :param stream_kwargs: Stream keyword arguments.
+        Defaults to None in which case defaults are based on the wave file.
+    """
+    frames = record_audio_with_pyaudio(
+        interrupt_method=interrupt_method,
+        interrupt_handle=interrupt_handle,
+        chunk_size=chunk_size,
+        stream_kwargs=stream_kwargs
+    )
+
+    pya = pyaudio.PyAudio()
+    wave_output = wave.open(TEMPORARY_INPUT_PATH if wave_file is None else wave_file, "wb")
+    wave_output.setsampwidth(pya.get_sample_size(stream_kwargs.get("format", pyaudio.paInt16)))
+    wave_output.setnchannels(stream_kwargs.get("channels", 1)) 
+    wave_output.setframerate(stream_kwargs.get("rate", 16000))
+    wave_output.writeframes(b"".join(frames))
+    pya.terminate()
+
+
+def record_audio_with_pyaudio_to_numpy_array(interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
+                                             interrupt_handle: Any = 5.0,
+                                             chunk_size: int = 2024,
+                                             stream_kwargs: dict = None) -> np.ndarray:
+    """
+    Records audio with pyaudio to a numpy array.
+    :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT". 
+        Defaults to "TIME_INTERVAL".
+    :param interrupt_handle: Interrupt handle as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT".
+        Defaults to 5.0 in connection with the "TIME_INTERVAL" method. 
+    :param chunk_size: Chunk size for file handling. 
+        Defaults to 1024.
+    :param stream_kwargs: Stream keyword arguments.
+        Defaults to None in which case defaults are based on the wave file.
+    """
+    frames = record_audio_with_pyaudio(
+        interrupt_method=interrupt_method,
+        interrupt_handle=interrupt_handle,
+        chunk_size=chunk_size,
+        stream_kwargs=stream_kwargs
+    )
+
+    return np.fromstring(b"".join(frames), dtype={
+        pyaudio.paInt8: np.int8,
+        pyaudio.paInt16: np.int16,
+        pyaudio.paInt32: np.int32,
+    }[stream_kwargs.get("format", pyaudio.paInt16)])
 
 def get_whisper_model(model_name_or_path: str, instantiation_kwargs: dict = None) -> whisper.Whisper:
     """
