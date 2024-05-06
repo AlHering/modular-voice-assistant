@@ -159,11 +159,30 @@ class ConversationHandler(object):
             instantiation_kwargs=tts_instantiation_kwargs
         )
 
+    def get_input(self) -> Any:
+        """
+        Acquires input based on set input method.
+        :return: File path, audio data or text, depending on input method.
+        """
+        if self.input_method == InputMethod.SPEECH_TO_TEXT:
+            pass
+        elif self.input_method == InputMethod.COMMAND_LINE:
+            pass
+        elif self.input_method == InputMethod.TEXT_FILE:
+            pass
+
     def run_stt_process(self) -> None:
         """
         Runs STT process.
         """
-        pass
+        text, metadata_entries = {
+            "whisper": speech_to_text_utility.transcribe_with_whisper,
+            "faster-whisper": speech_to_text_utility.transcribe_with_faster_whisper
+        }[self.sst_engine](
+            audio_input=None,
+            model=self.stt_processor,
+            transcription_kwargs=None
+        )
         
     def run_tts_process(self) -> None:
         """
