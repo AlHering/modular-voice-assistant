@@ -6,12 +6,15 @@
 ****************************************************
 """
 from enum import Enum
-from typing import Any, Union, Tuple, List
+from typing import Any, Union, Tuple, List, Optional
 import os
+import numpy as np
 import pyaudio
+import speech_recognition
 from datetime import datetime as dt
 from src.configuration import configuration as cfg
 from ...bronze.audio_utility import get_input_devices, get_output_devices
+from ...bronze.time_utility import get_timestamp
 from . import speech_to_text_utility, text_to_speech_utility
 
 
@@ -88,7 +91,9 @@ class ConversationHandler(object):
         )
 
         self.history = [] if history is None else history
-        self.interrupt = False
+        self.cache = {
+            "interrupt": False
+        }
 
     def set_input_device(self, input_device: Union[int, str] = None) -> None:
         """
@@ -159,30 +164,60 @@ class ConversationHandler(object):
             instantiation_kwargs=tts_instantiation_kwargs
         )
 
-    def get_input(self) -> Any:
+    def get_input(self) -> Tuple[Optional[str], Optional[List[dict]]]:
         """
         Acquires input based on set input method.
-        :return: File path, audio data or text, depending on input method.
+        :return: Transcribed input and list ofmetadata entries.
         """
+        text = None
+        metadata_entries = None
         if self.input_method == InputMethod.SPEECH_TO_TEXT:
-            pass
+            recognizer = speech_recognition.Recognizer()
+            recognizer_kwargs = {
+                "energy_threshold": 1000,
+                "dynamic_energy_threshold": False,
+                "pause_threshold": 1.0
+            }
+            for key in recognizer_kwargs:
+                setattr(recognizer, key, recognizer_kwargs[key])
+            microphone_kwargs = {
+                "device_index": self.input_device_index,
+                "sample_rate": 16000,
+                "chunk_size": 1024
+            }
+            microphone = speech_recognition.Microphone(**microphone_kwargs)
+            with microphone as source:
+                recognizer.adjust_for_ambient_noise(source)
+            audio = recognizer.listen(
+                source=microphone
+            )
+            audio_as_numpy_array = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
+            text, metadata_entries = {
+                "whisper": speech_to_text_utility.transcribe_with_whisper,
+                "faster-whisper": speech_to_text_utility.transcribe_with_faster_whisper
+            }[self.sst_engine](
+                audio_input=audio_as_numpy_array,
+                model=self.stt_processor,
+                transcription_kwargs=None
+            )
         elif self.input_method == InputMethod.COMMAND_LINE:
-            pass
+            text = input("User > ")
+            metadata_entries = [{"timestamp": get_timestamp(), "input_method": "command_line"}]
         elif self.input_method == InputMethod.TEXT_FILE:
-            pass
+            input_file = os.path.join(self.working_directory, "input.txt")
+            self.cache["text_input"] = self.cache.get("text_input", open(input_file, "r").readlines() if os.path.exists(input_file) else [])
+            if self.cache["text_input"]:
+                text = self.cache["text_input"][0]
+                self.cache["text_input"] = self.cache["text_input"][1:]
+                metadata_entries = [{"timestamp": get_timestamp(), "input_method": "text_file"}]
+        return text, metadata_entries
+
 
     def run_stt_process(self) -> None:
         """
         Runs STT process.
         """
-        text, metadata_entries = {
-            "whisper": speech_to_text_utility.transcribe_with_whisper,
-            "faster-whisper": speech_to_text_utility.transcribe_with_faster_whisper
-        }[self.sst_engine](
-            audio_input=None,
-            model=self.stt_processor,
-            transcription_kwargs=None
-        )
+        pass
         
     def run_tts_process(self) -> None:
         """
