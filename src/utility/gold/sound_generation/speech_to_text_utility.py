@@ -33,7 +33,6 @@ class InterruptMethod(Enum):
     TIME_INTERVAL: int = 0
     KEYBOARD_INTERRUPT: int = 1
     PAUSE_INTERVAL: int = 2
-    QUEUE_SIZE: int = 3
 
 
 def record_audio_with_pyaudio(interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
@@ -237,23 +236,24 @@ def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Ten
 
 def record_and_transcribe_speech_with_speech_recognition(transcription_callback: Callable,
                                                          transcription_model: Any = None,
-                                                         interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
+                                                         interrupt_method: InterruptMethod = InterruptMethod.PAUSE_INTERVAL,
                                                          interrupt_threshold: Any = 5.0,
-                                                         pause_threshold: float = 3.0,
+                                                         pause_threshold: float = 1.0,
                                                          chunk_size: int = 2024,
                                                          recognizer_kwargs: dict = None,
-                                                         microphone_kwargs: dict = None) -> List[bytes]:
+                                                         microphone_kwargs: dict = None,
+                                                         logger: Any = None) -> List[bytes]:
     """
     Records and transcribes speech with the speech recognition framework.
     :param transcription_callback: Transcription callback function.
     :param transcription_model: Transcription model.
         Defaults to None in which case the callback function spawns its default model.
         Not providing a model therefore increases processing time tremendously!
-    :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT", "PAUSE_INTERVAL", "QUEUE_SIZE". 
-        Defaults to "TIME_INTERVAL".
+    :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT", "PAUSE_INTERVAL". 
+        Defaults to "PAUSE_INTERVAL".
     :param interrupt_threshold: Interrupt threshold as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT",
-        maximum pausing time in seconds for "PAUSE_INTERVAL", maximum queue size for "QUEUE_SIZE".
-        Defaults to 5.0 in connection with the "TIME_INTERVAL" method. 
+        maximum pausing time in seconds for "PAUSE_INTERVAL".
+        Defaults to 5.0 in connection with the "PAUSE_INTERVAL" method. 
     :param pause_threshold: The pausing time in seconds after which the next input is considered a new phrase.
         Defaults to 3.0.
     :param chunk_size: Chunk size for file handling. 
@@ -264,10 +264,12 @@ def record_and_transcribe_speech_with_speech_recognition(transcription_callback:
         Defaults to None in which case default values are used.
     :param microphone_kwargs: Microphone keyword arguments.
         Defaults to None in which case default values are used.
+    :param logger: Logger for logging process data.
+        Defaults to None in which no additional log is outputted.
     :returns: Audio stream as list of bytes.
     """
     # Setting up speech recognition components
-    audio_queue = Queue(0 if interrupt_method != InterruptMethod.QUEUE_SIZE else interrupt_threshold)
+    audio_queue = Queue()
     recognizer = speech_recognition.Recognizer()
     recognizer_kwargs = {
         "energy_threshold": 1000,
@@ -304,12 +306,16 @@ def record_and_transcribe_speech_with_speech_recognition(transcription_callback:
     transcription_start = time.time()
     last_empty_transcription = None
 
+    if logger is not None:
+        logger.info("Starting speech recognition loop...")
+
     while not interrupt_flag:
         try:
             if not audio_queue.empty():
-                print("not empty")
+                if logger is not None:   
+                    logger.info("Recieved audio input.")
                 audio = b"".join(audio_queue.queue)
-                #audio_queue.queue.clear()
+                audio_queue.queue.clear()
 
                 # Convert and transcribe audio input
                 audio_as_numpy_array = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
@@ -319,7 +325,8 @@ def record_and_transcribe_speech_with_speech_recognition(transcription_callback:
                     transcription_kwargs=None
                 )
                 transcriptions.append((fulltext, segment_metadatas))
-                print(fulltext)
+                if logger is not None:
+                    logger.info(f"Transcribed: {fulltext}")
 
                 # Handle empty transcription and potential pause interrupt
                 if fulltext.strip() == "":
@@ -332,13 +339,23 @@ def record_and_transcribe_speech_with_speech_recognition(transcription_callback:
                 
                 # Handle other potential interrupts
                 if interrupt_method == InterruptMethod.TIME_INTERVAL and time.time() - transcription_start >= interrupt_threshold:
+                    if logger is not None:
+                        logger.info("Time interval threshold was surpassed, interrupting...")
                     interrupt_flag = True
                 elif interrupt_method == InterruptMethod.KEYBOARD_INTERRUPT and keyboard.is_pressed(interrupt_threshold):
-                    interrupt_flag = True
-                elif interrupt_method == InterruptMethod.QUEUE_SIZE and audio_queue.full():
+                    if logger is not None:
+                        logger.info("Keyboard interrupt detected, interrupting...")
                     interrupt_flag = True
             else:
-                print("empty")
+                if logger is not None:
+                    logger.info("Recieved no audio input.")
+                # Handle empty input and potential pause interrupt
+                if last_empty_transcription is None:
+                        last_empty_transcription = time.time()
+                elif interrupt_method == InterruptMethod.PAUSE_INTERVAL and time.time() - last_empty_transcription >= interrupt_threshold:
+                    if logger is not None:
+                        logger.info("Pause interval threshold was surpassed, interrupting...")
+                    interrupt_flag = True
                 time.sleep(.2)
         except KeyboardInterrupt as ex:
             if interrupt_method == InterruptMethod.KEYBOARD_INTERRUPT and (not isinstance(interrupt_threshold, str) or interrupt_threshold == "ctrl+c"):
@@ -352,7 +369,7 @@ def record_and_transcribe_speech_with_speech_recognition(transcription_callback:
 
 
 if __name__ == "__main__":
-    faster_whisper_models = ""
+    faster_whisper_models = "/mnt/Workspaces/Resources/machine_learning/sound_generation/models/speech_to_text/faster_whisper_models"
     model_path = os.path.join(faster_whisper_models, "Systran_faster-whisper-tiny")
 
     record_and_transcribe_speech_with_speech_recognition(
