@@ -5,6 +5,7 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
+from enum import Enum
 from typing import Any, Union, Tuple, List
 import os
 import pyaudio
@@ -12,6 +13,15 @@ from datetime import datetime as dt
 from src.configuration import configuration as cfg
 from ...bronze.audio_utility import get_input_devices, get_output_devices
 from . import speech_to_text_utility, text_to_speech_utility
+
+
+class InputMethod(Enum):
+    """
+    Represents input methods.
+    """
+    SPEECH_TO_TEXT = 0
+    COMMAND_LINE = 1
+    TEXT_FILE = 2
 
 
 class ConversationHandler(object):
@@ -23,6 +33,7 @@ class ConversationHandler(object):
 
     def __init__(self, 
                  working_directory: str,
+                 input_method: InputMethod = InputMethod.SPEECH_TO_TEXT,
                  stt_engine: str = None,
                  stt_model: str = None,
                  stt_instantiation_kwargs: dict = None,
@@ -33,6 +44,8 @@ class ConversationHandler(object):
         """
         Initiation method.
         :param working_directory: Directory for productive files.
+        :param input_method: Input method as either "SPEECH_TO_TEXT", "COMMAND_LINE"
+            or "TEXT_FILE". Defaults to "SPEECH_TO_TEXT".
         :param stt_engine: STT engine.
             See AudioHandler.supported_stt_engines for supported engines.
             Defaults to None in which case the first supported engine is used.
@@ -49,6 +62,7 @@ class ConversationHandler(object):
         if not os.path.exists(working_directory):
             os.makedirs(working_directory)
         self.working_directory = working_directory
+        self.input_method = input_method
         self.input_path = os.path.join(self.working_directory, "input.wav")
         self.output_path = os.path.join(self.working_directory, "output.wav")
 
@@ -70,7 +84,7 @@ class ConversationHandler(object):
         self.set_tts_processor(
             tts_engine=tts_engine,
             tts_model=tts_model,
-            tts_instantiation_kwargs=stt_instantiation_kwargs
+            tts_instantiation_kwargs=tts_instantiation_kwargs
         )
 
         self.history = [] if history is None else history
