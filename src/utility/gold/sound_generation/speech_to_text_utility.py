@@ -8,17 +8,82 @@
 from typing import Any, Union, Tuple, List
 import os
 import pyaudio
+from enum import Enum
 import wave
+import time
 import numpy as np
 import torch
 import whisper
 from faster_whisper import WhisperModel
+import keyboard
 
 
 TEMPORARY_DATA_FOLDER = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, "data")
 if not os.path.exists:
     os.makedirs(TEMPORARY_DATA_FOLDER)
 TEMPORARY_INPUT_PATH = os.path.join(TEMPORARY_DATA_FOLDER, "in.wav")
+
+
+class InterruptMethod(Enum):
+    """
+    Represents interrupt methods.
+    """
+    TIME_INTERVAL: int = 0
+    KEYBOARD_INTERRUPT: int = 1
+
+
+def record_audio_with_pyaudio(interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
+                              interrupt_handle: Any = 5.0,
+                              chunk_size: int = 2024,
+                              stream_kwargs: dict = None) -> List[bytes]:
+    """
+    Records audio with pyaudio.
+    :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT". 
+        Defaults to "TIME_INTERVAL".
+    :param interrupt_handle: Interrupt handle as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT".
+        Defaults to 5.0 in connection with the "TIME_INTERVAL" method. 
+    :param chunk_size: Chunk size for file handling. 
+        Defaults to 1024.
+    :param stream_kwargs: Stream keyword arguments.
+        Defaults to None in which case defaults are based on the wave file.
+    :returns: Audio stream as list of bytes.
+    """
+    pya = pyaudio.PyAudio()
+    
+    stream_kwargs = {
+        "format": pyaudio.paInt16,
+        "channels": 1,
+        "rate": 16000,
+        "frames_per_buffer": chunk_size
+    } if stream_kwargs is None else stream_kwargs
+    if not "input" in stream_kwargs:
+        stream_kwargs["input"] = True
+    
+    frames = []
+    stream = pya.open(**stream_kwargs)
+    stream.start_stream()
+    
+    try:
+        start_time = time.time()
+        while True:
+            data = stream.read(chunk_size)
+            frames.append(data)
+            if interrupt_method == InterruptMethod.KEYBOARD_INTERRUPT and keyboard.is_pressed(interrupt_handle):
+                break
+            elif interrupt_method == InterruptMethod.TIME_INTERVAL and (time.time() - start_time >= interrupt_handle):
+                break
+    except KeyboardInterrupt as ex:
+        if interrupt_method == InterruptMethod.KEYBOARD_INTERRUPT and (not isinstance(interrupt_handle, str) or interrupt_handle == "ctrl+c"):
+            # Interrupt method is keyboard interrupt and handle is not correctly set or set to keyboard interrupt
+            pass
+        else:
+            raise ex
+        
+    stream.stop_stream()
+    stream.close()
+    pya.terminate()
+
+    return frames
 
 
 def get_whisper_model(model_name_or_path: str, instantiation_kwargs: dict = None) -> whisper.Whisper:
