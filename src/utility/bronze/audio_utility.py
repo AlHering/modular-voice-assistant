@@ -9,7 +9,7 @@ from typing import List, Union, Dict, Any
 import sounddevice
 
 
-def get_audio_devices(self, include_metadata: bool = False) -> List[Union[str, Dict[str, Any]]]:
+def get_audio_devices(include_metadata: bool = False) -> List[Union[str, Dict[str, Any]]]:
     """
     Returns a list of available devices.
     :param include_metadata: Flag for including metadata.
@@ -17,7 +17,7 @@ def get_audio_devices(self, include_metadata: bool = False) -> List[Union[str, D
     """
     return [device if include_metadata else device["name"] for device in sounddevice.query_devices()]
 
-def get_input_devices(self, include_metadata: bool = False) -> List[Union[str, Dict[str, Any]]]:
+def get_input_devices(include_metadata: bool = False) -> List[Union[str, Dict[str, Any]]]:
     """
     Returns a list of available input devices.
     :param include_metadata: Flag for including metadata.
@@ -25,7 +25,7 @@ def get_input_devices(self, include_metadata: bool = False) -> List[Union[str, D
     """
     return [device if include_metadata else device["name"] for device in sounddevice.query_devices() if device["max_input_channels"] > 0]
 
-def get_output_devices(self, include_metadata: bool = False)  -> List[Union[str, Dict[str, Any]]]:
+def get_output_devices(include_metadata: bool = False)  -> List[Union[str, Dict[str, Any]]]:
     """
     Returns a list of available input devices.
     :param include_metadata: Flag for including metadata.
