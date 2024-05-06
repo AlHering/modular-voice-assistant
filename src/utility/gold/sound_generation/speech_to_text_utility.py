@@ -13,6 +13,8 @@ import wave
 import time
 import numpy as np
 import torch
+import speech_recognition
+from queue import Queue
 import whisper
 from faster_whisper import WhisperModel
 import keyboard
@@ -30,22 +32,23 @@ class InterruptMethod(Enum):
     """
     TIME_INTERVAL: int = 0
     KEYBOARD_INTERRUPT: int = 1
+    QUEUE_SIZE: int = 2
 
 
 def record_audio_with_pyaudio(interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
-                              interrupt_handle: Any = 5.0,
+                              interrupt_threshold: Any = 5.0,
                               chunk_size: int = 2024,
                               stream_kwargs: dict = None) -> List[bytes]:
     """
     Records audio with pyaudio.
     :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT". 
         Defaults to "TIME_INTERVAL".
-    :param interrupt_handle: Interrupt handle as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT".
+    :param interrupt_threshold: Interrupt threshold as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT".
         Defaults to 5.0 in connection with the "TIME_INTERVAL" method. 
     :param chunk_size: Chunk size for file handling. 
         Defaults to 1024.
     :param stream_kwargs: Stream keyword arguments.
-        Defaults to None in which case defaults are based on the wave file.
+        Defaults to None in which case default values are used.
     :returns: Audio stream as list of bytes.
     """
     pya = pyaudio.PyAudio()
@@ -68,12 +71,12 @@ def record_audio_with_pyaudio(interrupt_method: InterruptMethod = InterruptMetho
         while True:
             data = stream.read(chunk_size)
             frames.append(data)
-            if interrupt_method == InterruptMethod.KEYBOARD_INTERRUPT and keyboard.is_pressed(interrupt_handle):
+            if interrupt_method == InterruptMethod.KEYBOARD_INTERRUPT and keyboard.is_pressed(interrupt_threshold):
                 break
-            elif interrupt_method == InterruptMethod.TIME_INTERVAL and (time.time() - start_time >= interrupt_handle):
+            elif interrupt_method == InterruptMethod.TIME_INTERVAL and (time.time() - start_time >= interrupt_threshold):
                 break
     except KeyboardInterrupt as ex:
-        if interrupt_method == InterruptMethod.KEYBOARD_INTERRUPT and (not isinstance(interrupt_handle, str) or interrupt_handle == "ctrl+c"):
+        if interrupt_method == InterruptMethod.KEYBOARD_INTERRUPT and (not isinstance(interrupt_threshold, str) or interrupt_threshold == "ctrl+c"):
             # Interrupt method is keyboard interrupt and handle is not correctly set or set to keyboard interrupt
             pass
         else:
@@ -87,7 +90,7 @@ def record_audio_with_pyaudio(interrupt_method: InterruptMethod = InterruptMetho
 
 def record_audio_with_pyaudio_to_file(wave_file: str = None, 
                                       interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
-                                      interrupt_handle: Any = 5.0,
+                                      interrupt_threshold: Any = 5.0,
                                       chunk_size: int = 2024,
                                       stream_kwargs: dict = None):
     """
@@ -95,16 +98,16 @@ def record_audio_with_pyaudio_to_file(wave_file: str = None,
     :param wave_file: Wave file path.
     :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT". 
         Defaults to "TIME_INTERVAL".
-    :param interrupt_handle: Interrupt handle as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT".
+    :param interrupt_threshold: Interrupt threshold as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT".
         Defaults to 5.0 in connection with the "TIME_INTERVAL" method. 
     :param chunk_size: Chunk size for file handling. 
         Defaults to 1024.
     :param stream_kwargs: Stream keyword arguments.
-        Defaults to None in which case defaults are based on the wave file.
+        Defaults to None in which case default values are used.
     """
     frames = record_audio_with_pyaudio(
         interrupt_method=interrupt_method,
-        interrupt_handle=interrupt_handle,
+        interrupt_threshold=interrupt_threshold,
         chunk_size=chunk_size,
         stream_kwargs=stream_kwargs
     )
@@ -119,23 +122,23 @@ def record_audio_with_pyaudio_to_file(wave_file: str = None,
 
 
 def record_audio_with_pyaudio_to_numpy_array(interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
-                                             interrupt_handle: Any = 5.0,
+                                             interrupt_threshold: Any = 5.0,
                                              chunk_size: int = 2024,
                                              stream_kwargs: dict = None) -> np.ndarray:
     """
     Records audio with pyaudio to a numpy array.
     :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT". 
         Defaults to "TIME_INTERVAL".
-    :param interrupt_handle: Interrupt handle as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT".
+    :param interrupt_threshold: Interrupt threshold as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT".
         Defaults to 5.0 in connection with the "TIME_INTERVAL" method. 
     :param chunk_size: Chunk size for file handling. 
         Defaults to 1024.
     :param stream_kwargs: Stream keyword arguments.
-        Defaults to None in which case defaults are based on the wave file.
+        Defaults to None in which case default values are used.
     """
     frames = record_audio_with_pyaudio(
         interrupt_method=interrupt_method,
-        interrupt_handle=interrupt_handle,
+        interrupt_threshold=interrupt_threshold,
         chunk_size=chunk_size,
         stream_kwargs=stream_kwargs
     )
@@ -229,3 +232,23 @@ def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Ten
     fulltext = " ".join([segment["text"].strip() for segment in segment_metadatas])
     
     return fulltext, segment_metadatas
+
+
+def record_and_transcribe_speech_with_speech_recognition(interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
+                                                         interrupt_threshold: Any = 5.0,
+                                                         chunk_size: int = 2024,
+                                                         recognizer_kwargs: dict = None) -> List[bytes]:
+    """
+    Records and transcribes speech with the speech recognition framework.
+    :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT", "QUEUE_SIZE". 
+        Defaults to "TIME_INTERVAL".
+    :param interrupt_threshold: Interrupt threshold as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT",
+        maximum queue size for "QUEUE_SIZE".
+        Defaults to 5.0 in connection with the "TIME_INTERVAL" method. 
+    :param chunk_size: Chunk size for file handling. 
+        Defaults to 1024.
+    :param recognizer_kwargs: Recognizer keyword arguments.
+        Defaults to None in which case defaults are based on the wave file.
+    :returns: Audio stream as list of bytes.
+    """
+    audio_queue = Queue(0 if interrupt_method != InterruptMethod.QUEUE_SIZE else interrupt_threshold)
