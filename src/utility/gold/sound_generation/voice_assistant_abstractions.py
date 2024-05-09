@@ -243,13 +243,16 @@ class ConversationHandler(object):
         self.tts_model = tts_model
         self.tts_instantiation_kwargs = tts_instantiation_kwargs
 
-        self.input_queue = None
-        self.input_interrupt = None
-        self.llm_thread = None
+        self.interrupt = None
+        self.llm_input_queue = None
+        self.llm_output_queue = None
         self.llm_interrupt = None
-        self.output_thread = None
-        self.output_queue = None
-        self.output_interrupt = None
+        self.llm_thread = None
+
+        self.tts_input_queue = None
+        self.tts_output_queue = None
+        self.tts_interrupt = None
+        self.tts_thread = None
 
         self.history = history
         self.loop_pause = loop_pause
@@ -263,6 +266,7 @@ class ConversationHandler(object):
         :param delete_history: Flag for declaring whether to delete history.    
             Defaults to None.
         """
+        self.interrupt = TEvent()
         self.set_stt_processor(
             stt_engine=self.stt_engine,
             stt_model=self.stt_model,
@@ -417,7 +421,7 @@ class ConversationHandler(object):
             InputMethod.COMMAND_LINE: self.handle_cli_input,
             InputMethod.TEXT_FILE: self.handle_file_input
         }[input_method]
-        while not self.input_interrupt.is_set():
+        while not self.interrupt.is_set():
             new_input = input_handling()
             if new_input[0]:
                 self.input_queue.put(new_input)
