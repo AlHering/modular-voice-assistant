@@ -79,10 +79,6 @@ class ThreadedTTSHandler(Thread):
     def setup_process(self) -> None:
         """
         Sets up process.
-        :param tts_engine: TTS engine.
-            See AudioHandler.supported_tts_engines for supported engines.
-        :param tts_model: TTS model name or path.
-        :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
         """
         self.tts_engine = self.supported_tts_engines[0] if self.tts_engine is None else self.tts_engine
         self.tts_processor = {
@@ -105,7 +101,7 @@ class ThreadedTTSHandler(Thread):
 
     def run(self) -> None:
         """
-        Main TTSThread runner method.
+        Main runner method.
         """
         while not self.interrupt.is_set():
             try:
@@ -125,20 +121,17 @@ class ThreadedTTSHandler(Thread):
                 pass
 
 
-class ThreadedTTSHandler(Thread):
+class TemporaryThreadedLLMHandler(Thread):
     """
-    Represents a threaded TTS output handler.
+    Represents a threaded LLM handler.
+    Used as static testing component for now.
     """
-    supported_tts_engines: List[str] = ["coqui-tts"]
 
     def __init__(self, 
                  input_queue: TQueue,
                  output_queue: TQueue,
                  interrupt: TEvent,
                  loop_pause: float = .1,
-                 tts_engine: str = None,
-                 tts_model: str = None,
-                 tts_instantiation_kwargs: dict = None,
                  *thread_args: Optional[Any], 
                  **thread_kwargs: Optional[Any]) -> None:
         """
@@ -161,49 +154,35 @@ class ThreadedTTSHandler(Thread):
         self.interrupt = interrupt
         self.loop_pause = loop_pause
 
-        self.tts_engine = tts_engine
-        self.tts_model = tts_model
-        self.tts_instantiation_kwargs = tts_instantiation_kwargs
+        self.llm = None
+        self.setup_process()
 
-        self.setup_process(
-            tts_engine=self.tts_engine,
-            tts_model=self.tts_model,
-            tts_instantiation_kwargs=self.tts_instantiation_kwargs
-        )
-
-    def setup_process(self,
-                     tts_engine: str = None,
-                     tts_model: str = None,
-                     tts_instantiation_kwargs: dict = None) -> None:
+    def setup_process(self) -> None:
         """
         Sets up process.
-        :param tts_engine: TTS engine.
-            See AudioHandler.supported_tts_engines for supported engines.
-        :param tts_model: TTS model name or path.
-        :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
         """
-        self.tts_engine = self.supported_tts_engines[0] if tts_engine is None else tts_engine
-        self.tts_processor = {
-            "coqui-tts": text_to_speech_utility.get_coqui_tts_model
-        }[self.tts_engine](
-            model_name_or_path=tts_model,
-            instantiation_kwargs=tts_instantiation_kwargs
-        )
+        self.interrupt.clear()
+
+    def unload(self) -> None:
+        """
+        Stop process and unload resource expensive components.
+        Call setup_process() to reload and resume operations.
+        """
+        self.interrupt.set()
+        self.llm = None
+        gc.collect()
+
 
     def run(self) -> None:
         """
-        Main TTSThread runner method.
+        Main runner method.
         """
         while not self.interrupt.is_set():
             try:
                 input_text, input_metadata = self.input_queue.get(self.loop_pause)
                 if input_text:
                     # Handle output text
-                    result = text_to_speech_utility.synthesize_with_coqui_tts(
-                        text=input_text,
-                        model=self.tts_processor
-                    )
-                    self.output_queue.put(result)
+                    pass
                 else:
                     # Handle empty output text
                     pass
@@ -260,12 +239,9 @@ class ConversationHandler(object):
         self.stt_engine = stt_engine
         self.stt_model = stt_model
         self.stt_instantiation_kwargs = stt_instantiation_kwargs
-
-        self.set_stt_processor(
-            stt_engine=stt_engine,
-            stt_model=stt_model,
-            stt_instantiation_kwargs=stt_instantiation_kwargs
-        )
+        self.tts_engine = tts_engine
+        self.tts_model = tts_model
+        self.tts_instantiation_kwargs = tts_instantiation_kwargs
 
         self.input_queue = None
         self.input_interrupt = None
@@ -279,6 +255,8 @@ class ConversationHandler(object):
         self.loop_pause = loop_pause
         self.cache = None
 
+        self._reset()
+
     def _reset(self, delete_history: bool = False) -> None:
         """
         Method for setting up and resetting handler. 
@@ -291,19 +269,30 @@ class ConversationHandler(object):
             stt_instantiation_kwargs=self.stt_instantiation_kwargs
         )
 
-        self.input_queue = TQueue()
-        self.input_interrupt = TEvent()
+        self.llm_input_queue = TQueue()
+        self.llm_output_queue = TQueue()
         self.llm_interrupt = TEvent()
-        self.llm_thread = Thread(
-            target=self.run_llm_process
+        self.llm_thread = TemporaryThreadedLLMHandler(
+            input_queue=self.llm_input_queue,
+            output_queue=self.llm_output_queue,
+            interrupt=self.llm_interrupt
         )
-        self.output_queue = TQueue()
-        self.output_interrupt = TEvent()
-        self.output_thread = Thread(
-            target=self.run_tts_process
+        self.llm_thread.daemon = True
+        self.llm_thread.start()
+
+        self.tts_input_queue = TQueue()
+        self.tts_output_queue = TQueue()
+        self.tts_interrupt = TEvent()
+        self.tts_thread = ThreadedTTSHandler(
+            input_queue=self.tts_input_queue,
+            output_queue=self.tts_output_queue,
+            interrupt=self.tts_interrupt,
+            tts_engine=self.tts_engine,
+            tts_model=self.tts_model,
+            tts_instantiation_kwargs=self.tts_instantiation_kwargs
         )
-        self.output_thread.daemon = True
-        self.output_thread.start()
+        self.tts_thread.daemon = True
+        self.tts_thread.start()
 
         self.history = [] if self.history is None or delete_history else self.history
         self.cache = {}
@@ -432,21 +421,3 @@ class ConversationHandler(object):
             new_input = input_handling()
             if new_input[0]:
                 self.input_queue.put(new_input)
-
-    def run_llm_process(self) -> None:
-        """
-        Runs LLM process.
-        Should run in a separate thread to allow for continuous interaction.
-        """
-        while not self.llm_interrupt.is_set():
-            try:
-                input_text, input_metadata = self.output_queue.get(self.loop_pause)
-                if input_text:
-                    # Handle input text
-                    pass
-                else:
-                    # Handle empty input text
-                    pass
-            except Empty:
-                # Handle empty queue stopping
-                pass
