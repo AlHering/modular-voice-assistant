@@ -209,7 +209,7 @@ class ConversationHandler(object):
             instantiation_kwargs=tts_instantiation_kwargs
         )
 
-    def handle_stt_input(self) -> Tuple[Optional[str], Optional[List[dict]]]:
+    def handle_stt_input(self) -> Tuple[Optional[str], Optional[dict]]:
         """
         Acquires input based on STT.
         :return: Transcribed input and list of metadata entries.
@@ -234,7 +234,7 @@ class ConversationHandler(object):
             source=microphone
         )
         audio_as_numpy_array = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
-        return {
+        text, metadata_entries = {
             "whisper": speech_to_text_utility.transcribe_with_whisper,
             "faster-whisper": speech_to_text_utility.transcribe_with_faster_whisper
         }[self.sst_engine](
@@ -242,18 +242,19 @@ class ConversationHandler(object):
             model=self.stt_processor,
             transcription_kwargs=None
         )
+        return text, {"timestamp": get_timestamp(), "input_method": "speech_to_text", "transcription_metadata": metadata_entries}
 
-    def handle_cli_input(self) -> Tuple[Optional[str], Optional[List[dict]]]:
+    def handle_cli_input(self) -> Tuple[Optional[str], Optional[dict]]:
         """
         Acquires input based on command line interaction.
         :return: Transcribed input and list of metadata entries.
         """
         text = input("User > ")
-        metadata_entries = [{"timestamp": get_timestamp(), "input_method": "command_line"}]
-        return text, metadata_entries
+        metadata = {"timestamp": get_timestamp(), "input_method": "command_line"}
+        return text, metadata
 
 
-    def handle_file_input(self) -> Tuple[Optional[str], Optional[List[dict]]]:
+    def handle_file_input(self) -> Tuple[Optional[str], Optional[dict]]:
         """
         Acquires input based on text files.
         :return: Transcribed input and list of metadata entries.
@@ -261,8 +262,8 @@ class ConversationHandler(object):
         if self.cache["text_input"]:
             text = self.cache["text_input"][0]
             self.cache["text_input"] = self.cache["text_input"][1:]
-            metadata_entries = [{"timestamp": get_timestamp(), "input_method": "text_file"}]
-        return text, metadata_entries
+            metadata = {"timestamp": get_timestamp(), "input_method": "text_file"}
+        return text, metadata
 
     def run_stt_process(self, input_method: InputMethod = InputMethod.SPEECH_TO_TEXT) -> None:
         """
@@ -290,7 +291,7 @@ class ConversationHandler(object):
         """
         while not self.llm_interrupt.is_set():
             try:
-                input_text, input_metadatas = self.output_queue.get(self.loop_pause)
+                input_text, input_metadata = self.output_queue.get(self.loop_pause)
                 if input_text:
                     # Handle input text
                     pass
@@ -308,7 +309,7 @@ class ConversationHandler(object):
         """
         while not self.output_interrupt.is_set():
             try:
-                output_text, output_metadatas = self.output_queue.get(self.loop_pause)
+                output_text, output_metadata = self.output_queue.get(self.loop_pause)
                 if output_text == "<EOS>":
                     # Handle EOS stopping
                     pass
