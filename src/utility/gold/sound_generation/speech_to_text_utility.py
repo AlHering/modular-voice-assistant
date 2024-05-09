@@ -92,7 +92,7 @@ def record_audio_with_pyaudio_to_file(wave_file: str = None,
                                       interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
                                       interrupt_threshold: Any = 5.0,
                                       chunk_size: int = 2024,
-                                      stream_kwargs: dict = None):
+                                      stream_kwargs: dict = None) -> None:
     """
     Records audio with pyaudio and saves it to wave file.
     :param wave_file: Wave file path.
