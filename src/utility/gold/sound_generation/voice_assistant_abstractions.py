@@ -18,15 +18,6 @@ from ...bronze.time_utility import get_timestamp
 from . import speech_to_text_utility, text_to_speech_utility
 
 
-class InputMethod(Enum):
-    """
-    Represents input methods.
-    """
-    SPEECH_TO_TEXT = 0
-    COMMAND_LINE = 1
-    TEXT_FILE = 2
-
-
 class ConversationHandler(object):
     """
     Represents a conversation handler for handling audio based interaction.
@@ -36,7 +27,6 @@ class ConversationHandler(object):
 
     def __init__(self, 
                  working_directory: str,
-                 input_method: InputMethod = InputMethod.SPEECH_TO_TEXT,
                  stt_engine: str = None,
                  stt_model: str = None,
                  stt_instantiation_kwargs: dict = None,
@@ -47,8 +37,6 @@ class ConversationHandler(object):
         """
         Initiation method.
         :param working_directory: Directory for productive files.
-        :param input_method: Input method as either "SPEECH_TO_TEXT", "COMMAND_LINE"
-            or "TEXT_FILE". Defaults to "SPEECH_TO_TEXT".
         :param stt_engine: STT engine.
             See AudioHandler.supported_stt_engines for supported engines.
             Defaults to None in which case the first supported engine is used.
@@ -65,7 +53,6 @@ class ConversationHandler(object):
         if not os.path.exists(working_directory):
             os.makedirs(working_directory)
         self.working_directory = working_directory
-        self.input_method = input_method
         self.input_path = os.path.join(self.working_directory, "input.wav")
         self.output_path = os.path.join(self.working_directory, "output.wav")
 
@@ -164,53 +151,63 @@ class ConversationHandler(object):
             instantiation_kwargs=tts_instantiation_kwargs
         )
 
-    def get_input(self) -> Tuple[Optional[str], Optional[List[dict]]]:
+    def handle_stt_input(self) -> Tuple[Optional[str], Optional[List[dict]]]:
         """
-        Acquires input based on set input method.
-        :return: Transcribed input and list ofmetadata entries.
+        Acquires input based on STT.
+        :return: Transcribed input and list of metadata entries.
         """
-        text = None
-        metadata_entries = None
-        if self.input_method == InputMethod.SPEECH_TO_TEXT:
-            recognizer = speech_recognition.Recognizer()
-            recognizer_kwargs = {
-                "energy_threshold": 1000,
-                "dynamic_energy_threshold": False,
-                "pause_threshold": 1.0
-            }
-            for key in recognizer_kwargs:
-                setattr(recognizer, key, recognizer_kwargs[key])
-            microphone_kwargs = {
-                "device_index": self.input_device_index,
-                "sample_rate": 16000,
-                "chunk_size": 1024
-            }
-            microphone = speech_recognition.Microphone(**microphone_kwargs)
-            with microphone as source:
-                recognizer.adjust_for_ambient_noise(source)
-            audio = recognizer.listen(
-                source=microphone
-            )
-            audio_as_numpy_array = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
-            text, metadata_entries = {
-                "whisper": speech_to_text_utility.transcribe_with_whisper,
-                "faster-whisper": speech_to_text_utility.transcribe_with_faster_whisper
-            }[self.sst_engine](
-                audio_input=audio_as_numpy_array,
-                model=self.stt_processor,
-                transcription_kwargs=None
-            )
-        elif self.input_method == InputMethod.COMMAND_LINE:
-            text = input("User > ")
-            metadata_entries = [{"timestamp": get_timestamp(), "input_method": "command_line"}]
-        elif self.input_method == InputMethod.TEXT_FILE:
-            input_file = os.path.join(self.working_directory, "input.txt")
-            self.cache["text_input"] = self.cache.get("text_input", open(input_file, "r").readlines() if os.path.exists(input_file) else [])
-            if self.cache["text_input"]:
-                text = self.cache["text_input"][0]
-                self.cache["text_input"] = self.cache["text_input"][1:]
-                metadata_entries = [{"timestamp": get_timestamp(), "input_method": "text_file"}]
+        recognizer = speech_recognition.Recognizer()
+        recognizer_kwargs = {
+            "energy_threshold": 1000,
+            "dynamic_energy_threshold": False,
+            "pause_threshold": 1.0
+        }
+        for key in recognizer_kwargs:
+            setattr(recognizer, key, recognizer_kwargs[key])
+        microphone_kwargs = {
+            "device_index": self.input_device_index,
+            "sample_rate": 16000,
+            "chunk_size": 1024
+        }
+        microphone = speech_recognition.Microphone(**microphone_kwargs)
+        with microphone as source:
+            recognizer.adjust_for_ambient_noise(source)
+        audio = recognizer.listen(
+            source=microphone
+        )
+        audio_as_numpy_array = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
+        return {
+            "whisper": speech_to_text_utility.transcribe_with_whisper,
+            "faster-whisper": speech_to_text_utility.transcribe_with_faster_whisper
+        }[self.sst_engine](
+            audio_input=audio_as_numpy_array,
+            model=self.stt_processor,
+            transcription_kwargs=None
+        )
+
+    def handle_cli_input(self) -> Tuple[Optional[str], Optional[List[dict]]]:
+        """
+        Acquires input based on command line interaction.
+        :return: Transcribed input and list of metadata entries.
+        """
+        text = input("User > ")
+        metadata_entries = [{"timestamp": get_timestamp(), "input_method": "command_line"}]
         return text, metadata_entries
+
+
+    def handle_file_input(self) -> Tuple[Optional[str], Optional[List[dict]]]:
+        """
+        Acquires input based on text files.
+        :return: Transcribed input and list of metadata entries.
+        """
+        input_file = os.path.join(self.working_directory, "input.txt")
+        self.cache["text_input"] = self.cache.get("text_input", open(input_file, "r").readlines() if os.path.exists(input_file) else [])
+        if self.cache["text_input"]:
+            text = self.cache["text_input"][0]
+            self.cache["text_input"] = self.cache["text_input"][1:]
+            metadata_entries = [{"timestamp": get_timestamp(), "input_method": "text_file"}]
+        return text, metadata_entries
+
 
 
     def run_stt_process(self) -> None:
