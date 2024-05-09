@@ -286,8 +286,20 @@ class ConversationHandler(object):
     def run_llm_process(self) -> None:
         """
         Runs LLM process.
+        Should run in a separate thread to allow for continuous interaction.
         """
-        pass
+        while not self.llm_interrupt.is_set():
+            try:
+                input_text, input_metadatas = self.output_queue.get(self.loop_pause)
+                if input_text:
+                    # Handle input text
+                    pass
+                else:
+                    # Handle empty input text
+                    pass
+            except Empty:
+                # Handle empty queue stopping
+                pass
 
     def run_tts_process(self) -> None:
         """
