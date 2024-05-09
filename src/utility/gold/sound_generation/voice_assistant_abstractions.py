@@ -8,6 +8,7 @@
 from enum import Enum
 from typing import Any, Union, Tuple, List, Optional
 import os
+import gc
 import numpy as np
 import pyaudio
 import speech_recognition
@@ -29,12 +30,193 @@ class InputMethod(Enum):
     TEXT_FILE = 2
 
 
+class ThreadedTTSHandler(Thread):
+    """
+    Represents a threaded TTS output handler.
+    """
+    supported_tts_engines: List[str] = ["coqui-tts"]
+
+    def __init__(self, 
+                 input_queue: TQueue,
+                 output_queue: TQueue,
+                 interrupt: TEvent,
+                 loop_pause: float = .1,
+                 tts_engine: str = None,
+                 tts_model: str = None,
+                 tts_instantiation_kwargs: dict = None,
+                 *thread_args: Optional[Any], 
+                 **thread_kwargs: Optional[Any]) -> None:
+        """
+        Initiation method.
+        :param input_queue: Input queue.
+        :param output_queue: Output queue.
+        :param interrupt: Interrupt event.
+        :param loop_pause: Processing loop pause.
+        :param tts_engine: TTS engine.
+            See TTSThread.supported_tts_engines for supported engines.
+            Defaults to None in which case the first supported engine is used.
+        :param tts_model: TTS model name or path.
+        :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
+        :param thread_args: Thread constructor arguments.
+        :param thread_kwargs: Thread constructor keyword arguments.
+        """
+        super().__init__(*thread_args, **thread_kwargs)
+        self.input_queue = input_queue
+        self.output_queue = output_queue
+        self.interrupt = interrupt
+        self.loop_pause = loop_pause
+
+        self.tts_engine = tts_engine
+        self.tts_model = tts_model
+        self.tts_instantiation_kwargs = tts_instantiation_kwargs
+
+        self.setup_process(
+            tts_engine=self.tts_engine,
+            tts_model=self.tts_model,
+            tts_instantiation_kwargs=self.tts_instantiation_kwargs
+        )
+
+    def setup_process(self) -> None:
+        """
+        Sets up process.
+        :param tts_engine: TTS engine.
+            See AudioHandler.supported_tts_engines for supported engines.
+        :param tts_model: TTS model name or path.
+        :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
+        """
+        self.tts_engine = self.supported_tts_engines[0] if self.tts_engine is None else self.tts_engine
+        self.tts_processor = {
+            "coqui-tts": text_to_speech_utility.get_coqui_tts_model
+        }[self.tts_engine](
+            model_name_or_path=self.tts_model,
+            instantiation_kwargs=self.tts_instantiation_kwargs
+        )
+        self.interrupt.clear()
+
+    def unload(self) -> None:
+        """
+        Stop process and unload resource expensive components.
+        Call setup_process() to reload and resume operations.
+        """
+        self.interrupt.set()
+        self.tts_processor = None
+        gc.collect()
+
+
+    def run(self) -> None:
+        """
+        Main TTSThread runner method.
+        """
+        while not self.interrupt.is_set():
+            try:
+                input_text, input_metadata = self.input_queue.get(self.loop_pause)
+                if input_text:
+                    # Handle output text
+                    result = text_to_speech_utility.synthesize_with_coqui_tts(
+                        text=input_text,
+                        model=self.tts_processor
+                    )
+                    self.output_queue.put(result)
+                else:
+                    # Handle empty output text
+                    pass
+            except Empty:
+                # Handle empty queue stopping
+                pass
+
+
+class ThreadedTTSHandler(Thread):
+    """
+    Represents a threaded TTS output handler.
+    """
+    supported_tts_engines: List[str] = ["coqui-tts"]
+
+    def __init__(self, 
+                 input_queue: TQueue,
+                 output_queue: TQueue,
+                 interrupt: TEvent,
+                 loop_pause: float = .1,
+                 tts_engine: str = None,
+                 tts_model: str = None,
+                 tts_instantiation_kwargs: dict = None,
+                 *thread_args: Optional[Any], 
+                 **thread_kwargs: Optional[Any]) -> None:
+        """
+        Initiation method.
+        :param input_queue: Input queue.
+        :param output_queue: Output queue.
+        :param interrupt: Interrupt event.
+        :param loop_pause: Processing loop pause.
+        :param tts_engine: TTS engine.
+            See TTSThread.supported_tts_engines for supported engines.
+            Defaults to None in which case the first supported engine is used.
+        :param tts_model: TTS model name or path.
+        :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
+        :param thread_args: Thread constructor arguments.
+        :param thread_kwargs: Thread constructor keyword arguments.
+        """
+        super().__init__(*thread_args, **thread_kwargs)
+        self.input_queue = input_queue
+        self.output_queue = output_queue
+        self.interrupt = interrupt
+        self.loop_pause = loop_pause
+
+        self.tts_engine = tts_engine
+        self.tts_model = tts_model
+        self.tts_instantiation_kwargs = tts_instantiation_kwargs
+
+        self.setup_process(
+            tts_engine=self.tts_engine,
+            tts_model=self.tts_model,
+            tts_instantiation_kwargs=self.tts_instantiation_kwargs
+        )
+
+    def setup_process(self,
+                     tts_engine: str = None,
+                     tts_model: str = None,
+                     tts_instantiation_kwargs: dict = None) -> None:
+        """
+        Sets up process.
+        :param tts_engine: TTS engine.
+            See AudioHandler.supported_tts_engines for supported engines.
+        :param tts_model: TTS model name or path.
+        :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
+        """
+        self.tts_engine = self.supported_tts_engines[0] if tts_engine is None else tts_engine
+        self.tts_processor = {
+            "coqui-tts": text_to_speech_utility.get_coqui_tts_model
+        }[self.tts_engine](
+            model_name_or_path=tts_model,
+            instantiation_kwargs=tts_instantiation_kwargs
+        )
+
+    def run(self) -> None:
+        """
+        Main TTSThread runner method.
+        """
+        while not self.interrupt.is_set():
+            try:
+                input_text, input_metadata = self.input_queue.get(self.loop_pause)
+                if input_text:
+                    # Handle output text
+                    result = text_to_speech_utility.synthesize_with_coqui_tts(
+                        text=input_text,
+                        model=self.tts_processor
+                    )
+                    self.output_queue.put(result)
+                else:
+                    # Handle empty output text
+                    pass
+            except Empty:
+                # Handle empty queue stopping
+                pass
+
+
 class ConversationHandler(object):
     """
     Represents a conversation handler for handling audio based interaction.
     """
     supported_stt_engines: List[str] = ["faster-whisper", "whsiper"]
-    supported_tts_engines: List[str] = ["coqui-tts"]
 
     def __init__(self, 
                  working_directory: str,
@@ -78,19 +260,11 @@ class ConversationHandler(object):
         self.stt_engine = stt_engine
         self.stt_model = stt_model
         self.stt_instantiation_kwargs = stt_instantiation_kwargs
-        self.tts_engine = tts_engine
-        self.tts_model = tts_model
-        self.tts_instantiation_kwargs = tts_instantiation_kwargs
 
         self.set_stt_processor(
             stt_engine=stt_engine,
             stt_model=stt_model,
             stt_instantiation_kwargs=stt_instantiation_kwargs
-        )
-        self.set_tts_processor(
-            tts_engine=tts_engine,
-            tts_model=tts_model,
-            tts_instantiation_kwargs=tts_instantiation_kwargs
         )
 
         self.input_queue = None
@@ -115,11 +289,6 @@ class ConversationHandler(object):
             stt_engine=self.stt_engine,
             stt_model=self.stt_model,
             stt_instantiation_kwargs=self.stt_instantiation_kwargs
-        )
-        self.set_tts_processor(
-            tts_engine=self.tts_engine,
-            tts_model=self.tts_model,
-            tts_instantiation_kwargs=self.tts_instantiation_kwargs
         )
 
         self.input_queue = TQueue()
@@ -187,25 +356,6 @@ class ConversationHandler(object):
         }[self.sst_engine](
             model_name_or_path=stt_model,
             instantiation_kwargs=stt_instantiation_kwargs
-        )
-        
-    def set_tts_processor(self,
-                          tts_engine: str = None,
-                          tts_model: str = None,
-                          tts_instantiation_kwargs: dict = None) -> None:
-        """
-        Sets TTS processor.
-        :param tts_engine: TTS engine.
-            See AudioHandler.supported_tts_engines for supported engines.
-        :param tts_model: TTS model name or path.
-        :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
-        """
-        self.tts_engine = self.supported_tts_engines[0] if tts_engine is None else tts_engine
-        self.tts_processor = {
-            "coqui-tts": text_to_speech_utility.get_coqui_tts_model
-        }[self.tts_engine](
-            model_name_or_path=tts_model,
-            instantiation_kwargs=tts_instantiation_kwargs
         )
 
     def handle_stt_input(self) -> Tuple[Optional[str], Optional[dict]]:
@@ -296,27 +446,6 @@ class ConversationHandler(object):
                     pass
                 else:
                     # Handle empty input text
-                    pass
-            except Empty:
-                # Handle empty queue stopping
-                pass
-
-    def run_tts_process(self) -> None:
-        """
-        Runs TTS process.
-        Should run in a separate thread to allow for continuous interaction.
-        """
-        while not self.output_interrupt.is_set():
-            try:
-                output_text, output_metadata = self.output_queue.get(self.loop_pause)
-                if output_text == "<EOS>":
-                    # Handle EOS stopping
-                    pass
-                elif output_text:
-                    # Handle output text
-                    pass
-                else:
-                    # Handle empty output text
                     pass
             except Empty:
                 # Handle empty queue stopping
