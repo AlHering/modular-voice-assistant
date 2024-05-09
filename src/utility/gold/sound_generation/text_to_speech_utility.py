@@ -5,7 +5,7 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from typing import Any, Union, List
+from typing import Any, Union, List, Tuple
 import os
 import pyaudio
 import numpy as np
@@ -50,13 +50,13 @@ def play_wave_file(wave_file: str, chunk_size: int = 1024, stream_kwargs: dict =
     pya.terminate()
 
 
-def play_wave(wave: Union[List[float], List[int], np.ndarray],
+def play_wave(wave: np.ndarray,
               stream_kwargs: dict = None) -> None:
     """
     Plays wave audio file.
-    :param wave_file: Wave file path.
+    :param wave: Waveform as numpy array.
     :param stream_kwargs: Stream keyword arguments.
-        Defaults to None in which case defaults are based on the wave file.
+        Defaults to None in which case defaults are used.
     """
     pya = pyaudio.PyAudio()
     
@@ -96,8 +96,9 @@ def get_coqui_tts_model(model_name_or_path: str, instantiation_kwargs: dict = No
               **instantiation_kwargs
          )
 
-
-def synthesize_with_coqui_tts(text: str, model: TTS = None, synthesis_kwargs: dict = None) -> np.ndarray:
+def synthesize_with_coqui_tts(text: str, 
+                              model: TTS = None, 
+                              synthesis_kwargs: dict = None) -> Tuple[np.ndarray, dict]:
     """
     Synthesizes text with Coqui TTS and saves results to a file.
     :param text: Output text.
@@ -106,13 +107,31 @@ def synthesize_with_coqui_tts(text: str, model: TTS = None, synthesis_kwargs: di
         Not providing a model therefore increases processing time tremendously!
     :param synthesis_kwargs: Synthesis keyword arguments. 
         Defaults to None in which case default values are used.
-    :returns: Synthesized audio.
+    :returns: Synthesized audio and audio metadata which can be used as stream keyword arguments for outputting.
     """
     model = get_coqui_tts_model(TTS.list_models()[0]) if model is None else model
     synthesis_kwargs = {} if synthesis_kwargs is None else synthesis_kwargs
-    return model.tts(
+    snythesized = model.tts(
         text=text,
         **synthesis_kwargs)
+    
+    # Conversion taken from 
+    # https://github.com/coqui-ai/TTS/blob/dev/TTS/utils/synthesizer.py and
+    # https://github.com/coqui-ai/TTS/blob/dev/TTS/utils/audio/numpy_transforms.py
+    if torch.is_tensor(snythesized):
+        snythesized = snythesized.cpu().numpy()
+    if isinstance(snythesized, list):
+        snythesized = np.array(snythesized)
+
+    print(f"Sample Rate: {model.synthesizer.defa}")
+
+    snythesized = snythesized * (32767 / max(0.01, np.max(np.abs(snythesized))))
+    snythesized = snythesized.astype(np.int16)
+    return snythesized, {
+        "rate": model.synthesizer.output_sample_rate,
+        "format": pyaudio.paInt16,
+        "channels": 1
+    }
 
 
 def synthesize_with_coqui_tts_to_file(text: str, output_path: str = None, model: TTS = None, synthesis_kwargs: dict = None) -> str:
