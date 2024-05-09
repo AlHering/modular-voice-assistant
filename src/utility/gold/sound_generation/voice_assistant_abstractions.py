@@ -139,7 +139,6 @@ class ConversationHandler(object):
         self.history = [] if self.history is None or delete_history else self.history
         self.cache = {}
 
-
     def set_input_device(self, input_device: Union[int, str] = None) -> None:
         """
         Sets input device for handler.
