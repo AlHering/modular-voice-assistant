@@ -259,17 +259,10 @@ class ConversationHandler(object):
 
         self.history = history
         self.loop_pause = loop_pause
-        
-        if input_method == InputMethod.TEXT_FILE:
-            input_file = os.path.join(self.working_directory, "input.txt")
-            self.cache["text_input"] = self.cache.get("text_input", open(input_file, "r").readlines() if os.path.exists(input_file) else [])
-        self.input_method = {
-            InputMethod.SPEECH_TO_TEXT: self.handle_stt_input,
-            InputMethod.COMMAND_LINE: self.handle_cli_input,
-            InputMethod.TEXT_FILE: self.handle_file_input
-        }[input_method]
-
+        self.input_method = input_method
+        self.input_method_handle = None
         self.cache = None
+
         self._reset()
 
     def _reset(self, delete_history: bool = False) -> None:
@@ -311,6 +304,14 @@ class ConversationHandler(object):
         self.tts_thread.start()
 
         self.history = [] if self.history is None or delete_history else self.history
+        if self.input_method == InputMethod.TEXT_FILE:
+            input_file = os.path.join(self.working_directory, "input.txt")
+            self.cache["text_input"] = self.cache.get("text_input", open(input_file, "r").readlines() if os.path.exists(input_file) else [])
+        self.input_method_handle = {
+            InputMethod.SPEECH_TO_TEXT: self.handle_stt_input,
+            InputMethod.COMMAND_LINE: self.handle_cli_input,
+            InputMethod.TEXT_FILE: self.handle_file_input
+        }[self.input_method]
         self.cache = {}
 
     def set_input_device(self, input_device: Union[int, str] = None) -> None:
@@ -424,7 +425,7 @@ class ConversationHandler(object):
         Collects and refines STT outputs.
         :return: Refined STT output.
         """
-        result = self.input_method()
+        result = self.input_method_handle()
         return result if result[0] else None
     
     def llm_gateway(self) -> Optional[Tuple[str, dict]]:
