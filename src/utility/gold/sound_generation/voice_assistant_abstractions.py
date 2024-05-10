@@ -182,7 +182,7 @@ class TemporaryThreadedLLMHandler(Thread):
                 input_text, input_metadata = self.input_queue.get(self.loop_pause)
                 if input_text:
                     # Handle output text
-                    pass
+                    self.output_queue.put(tuple(f"Response for '{input_text}'", {"timestamp": get_timestamp()}))
                 else:
                     # Handle empty output text
                     pass
