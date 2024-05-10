@@ -206,6 +206,7 @@ class ConversationHandler(object):
                  tts_model: str = None,
                  tts_instantiation_kwargs: dict = None,
                  history: List[dict] = None,
+                 input_method: InputMethod = InputMethod.SPEECH_TO_TEXT,
                  loop_pause: float = 0.1) -> None:
         """
         Initiation method.
@@ -222,6 +223,8 @@ class ConversationHandler(object):
         :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
         :param history: History as list of dictionaries of the structure
             {"process": <"tts"/"stt">, "text": <text content>, "metadata": {...}}
+        :param input_method: Input method out of SPEECH_TO_TEXT, COMMAND_LINE, TEXT_FILE.
+            Defaults to SPEECH_TO_TEXT.
         :param loop_pause: Pause in seconds between processing loops.
             Defaults to 0.1.
         """
@@ -256,6 +259,7 @@ class ConversationHandler(object):
 
         self.history = history
         self.loop_pause = loop_pause
+        self.input_method = input_method
         self.cache = None
 
         self._reset()
@@ -407,21 +411,31 @@ class ConversationHandler(object):
             metadata = {"timestamp": get_timestamp(), "input_method": "text_file"}
         return text, metadata
 
-    def run_stt_process(self, input_method: InputMethod = InputMethod.SPEECH_TO_TEXT) -> None:
+    def run_stt_process(self) -> None:
         """
         Runs STT process.
-        :param inut_method: Input method out of SPEECH_TO_TEXT, COMMAND_LINE, TEXT_FILE.
-            Defaults to SPEECH_TO_TEXT.
         """
-        if input_method == InputMethod.TEXT_FILE:
+        if self.input_method == InputMethod.TEXT_FILE:
             input_file = os.path.join(self.working_directory, "input.txt")
             self.cache["text_input"] = self.cache.get("text_input", open(input_file, "r").readlines() if os.path.exists(input_file) else [])
         input_handling = {
             InputMethod.SPEECH_TO_TEXT: self.handle_stt_input,
             InputMethod.COMMAND_LINE: self.handle_cli_input,
             InputMethod.TEXT_FILE: self.handle_file_input
-        }[input_method]
+        }[self.input_method]
         while not self.interrupt.is_set():
             new_input = input_handling()
             if new_input[0]:
                 self.input_queue.put(new_input)
+
+    def run_conversation_loop(self) -> None:
+        """
+        Runs conversation loop.
+        """
+        while True:
+            # handle loop
+            try:
+                pass
+            except KeyboardInterrupt:
+                pass
+            
