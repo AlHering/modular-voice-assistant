@@ -259,9 +259,17 @@ class ConversationHandler(object):
 
         self.history = history
         self.loop_pause = loop_pause
-        self.input_method = input_method
-        self.cache = None
+        
+        if input_method == InputMethod.TEXT_FILE:
+            input_file = os.path.join(self.working_directory, "input.txt")
+            self.cache["text_input"] = self.cache.get("text_input", open(input_file, "r").readlines() if os.path.exists(input_file) else [])
+        self.input_method = {
+            InputMethod.SPEECH_TO_TEXT: self.handle_stt_input,
+            InputMethod.COMMAND_LINE: self.handle_cli_input,
+            InputMethod.TEXT_FILE: self.handle_file_input
+        }[input_method]
 
+        self.cache = None
         self._reset()
 
     def _reset(self, delete_history: bool = False) -> None:
@@ -411,12 +419,12 @@ class ConversationHandler(object):
             metadata = {"timestamp": get_timestamp(), "input_method": "text_file"}
         return text, metadata
 
-    def stt_gateway(self, input_handling_method: Callable) -> Optional[Tuple[str, dict]]:
+    def stt_gateway(self) -> Optional[Tuple[str, dict]]:
         """
         Collects and refines STT outputs.
         :return: Refined STT output.
         """
-        result = input_handling_method()
+        result = self.input_method()
         return result if result[0] else None
     
     def llm_gateway(self) -> Optional[Tuple[str, dict]]:
@@ -446,18 +454,11 @@ class ConversationHandler(object):
         """
         Runs conversation loop.
         """
-        if self.input_method == InputMethod.TEXT_FILE:
-            input_file = os.path.join(self.working_directory, "input.txt")
-            self.cache["text_input"] = self.cache.get("text_input", open(input_file, "r").readlines() if os.path.exists(input_file) else [])
-        input_handling = {
-            InputMethod.SPEECH_TO_TEXT: self.handle_stt_input,
-            InputMethod.COMMAND_LINE: self.handle_cli_input,
-            InputMethod.TEXT_FILE: self.handle_file_input
-        }[self.input_method]
+        
 
         while not self.interrupt.is_set():
             try:
-                stt_output = self.stt_gateway(input_handling_method=input_handling)
+                stt_output = self.stt_gateway()
                 if stt_output is not None:
                     self.llm_input_queue.put(stt_output)
                 
