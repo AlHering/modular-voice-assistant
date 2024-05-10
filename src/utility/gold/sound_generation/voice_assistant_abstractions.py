@@ -6,7 +6,7 @@
 ****************************************************
 """
 from enum import Enum
-from typing import Any, Union, Tuple, List, Optional
+from typing import Any, Union, Tuple, List, Optional, Callable
 import os
 import gc
 import numpy as np
@@ -411,9 +411,40 @@ class ConversationHandler(object):
             metadata = {"timestamp": get_timestamp(), "input_method": "text_file"}
         return text, metadata
 
-    def run_stt_process(self) -> None:
+    def stt_gateway(self, input_handling_method: Callable) -> Optional[Tuple[str, dict]]:
         """
-        Runs STT process.
+        Collects and refines STT outputs.
+        :return: Refined STT output.
+        """
+        result = input_handling_method()
+        return result if result[0] else None
+    
+    def llm_gateway(self) -> Optional[Tuple[str, dict]]:
+        """
+        Collects and refines LLM output.
+        :return: Refined LLM output.
+        """
+        try:
+            llm_output = self.llm_output_queue.get(self.loop_pause)
+            return llm_output
+        except Empty:
+            return None
+        
+    def tts_gateway(self) -> Optional[Tuple[Any, dict]]:
+        """
+        Collects and refines TTS output.
+        :return: Refined TTS output.
+        """
+        try:
+            tts_output = self.tts_output_queue.get(self.loop_pause)
+            return tts_output
+        except Empty:
+            return None
+        
+
+    def run_conversation_loop(self) -> None:
+        """
+        Runs conversation loop.
         """
         if self.input_method == InputMethod.TEXT_FILE:
             input_file = os.path.join(self.working_directory, "input.txt")
@@ -423,19 +454,31 @@ class ConversationHandler(object):
             InputMethod.COMMAND_LINE: self.handle_cli_input,
             InputMethod.TEXT_FILE: self.handle_file_input
         }[self.input_method]
-        while not self.interrupt.is_set():
-            new_input = input_handling()
-            if new_input[0]:
-                self.input_queue.put(new_input)
 
-    def run_conversation_loop(self) -> None:
-        """
-        Runs conversation loop.
-        """
-        while True:
-            # handle loop
+        while not self.interrupt.is_set():
             try:
-                pass
+                stt_output = self.stt_gateway(input_handling_method=input_handling)
+                if stt_output is not None:
+                    self.llm_input_queue.put(stt_output)
+                
+                llm_output = self.llm_gateway()
+                if llm_output is not None:
+                    self.tts_input_queue.put(llm_output)
+                
+                tts_output = self.tts_gateway()
+                if tts_output is not None:
+                    # Play output
+                    pass
+                
             except KeyboardInterrupt:
-                pass
+                self.llm_interrupt.set()
+                self.tts_interrupt.set()
+                self.interrupt.set()
+
+                self.llm_thread.unload()
+                self.tts_thread.unload()
+                self.llm_thread.join(1)
+                self.tts_thread.join(1)
+
+        
             
