@@ -469,8 +469,9 @@ class ConversationHandler(object):
                 
                 tts_output = self.tts_gateway()
                 if tts_output is not None:
-                    # Play output
-                    pass
+                    text_to_speech_utility.play_wave(
+                        tts_output[0], tts_output[1]
+                    )
                 
             except KeyboardInterrupt:
                 self.llm_interrupt.set()
