@@ -168,8 +168,6 @@ def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor] = 
     """
     Transcribes wave file or waveform with whisper.
     :param audio_input: Wave file path or waveform.
-    :param output_path: Output path.
-        Defaults to None in which case the file "out.wav" under the temporary data folder is used.
     :param model: Whisper model. 
         Defaults to None in which case a default model is instantiated and used.
         Not providing a model therefore increases processing time tremendously!
@@ -210,8 +208,6 @@ def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Ten
     """
     Transcribes wave file or waveform with faster whisper.
     :param audio_input: Wave file path or waveform.
-    :param output_path: Output path.
-        Defaults to None in which case the file "out.wav" under the temporary data folder is used.
     :param model: Faster whisper model. 
         Defaults to None in which case a default model is instantiated and used.
         Not providing a model therefore increases processing time tremendously!
