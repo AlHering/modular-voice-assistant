@@ -63,7 +63,7 @@ class Transcriber(object):
         :param transcription_parameters: Transcription kwargs as dictionary.
             Defaults to None.
         """
-        self.transcription_function(
+        return self.transcription_function(
             audio_input=audio_input,
             model=self.model,
             transcription_kwargs=self.transcription_parameters if transcription_parameters is None else transcription_parameters
