@@ -123,8 +123,6 @@ def synthesize_with_coqui_tts(text: str,
     if isinstance(snythesized, list):
         snythesized = np.array(snythesized)
 
-    print(f"Sample Rate: {model.synthesizer.defa}")
-
     snythesized = snythesized * (32767 / max(0.01, np.max(np.abs(snythesized))))
     snythesized = snythesized.astype(np.int16)
     return snythesized, {
