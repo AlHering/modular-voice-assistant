@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Any, Union, Tuple, List, Optional, Callable
 import os
 import gc
+import time
 import numpy as np
 import pyaudio
 import speech_recognition
@@ -44,6 +45,7 @@ class ThreadedTTSHandler(Thread):
                  tts_engine: str = None,
                  tts_model: str = None,
                  tts_instantiation_kwargs: dict = None,
+                 tts_synthesis_kwargs: dict = None,
                  *thread_args: Optional[Any], 
                  **thread_kwargs: Optional[Any]) -> None:
         """
@@ -57,6 +59,7 @@ class ThreadedTTSHandler(Thread):
             Defaults to None in which case the first supported engine is used.
         :param tts_model: TTS model name or path.
         :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
+        :param tts_synthesis_kwargs: TTS synthesis keyword arguments.
         :param thread_args: Thread constructor arguments.
         :param thread_kwargs: Thread constructor keyword arguments.
         """
@@ -69,12 +72,9 @@ class ThreadedTTSHandler(Thread):
         self.tts_engine = tts_engine
         self.tts_model = tts_model
         self.tts_instantiation_kwargs = tts_instantiation_kwargs
+        self.tts_synthesis_kwargs = tts_synthesis_kwargs
 
-        self.setup_process(
-            tts_engine=self.tts_engine,
-            tts_model=self.tts_model,
-            tts_instantiation_kwargs=self.tts_instantiation_kwargs
-        )
+        self.setup_process()
 
     def setup_process(self) -> None:
         """
@@ -110,7 +110,8 @@ class ThreadedTTSHandler(Thread):
                     # Handle output text
                     result = text_to_speech_utility.synthesize_with_coqui_tts(
                         text=input_text,
-                        model=self.tts_processor
+                        model=self.tts_processor,
+                        synthesis_kwargs=self.tts_synthesis_kwargs
                     )
                     self.output_queue.put(result)
                 else:
@@ -228,6 +229,7 @@ class ConversationHandler(object):
         :param loop_pause: Pause in seconds between processing loops.
             Defaults to 0.1.
         """
+        cfg.LOGGER.info("Initiating Conversation Handler...")
         if not os.path.exists(working_directory):
             os.makedirs(working_directory)
         self.working_directory = working_directory
@@ -271,6 +273,7 @@ class ConversationHandler(object):
         :param delete_history: Flag for declaring whether to delete history.    
             Defaults to None.
         """
+        cfg.LOGGER.info("(Re)setting Conversation Handler...")
         self.interrupt = TEvent()
         self.set_stt_processor(
             stt_engine=self.stt_engine,
@@ -313,6 +316,7 @@ class ConversationHandler(object):
             InputMethod.TEXT_FILE: self.handle_file_input
         }[self.input_method]
         self.cache = {}
+        cfg.LOGGER.info("Setup is done.")
 
     def set_input_device(self, input_device: Union[int, str] = None) -> None:
         """
@@ -426,6 +430,7 @@ class ConversationHandler(object):
         :return: Refined STT output.
         """
         result = self.input_method_handle()
+        cfg.LOGGER.info(f"STT Gateway handles {result}.")
         return result if result[0] else None
     
     def llm_gateway(self) -> Optional[Tuple[str, dict]]:
@@ -435,6 +440,7 @@ class ConversationHandler(object):
         """
         try:
             llm_output = self.llm_output_queue.get(self.loop_pause)
+            cfg.LOGGER.info(f"LLM Gateway handles {llm_output}.")
             return llm_output
         except Empty:
             return None
@@ -446,6 +452,7 @@ class ConversationHandler(object):
         """
         try:
             tts_output = self.tts_output_queue.get(self.loop_pause)
+            cfg.LOGGER.info(f"TTS Gateway handles {tts_output}.")
             return tts_output
         except Empty:
             return None
@@ -455,8 +462,7 @@ class ConversationHandler(object):
         """
         Runs conversation loop.
         """
-        
-
+        cfg.LOGGER.info(f"Starting conversation loop...")
         while not self.interrupt.is_set():
             try:
                 stt_output = self.stt_gateway()
@@ -472,8 +478,9 @@ class ConversationHandler(object):
                     text_to_speech_utility.play_wave(
                         tts_output[0], tts_output[1]
                     )
-                
+                time.sleep(self.loop_pause)
             except KeyboardInterrupt:
+                cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
                 self.llm_interrupt.set()
                 self.tts_interrupt.set()
                 self.interrupt.set()
