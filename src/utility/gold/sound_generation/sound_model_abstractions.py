@@ -65,6 +65,7 @@ class Transcriber(object):
         """
         self.transcription_function(
             audio_input=audio_input,
+            model=self.model,
             transcription_kwargs=self.transcription_parameters if transcription_parameters is None else transcription_parameters
         )
 
@@ -120,6 +121,7 @@ class Synthesizer(object):
         """
         return self.sound_out_snythesis_functions(
             text=text, 
+            model=self.model,
             synthesis_kwargs=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters)
 
     def synthesize_to_file(self, text: str, output_path: str, synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
@@ -134,5 +136,6 @@ class Synthesizer(object):
         return self.file_out_snythesis_functions(
             text=text, 
             output_path=output_path,
+            model=self.model,
             synthesis_kwargs=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters)
         
