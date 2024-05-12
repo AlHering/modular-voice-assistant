@@ -6,6 +6,7 @@
 ****************************************************
 """
 from enum import Enum
+from inspect import getfullargspec
 from typing import Any, Union, Tuple, List, Optional, Callable
 import os
 import gc
@@ -74,7 +75,10 @@ class PipelineComponentThread(Thread):
             try:
                 input_data = self.input_queue.get(self.loop_pause)
                 if self.validation_function is None or self.validation_function(input_data):
-                    self.output_queue.put(self.pipeline_function(input_data))
+                    print(f"Got {input_data}")
+                    res = self.pipeline_function(input_data)
+                    print(f"Calculated {res}")
+                    self.output_queue.put(res)
             except Empty:
                 time.sleep(self.loop_pause)
 
@@ -160,8 +164,10 @@ class ConversationHandler(object):
         self.llm_input_queue = TQueue()
         self.llm_output_queue = TQueue()
         self.llm_interrupt = TEvent()
+        llm_function = lambda x: (x, {"dummy_method": True, "input": x}) if self.llm is None else self.llm.generate
+        print(type(llm_function))
         self.llm_thread = PipelineComponentThread(
-            pipeline_function=lambda x: x if self.llm is None else lambda x: self.llm.generate(x),
+            pipeline_function=llm_function,
             input_queue=self.llm_input_queue,
             output_queue=self.llm_output_queue,
             interrupt=self.llm_interrupt,
@@ -173,8 +179,9 @@ class ConversationHandler(object):
         self.tts_input_queue = TQueue()
         self.tts_output_queue = TQueue()
         self.tts_interrupt = TEvent()
+        tts_function = self.synthesizer.synthesize
         self.tts_thread = PipelineComponentThread(
-            pipeline_function=lambda x: x if self.synthesizer is None else self.synthesizer.synthesize,
+            pipeline_function=tts_function,
             input_queue=self.tts_input_queue,
             output_queue=self.tts_output_queue,
             interrupt=self.tts_interrupt,
@@ -266,17 +273,15 @@ class ConversationHandler(object):
         microphone = speech_recognition.Microphone(**microphone_kwargs)
         with microphone as source:
             recognizer.adjust_for_ambient_noise(source)
-        audio = recognizer.listen(
-            source=microphone
-        )
-        audio_as_numpy_array = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
-        text, metadata_entries = {
-            "whisper": speech_to_text_utility.transcribe_with_whisper,
-            "faster-whisper": speech_to_text_utility.transcribe_with_faster_whisper
-        }[self.sst_engine](
-            audio_input=audio_as_numpy_array,
-            model=self.stt_processor,
-            transcription_kwargs=None
+        
+        audio = None
+        with microphone as source:
+            audio = recognizer.listen(
+                source=source
+            )
+        audio_as_numpy_array = np.frombuffer(audio.get_wav_data(), dtype=np.int16).astype(np.float32) / 32768.0
+        text, metadata_entries = self.transcriber.transcribe(
+            audio_input=audio_as_numpy_array
         )
         return text, {"timestamp": get_timestamp(), "input_method": "speech_to_text", "transcription_metadata": metadata_entries}
 
@@ -342,14 +347,17 @@ class ConversationHandler(object):
         cfg.LOGGER.info(f"Starting conversation loop...")
         while not self.interrupt.is_set():
             try:
+                cfg.LOGGER.info(f"[1/3] Waiting for user input...")
                 stt_output = self.stt_gateway()
                 if stt_output is not None:
-                    self.llm_input_queue.put(stt_output)
+                    self.llm_input_queue.put(stt_output[0])
                 
+                cfg.LOGGER.info(f"[2/3] Waiting for LLM output...")
                 llm_output = self.llm_gateway()
                 if llm_output is not None:
-                    self.tts_input_queue.put(llm_output)
-                
+                    self.tts_input_queue.put(llm_output[0])
+
+                cfg.LOGGER.info(f"[3/3] Generating output...")
                 tts_output = self.tts_gateway()
                 if tts_output is not None:
                     text_to_speech_utility.play_wave(
@@ -362,8 +370,6 @@ class ConversationHandler(object):
                 self.tts_interrupt.set()
                 self.interrupt.set()
 
-                self.llm_thread.unload()
-                self.tts_thread.unload()
                 self.llm_thread.join(1)
                 self.tts_thread.join(1)
 
