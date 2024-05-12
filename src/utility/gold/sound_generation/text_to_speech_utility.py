@@ -109,7 +109,7 @@ def synthesize_with_coqui_tts(text: str,
         Defaults to None in which case default values are used.
     :returns: Synthesized audio and audio metadata which can be used as stream keyword arguments for outputting.
     """
-    model = get_coqui_tts_model(TTS.list_models()[0]) if model is None else model
+    model = get_coqui_tts_model(TTS().list_models()[0]) if model is None else model
     synthesis_kwargs = {} if synthesis_kwargs is None else synthesis_kwargs
     snythesized = model.tts(
         text=text,
