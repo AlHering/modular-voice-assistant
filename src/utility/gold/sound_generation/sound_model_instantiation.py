@@ -6,11 +6,7 @@
 ****************************************************
 """
 import os
-import traceback
-from typing import List, Tuple, Any, Callable, Optional, Union
-from datetime import datetime as dt
-
-import TTS.api
+from typing import Any
 
 
 def load_whisper_model(model_path: str,
