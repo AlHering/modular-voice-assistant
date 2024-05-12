@@ -17,87 +17,54 @@ from datetime import datetime as dt
 from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent
 from queue import Empty, Queue as TQueue
+from ..text_generation.language_model_abstractions import LanguageModelInstance
 from ...bronze.audio_utility import get_input_devices, get_output_devices
 from ...bronze.time_utility import get_timestamp
 from . import speech_to_text_utility, text_to_speech_utility
+from .sound_model_abstractions import Transcriber, Synthesizer
 
 
-class InputMethod(Enum):
+class IOMethod(Enum):
     """
-    Represents input methods.
+    Represents input or output methods.
     """
-    SPEECH_TO_TEXT = 0
+    SPEECH = 0
     COMMAND_LINE = 1
     TEXT_FILE = 2
 
 
-class ThreadedTTSHandler(Thread):
+class PipelineComponentThread(Thread):
     """
-    Represents a threaded TTS output handler.
+    Represents a threaded pipeline component.
     """
-    supported_tts_engines: List[str] = ["coqui-tts"]
-
     def __init__(self, 
+                 pipeline_function: Callable,
                  input_queue: TQueue,
                  output_queue: TQueue,
                  interrupt: TEvent,
                  loop_pause: float = .1,
-                 tts_engine: str = None,
-                 tts_model: str = None,
-                 tts_instantiation_kwargs: dict = None,
-                 tts_synthesis_kwargs: dict = None,
+                 validation_function: Callable = None,
                  *thread_args: Optional[Any], 
                  **thread_kwargs: Optional[Any]) -> None:
         """
         Initiation method.
+        :param pipeline_function: Pipeline function.
         :param input_queue: Input queue.
         :param output_queue: Output queue.
         :param interrupt: Interrupt event.
         :param loop_pause: Processing loop pause.
-        :param tts_engine: TTS engine.
-            See TTSThread.supported_tts_engines for supported engines.
-            Defaults to None in which case the first supported engine is used.
-        :param tts_model: TTS model name or path.
-        :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
-        :param tts_synthesis_kwargs: TTS synthesis keyword arguments.
+        :param validation_function: Validation function for ingoing data.
+            Defaults to None in which case the pipeline function should check for valid inputs.
         :param thread_args: Thread constructor arguments.
         :param thread_kwargs: Thread constructor keyword arguments.
         """
         super().__init__(*thread_args, **thread_kwargs)
+        self.pipeline_function = pipeline_function
         self.input_queue = input_queue
         self.output_queue = output_queue
         self.interrupt = interrupt
         self.loop_pause = loop_pause
-
-        self.tts_engine = tts_engine
-        self.tts_model = tts_model
-        self.tts_instantiation_kwargs = tts_instantiation_kwargs
-        self.tts_synthesis_kwargs = tts_synthesis_kwargs
-
-        self.setup_process()
-
-    def setup_process(self) -> None:
-        """
-        Sets up process.
-        """
-        self.tts_engine = self.supported_tts_engines[0] if self.tts_engine is None else self.tts_engine
-        self.tts_processor = {
-            "coqui-tts": text_to_speech_utility.get_coqui_tts_model
-        }[self.tts_engine](
-            model_name_or_path=self.tts_model,
-            instantiation_kwargs=self.tts_instantiation_kwargs
-        )
-        self.interrupt.clear()
-
-    def unload(self) -> None:
-        """
-        Stop process and unload resource expensive components.
-        Call setup_process() to reload and resume operations.
-        """
-        self.interrupt.set()
-        self.tts_processor = None
-        gc.collect()
-
+        self.validation_function = validation_function
 
     def run(self) -> None:
         """
@@ -105,91 +72,11 @@ class ThreadedTTSHandler(Thread):
         """
         while not self.interrupt.is_set():
             try:
-                input_text, input_metadata = self.input_queue.get(self.loop_pause)
-                if input_text:
-                    # Handle output text
-                    result = text_to_speech_utility.synthesize_with_coqui_tts(
-                        text=input_text,
-                        model=self.tts_processor,
-                        synthesis_kwargs=self.tts_synthesis_kwargs
-                    )
-                    self.output_queue.put(result)
-                else:
-                    # Handle empty output text
-                    pass
+                input_data = self.input_queue.get(self.loop_pause)
+                if self.validation_function is None or self.validation_function(input_data):
+                    self.output_queue.put(self.pipeline_function(input_data))
             except Empty:
-                # Handle empty queue stopping
-                pass
-
-
-class TemporaryThreadedLLMHandler(Thread):
-    """
-    Represents a threaded LLM handler.
-    Used as static testing component for now.
-    """
-
-    def __init__(self, 
-                 input_queue: TQueue,
-                 output_queue: TQueue,
-                 interrupt: TEvent,
-                 loop_pause: float = .1,
-                 *thread_args: Optional[Any], 
-                 **thread_kwargs: Optional[Any]) -> None:
-        """
-        Initiation method.
-        :param input_queue: Input queue.
-        :param output_queue: Output queue.
-        :param interrupt: Interrupt event.
-        :param loop_pause: Processing loop pause.
-        :param tts_engine: TTS engine.
-            See TTSThread.supported_tts_engines for supported engines.
-            Defaults to None in which case the first supported engine is used.
-        :param tts_model: TTS model name or path.
-        :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
-        :param thread_args: Thread constructor arguments.
-        :param thread_kwargs: Thread constructor keyword arguments.
-        """
-        super().__init__(*thread_args, **thread_kwargs)
-        self.input_queue = input_queue
-        self.output_queue = output_queue
-        self.interrupt = interrupt
-        self.loop_pause = loop_pause
-
-        self.llm = None
-        self.setup_process()
-
-    def setup_process(self) -> None:
-        """
-        Sets up process.
-        """
-        self.interrupt.clear()
-
-    def unload(self) -> None:
-        """
-        Stop process and unload resource expensive components.
-        Call setup_process() to reload and resume operations.
-        """
-        self.interrupt.set()
-        self.llm = None
-        gc.collect()
-
-
-    def run(self) -> None:
-        """
-        Main runner method.
-        """
-        while not self.interrupt.is_set():
-            try:
-                input_text, input_metadata = self.input_queue.get(self.loop_pause)
-                if input_text:
-                    # Handle output text
-                    self.output_queue.put(tuple(f"Response for '{input_text}'", {"timestamp": get_timestamp()}))
-                else:
-                    # Handle empty output text
-                    pass
-            except Empty:
-                # Handle empty queue stopping
-                pass
+                time.sleep(self.loop_pause)
 
 
 class ConversationHandler(object):
@@ -200,32 +87,28 @@ class ConversationHandler(object):
 
     def __init__(self, 
                  working_directory: str,
-                 stt_engine: str = None,
-                 stt_model: str = None,
-                 stt_instantiation_kwargs: dict = None,
-                 tts_engine: str = None,
-                 tts_model: str = None,
-                 tts_instantiation_kwargs: dict = None,
+                 transcriber: Transcriber = None,
+                 synthesizer: Synthesizer = None,
+                 llm: LanguageModelInstance = None,
                  history: List[dict] = None,
-                 input_method: InputMethod = InputMethod.SPEECH_TO_TEXT,
+                 input_method: IOMethod = IOMethod.SPEECH,
+                 output_method: IOMethod = IOMethod.SPEECH,
                  loop_pause: float = 0.1) -> None:
         """
         Initiation method.
         :param working_directory: Directory for productive files.
-        :param stt_engine: STT engine.
-            See AudioHandler.supported_stt_engines for supported engines.
-            Defaults to None in which case the first supported engine is used.
-        :param stt_model: STT model name or path.
-        :param stt_instantiation_kwargs: STT model instantiation keyword arguments.
-        :param tts_engine: TTS engine.
-            See AudioHandler.supported_tts_engines for supported engines.
-            Defaults to None in which case the first supported engine is used.
-        :param tts_model: TTS model name or path.
-        :param tts_instantiation_kwargs: TTS model instantiation keyword arguments.
+        :param transcriber: Transcriber for STT processes.
+            Defaults to None.
+        :param synthesizer: Synthesizer for TTS processes.
+            Defaults to None.
+        :param llm: Language model instance.
+            Defaults to None.
         :param history: History as list of dictionaries of the structure
             {"process": <"tts"/"stt">, "text": <text content>, "metadata": {...}}
-        :param input_method: Input method out of SPEECH_TO_TEXT, COMMAND_LINE, TEXT_FILE.
-            Defaults to SPEECH_TO_TEXT.
+        :param input_method: Input method.
+            Defaults to SPEECH (STT).
+        :param output_method: Output method.
+            Defaults to SPEECH (TTS).
         :param loop_pause: Pause in seconds between processing loops.
             Defaults to 0.1.
         """
@@ -241,12 +124,9 @@ class ConversationHandler(object):
         self.output_device_index = pya.get_default_output_device_info().get("index")
         pya.terminate()
 
-        self.stt_engine = stt_engine
-        self.stt_model = stt_model
-        self.stt_instantiation_kwargs = stt_instantiation_kwargs
-        self.tts_engine = tts_engine
-        self.tts_model = tts_model
-        self.tts_instantiation_kwargs = tts_instantiation_kwargs
+        self.transcriber = transcriber
+        self.synthesizer = synthesizer
+        self.llm = llm
 
         self.interrupt = None
         self.llm_input_queue = None
@@ -262,6 +142,7 @@ class ConversationHandler(object):
         self.history = history
         self.loop_pause = loop_pause
         self.input_method = input_method
+        self.output_method = output_method
         self.input_method_handle = None
         self.cache = None
 
@@ -275,19 +156,16 @@ class ConversationHandler(object):
         """
         cfg.LOGGER.info("(Re)setting Conversation Handler...")
         self.interrupt = TEvent()
-        self.set_stt_processor(
-            stt_engine=self.stt_engine,
-            stt_model=self.stt_model,
-            stt_instantiation_kwargs=self.stt_instantiation_kwargs
-        )
 
         self.llm_input_queue = TQueue()
         self.llm_output_queue = TQueue()
         self.llm_interrupt = TEvent()
-        self.llm_thread = TemporaryThreadedLLMHandler(
+        self.llm_thread = PipelineComponentThread(
+            pipeline_function=lambda x: x if self.llm is None else lambda x: self.llm.generate(x),
             input_queue=self.llm_input_queue,
             output_queue=self.llm_output_queue,
-            interrupt=self.llm_interrupt
+            interrupt=self.llm_interrupt,
+            validation_function=lambda x: x[0]
         )
         self.llm_thread.daemon = True
         self.llm_thread.start()
@@ -295,25 +173,24 @@ class ConversationHandler(object):
         self.tts_input_queue = TQueue()
         self.tts_output_queue = TQueue()
         self.tts_interrupt = TEvent()
-        self.tts_thread = ThreadedTTSHandler(
+        self.tts_thread = PipelineComponentThread(
+            pipeline_function=lambda x: x if self.synthesizer is None else self.synthesizer.synthesize,
             input_queue=self.tts_input_queue,
             output_queue=self.tts_output_queue,
             interrupt=self.tts_interrupt,
-            tts_engine=self.tts_engine,
-            tts_model=self.tts_model,
-            tts_instantiation_kwargs=self.tts_instantiation_kwargs
+            validation_function=lambda x: x[0]
         )
         self.tts_thread.daemon = True
         self.tts_thread.start()
 
         self.history = [] if self.history is None or delete_history else self.history
-        if self.input_method == InputMethod.TEXT_FILE:
+        if self.input_method == IOMethod.TEXT_FILE:
             input_file = os.path.join(self.working_directory, "input.txt")
             self.cache["text_input"] = self.cache.get("text_input", open(input_file, "r").readlines() if os.path.exists(input_file) else [])
         self.input_method_handle = {
-            InputMethod.SPEECH_TO_TEXT: self.handle_stt_input,
-            InputMethod.COMMAND_LINE: self.handle_cli_input,
-            InputMethod.TEXT_FILE: self.handle_file_input
+            IOMethod.SPEECH: self.handle_stt_input,
+            IOMethod.COMMAND_LINE: self.handle_cli_input,
+            IOMethod.TEXT_FILE: self.handle_file_input
         }[self.input_method]
         self.cache = {}
         cfg.LOGGER.info("Setup is done.")
