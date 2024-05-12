@@ -285,6 +285,74 @@ class ConversationHandler(object):
         )
         return text, {"timestamp": get_timestamp(), "input_method": "speech_to_text", "transcription_metadata": metadata_entries}
 
+    def handle_live_stt_input(self) -> Tuple[Optional[str], Optional[dict]]:
+        """
+        Acquires live input based on STT.
+        :return: Transcribed input and list of metadata entries.
+        """
+        cfg.LOGGER.info("Running live audio transcription...")
+        audio_queue = TQueue()
+        recognizer = speech_recognition.Recognizer()
+        recognizer_kwargs = {
+            "energy_threshold": 1000,
+            "dynamic_energy_threshold": False,
+            "pause_threshold": .8
+        }
+        for key in recognizer_kwargs:
+            setattr(recognizer, key, recognizer_kwargs[key])
+        microphone_kwargs = {
+            "device_index": self.input_device_index,
+            "sample_rate": 16000,
+            "chunk_size": 1024
+        }
+        microphone = speech_recognition.Microphone(**microphone_kwargs)
+        with microphone as source:
+            recognizer.adjust_for_ambient_noise(source)
+        
+        def speech_recognition_callback(_, audio: speech_recognition.AudioData) -> None:
+            """
+            Collects audio data.
+            :param audio: Audio data.
+            """
+            data = audio.get_raw_data()
+            audio_queue.put(data)
+
+        recognizer.listen_in_background(
+            source=microphone,
+            callback=speech_recognition_callback,
+        )
+        
+        # Starting transcription loop
+        transcriptions = []
+        interrupt_flag = False
+        interrupt_threshold = 6.0
+        last_empty_transcription = None
+        while not interrupt_flag:
+            try:
+                if not audio_queue.empty():
+                    last_empty_transcription = None
+                    cfg.LOGGER.info("Recieved audio input.")
+                    audio = b"".join(audio_queue.queue)
+                    audio_queue.queue.clear()
+
+                    # Convert and transcribe audio input
+                    audio_as_numpy_array = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
+                    fulltext, segment_metadatas = self.transcriber.transcribe(
+                        audio_input=audio_as_numpy_array
+                    )
+                    transcriptions.append((fulltext, segment_metadatas))
+                    cfg.LOGGER.info(f"Transcribed: {fulltext}")
+                elif last_empty_transcription is None:
+                    if transcriptions:
+                        last_empty_transcription = time.time()
+                elif time.time() - last_empty_transcription >= interrupt_threshold:
+                    interrupt_flag = True
+                time.sleep(self.loop_pause)
+            except KeyboardInterrupt:
+                interrupt_flag = True
+
+        return " ".join(t[0] for t in transcriptions), {"timestamp": get_timestamp(), "input_method": "speech_to_text", "transcription_metadata": [t[1] for t in transcriptions]}
+
     def handle_cli_input(self) -> Tuple[Optional[str], Optional[dict]]:
         """
         Acquires input based on command line interaction.
