@@ -149,10 +149,11 @@ def record_audio_with_pyaudio_to_numpy_array(interrupt_method: InterruptMethod =
         pyaudio.paInt32: np.int32,
     }[stream_kwargs.get("format", pyaudio.paInt16)])
 
-def get_whisper_model(model_name_or_path: str, instantiation_kwargs: dict = None) -> whisper.Whisper:
+def get_whisper_model(model_name_or_path: str = "large-v3", instantiation_kwargs: dict = None) -> whisper.Whisper:
     """
     Returns a whisper based model instance.
     :param model_name_or_path: Model name or path.
+        Defaults to "large-v3".
     :param instantiation_kwargs: Instatiation keyword arguments.
         Defaults to None in which case default values are used.
     :returns: Whisper model instance.
@@ -189,10 +190,11 @@ def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor] = 
     fulltext, segment_metadatas
 
 
-def get_faster_whisper_model(model_name_or_path: str, instantiation_kwargs: dict = None) -> WhisperModel:
+def get_faster_whisper_model(model_name_or_path: str = "large-v3", instantiation_kwargs: dict = None) -> WhisperModel:
     """
     Returns a faster whisper based model instance.
     :param model_name_or_path: Model name or path.
+        Defaults to "large-v3".
     :param instantiation_kwargs: Instatiation keyword arguments.
         Defaults to None in which case default values are used.
     :returns: Whisper model instance.
