@@ -57,8 +57,7 @@ def load_coqui_tts_model(model_path: str,
         default_config_path = f"{model_path}/config.json"
         if "config_path" not in model_parameters and os.path.exists(default_config_path):
             model_parameters["config_path"] = default_config_path
-        return TTS().load_tts_model_by_path(
-            model_path=model_path,
+        return TTS(model_path=model_path,
             **model_parameters)
     else:
          return TTS(
