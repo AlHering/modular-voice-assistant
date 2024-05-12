@@ -114,8 +114,8 @@ class Synthesizer(object):
     def synthesize(self, text: str, synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
         """
         Synthesize text to audio.
-        :param audio_input: Wave file path or waveform.
-        :param synthesis_parameters: Transcription kwargs as dictionary.
+        :param text: Text to synthesize to audio.
+        :param synthesis_parameters: Synthesis kwargs as dictionary.
             Defaults to None.
         :return: File path and metadata.
         """
@@ -127,9 +127,9 @@ class Synthesizer(object):
     def synthesize_to_file(self, text: str, output_path: str, synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
         """
         Synthesize text to audio.
-        :param audio_input: Wave file path or waveform.
+        :param text: Text to synthesize to audio.
         :param output_path: Path for output file.
-        :param synthesis_parameters: Transcription kwargs as dictionary.
+        :param synthesis_parameters: Synthesis kwargs as dictionary.
             Defaults to None.
         :return: Output file path and metadata.
         """
