@@ -6,7 +6,8 @@
 ****************************************************
 """
 import sys
-from typing import Optional, Any, Callable, Union
+from typing import Optional, Any, Callable, Union, Dict
+import time
 from abc import ABC, abstractmethod
 from uuid import uuid4
 from queue import Empty, Queue as TQueue
@@ -256,3 +257,146 @@ class MulitprocessingWorkerPool(WorkerPool):
             return self.workers[target_worker]["output"].get(timeout=self.processing_timeout)
         except Empty:
             return None
+
+
+class PipelineComponentThread(Thread):
+    """
+    Represents a threaded pipeline component.
+    """
+    def __init__(self, 
+                 pipeline_function: Callable,
+                 input_queue: TQueue = None,
+                 output_queue: TQueue = None,
+                 interrupt: TEvent = None,
+                 loop_pause: float = .1,
+                 validation_function: Callable = None,
+                 *thread_args: Optional[Any], 
+                 **thread_kwargs: Optional[Any]) -> None:
+        """
+        Initiation method.
+        :param pipeline_function: Pipeline function.
+        :param input_queue: Input queue.
+        :param output_queue: Output queue.
+        :param interrupt: Interrupt event.
+        :param loop_pause: Processing loop pause.
+            Defaults to 0.1 seconds.
+        :param validation_function: Validation function for ingoing data.
+            Defaults to None in which case the pipeline function should check for valid inputs.
+        :param thread_args: Thread constructor arguments.
+        :param thread_kwargs: Thread constructor keyword arguments.
+        """
+        super().__init__(*thread_args, **thread_kwargs)
+        self.pipeline_function = pipeline_function
+        self.input_queue = input_queue
+        self.output_queue = output_queue
+        self.interrupt = TEvent() if interrupt is None else interrupt
+        self.loop_pause = loop_pause
+        self.validation_function = validation_function
+
+    def run(self) -> None:
+        """
+        Main runner method.
+        """
+        while not self.interrupt.is_set():
+            try:
+                res = None
+                if self.input_queue is None:
+                    res = self.pipeline_function()
+                else:
+                    input_data = self.input_queue.get(self.loop_pause)
+                    if self.validation_function is None or self.validation_function(input_data):
+                        res = self.pipeline_function(input_data)
+                input_data = self.input_queue.get(self.loop_pause)
+                if self.output_queue is not None:
+                    self.output_queue.put(res)
+            except Empty:
+                time.sleep(self.loop_pause)
+
+
+class Pipeline(object):
+    """
+    Represents a pipeline of threaded components.
+    """
+    def __init__(self, 
+                 component_functions: Dict[str, Callable],
+                 links: Dict[str, str],
+                 validation_functions: Dict[str, Callable] = {},
+                 loop_pause: float = .1
+                 ) -> None:
+        """
+        Initiation method.
+        :param component_functions: Dictionary of component functions with component name as key.
+        :param links: Dictionary of links that connect the output of the key component to the value component.
+            Note, that the "*" component resembles a global input/output for the pipeline.
+        :param loop_pause: Processing loop pause.
+            Defaults to 0.1 seconds.
+        :param validation_functions: Dictionary of validation functions with component name as key.
+        """
+        self.loop_pause = loop_pause
+        self.interrupts = {
+            key: TEvent() for key in [key for key in component_functions if key != "*"]
+        }
+        self.input_queues = {}
+        self.output_queues = {}
+
+        for link in links:
+            q = TQueue()
+            self.input_queues[link] = q
+            self.output_queues[links[link]] = q
+            
+        self.threads = {}
+        for component in component_functions:
+            self.threads[component] = PipelineComponentThread(
+                pipeline_function=component_functions[component],
+                input_queue=self.input_queues.get(component),
+                output_queue=self.output_queues.get(component),
+                interrupt=self.interrupts[component],
+                loop_pause=self.loop_pause,
+                validation_function=validation_functions.get(component)
+            )
+            self.threads[component].daemon = True
+
+    def start(self, component: str = None) -> None:
+        """
+        Starts component thread(s).
+        :param component: Specific component to start thread for.
+            Defaults to None in which case all components are started.
+        """
+        if component is None:
+            for component in self.threads:
+                self.threads[component].start()
+        else:
+            self.threads[component].start()
+
+    def stop(self, component: str = None) -> None:
+        """
+        Stops component thread(s).
+        :param component: Specific component to stop thread for.
+            Defaults to None in which case all components are stopped.
+        """
+        if component is None:
+            for component in self.threads:
+                self.interrupts[component].set()
+                self.threads[component].join(1)
+        else:
+            self.interrupts[component].set()
+            self.threads[component].join(1)
+
+    def put(self, input_data: Any) -> None:
+        """
+        Puts data into the global input queue.
+        :param input_data: Input data.
+        """
+        if "*" in self.input_queues:
+            self.input_queues["*"].put(input_data)
+
+    def get(self) -> Optional[Any]:
+        """
+        Retrieves data from the global output queue.
+        :return: Global output queue element or None if empty.
+        """
+        if "*" in self.output_queues:
+            try:
+                self.output_queues["*"].get(self.loop_pause)
+            except Empty:
+                return None
