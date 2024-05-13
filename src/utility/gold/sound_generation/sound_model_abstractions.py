@@ -152,15 +152,12 @@ class SpeechRecorder(object):
     """
 
     def __init__(self,
-                 transcriber: Transcriber = None,
                  input_device_index: int = None,
                  recognizer_kwargs: dict = None,
                  microphone_kwargs: dict = None,
                  loop_pause = .1) -> None:
         """
         Initiation method.
-        :param transcriber: Optional transcriber instance.
-            If provided, recordings are returned as transcribed text instead of audio data.
         :param input_device_index: Input device index.
             Defaults to None in which case the default input device index is fetched.
         :param recognizer_kwargs: Keyword arguments for setting up recognizer instances.
@@ -170,7 +167,6 @@ class SpeechRecorder(object):
         :param loop_pause: Forced pause between loops in seconds.
             Defaults to 0.1.
         """
-        self.transcriber = transcriber
         if input_device_index is None:
             pya = pyaudio.PyAudio()
             input_device_index = pya.get_default_input_device_info().get("index")
@@ -190,20 +186,9 @@ class SpeechRecorder(object):
             "chunk_size": 1024
         } if microphone_kwargs is None else microphone_kwargs
 
-    def _optionally_transcribe(self, audio_input: np.ndarray) -> Tuple[Union[str, np.ndarray], dict]:
-        """
-        Transcribes audio input.
-        :param audio_input: Audio input.
-        :return: Recorded input as audio data or text, if a transcriber is available and recording metadata.
-        """
-        return (audio_input, {}) if self.transcriber is None else self.transcriber.transcribe(
-            audio_input=audio_input
-        )
-
     def record_single_input(self,
                             recognizer_kwargs: dict = None,
-                            microphone_kwargs: dict = None,
-                            interrupt_threshold: float = None) -> Tuple[Union[str, np.ndarray], dict]:
+                            microphone_kwargs: dict = None) -> np.ndarray:
         """
         Records continuesly and puts results into output_queue.
         :param output_queue: Queue to put tuples of recordings and metadata into.
@@ -212,9 +197,7 @@ class SpeechRecorder(object):
             Defaults to None in which case default values are used.
         :param microphone_kwargs: Keyword arguments for setting up microphone instances.
             Defaults to None in which case default values are used.
-        :param interrupt_threshold: Interrupt threshold of silence after which the recording loop stops.
-            Defaults to None in which case the loop runs indefinitely
-        :return: Recorded input as audio data or text, if a transcriber is available and recording metadata.
+        :return: Recorded input as numpy array and recording metadata.
         """
         recognizer_kwargs = self.recognizer_kwargs if recognizer_kwargs is None else recognizer_kwargs
         microphone_kwargs = self.microphone_kwargs if microphone_kwargs is None else microphone_kwargs
@@ -232,11 +215,7 @@ class SpeechRecorder(object):
                 source=source
             )
         audio_as_numpy_array = np.frombuffer(audio.get_wav_data(), dtype=np.int16).astype(np.float32) / 32768.0
-        
-        text, metadata_entries = self._optionally_transcribe(
-            audio_input=audio_as_numpy_array
-        )
-        return text, {"timestamp": get_timestamp(), "input_method": "speech_to_text", "transcription_metadata": metadata_entries}
+        return audio_as_numpy_array
 
     def record(self, 
                output_queue: Queue,
@@ -245,14 +224,13 @@ class SpeechRecorder(object):
                interrupt_threshold: float = None) -> None:
         """
         Records continuesly and puts results into output_queue.
-        :param output_queue: Queue to put tuples of recordings and metadata into.
-            Recordings are either audio data (as numpy arrays) or texts, if a transriber is available.
+        :param output_queue: Queue to put tuples of recorded audio data (as numpy array).
         :param recognizer_kwargs: Keyword arguments for setting up recognizer instances.
             Defaults to None in which case default values are used.
         :param microphone_kwargs: Keyword arguments for setting up microphone instances.
             Defaults to None in which case default values are used.
         :param interrupt_threshold: Interrupt threshold of silence after which the recording loop stops.
-            Defaults to None in which case the loop runs indefinitely
+            Defaults to None in which case the loop runs indefinitely.
         """
         recognizer_kwargs = self.recognizer_kwargs if recognizer_kwargs is None else recognizer_kwargs
         microphone_kwargs = self.microphone_kwargs if microphone_kwargs is None else microphone_kwargs
@@ -292,10 +270,7 @@ class SpeechRecorder(object):
 
                     # Convert and transcribe audio input
                     audio_as_numpy_array = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
-                    fulltext, segment_metadatas =  self._optionally_transcribe(
-                        audio_input=audio_as_numpy_array
-                    )
-                    output_queue.put((fulltext, segment_metadatas))
+                    output_queue.put(audio_as_numpy_array)
                 elif interrupt_threshold is not None and recording_started: 
                     if last_empty_transcription is None:
                         last_empty_transcription = time.time()
