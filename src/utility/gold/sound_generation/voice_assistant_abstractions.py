@@ -132,6 +132,8 @@ class ConversationHandler(object):
 
         self.speech_recorder = speech_recorder
         self.transcriber = transcriber
+        if self.speech_recorder.transcriber is None:
+            self.speech_recorder.transcriber = self.transcriber
         self.synthesizer = synthesizer
         self.llm = llm
 
@@ -338,9 +340,7 @@ class ConversationHandler(object):
         Runs a live conversation.
         """
         cfg.LOGGER.info(f"Starting live conversation...")
-        if self.speech_recorder.transcriber is None:
-            self.speech_recorder.transcriber = self.transcriber
-
+        
         speech_input_queue = TQueue()
         speech_recorder_thread = Thread(
             target=self.speech_recorder.record,
