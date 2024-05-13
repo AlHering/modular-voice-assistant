@@ -40,17 +40,17 @@ class ConversationHandler(object):
     A conversation handler manages the following components:
         - speech_recorder: A recorder for spoken input.
         - transcriber: A transcriber to transcribe spoken input into text.
-        - llm: An LLM to compute an output for the given input.
+        - worker: A worker to compute an output for the given input.
         - synthesizer: A synthesizer to convert output texts to sound.
+    Depending on the input and output methods, not all components are used.
     """
-    supported_stt_engines: List[str] = ["faster-whisper", "whsiper"]
 
     def __init__(self, 
                  working_directory: str,
                  speech_recorder: SpeechRecorder = None,
                  transcriber: Transcriber = None,
                  synthesizer: Synthesizer = None,
-                 llm: LanguageModelInstance = None,
+                 worker_function: Callable = None,
                  history: List[dict] = None,
                  input_method: IOMethod = IOMethod.SPEECH,
                  output_method: IOMethod = IOMethod.SPEECH,
@@ -63,7 +63,7 @@ class ConversationHandler(object):
             Defaults to None.
         :param synthesizer: Synthesizer for TTS processes.
             Defaults to None.
-        :param llm: Language model instance.
+        :param worker_function: Worker function for handling cleaned input.
             Defaults to None.
         :param history: History as list of dictionaries of the structure
             {"process": <"tts"/"stt">, "text": <text content>, "metadata": {...}}
@@ -88,11 +88,11 @@ class ConversationHandler(object):
 
         self.speech_recorder = speech_recorder
         self.transcriber = transcriber
-        self.llm = llm
+        self.worker_function = worker_function
         self.synthesizer = synthesizer
         self.component_functions = {
             "transcriber": None if self.transcriber is None else self.transcriber.transcribe,
-            "llm": None if self.llm is None else self.llm.generate,
+            "worker": None if self.worker_function is None else self.worker_function,
             "synthesizer": None if self.synthesizer is None else self.synthesizer.synthesize,
         }
 
@@ -125,11 +125,11 @@ class ConversationHandler(object):
         """
         Method for setting up components.
         """  
-        needed_components = ["transcriber", "llm", "synthesizer"]
+        needed_components = ["transcriber", "worker", "synthesizer"]
         needed_queues = ["transcriber_in",
                          "transcriber_out",
-                         "llm_in",
-                         "llm_out",
+                         "worker_in",
+                         "worker_out",
                          "synthesizer_in",
                          "synthesizer_out"]
         if self.input_method != IOMethod.SPEECH:
@@ -195,23 +195,23 @@ class ConversationHandler(object):
             
         return self.speech_recorder.record_single_input()
     
-    def input_to_llm_gateway(self) -> None:
+    def input_to_worker_gateway(self) -> None:
         """
         Collects and refines input before passing on to LLM.
         """
         try:
             raw_input, raw_input_metadata = self.queues["transcriber_out"].get(self.loop_pause)
             # TODO: Refine input
-            self.queues["llm_in"].put((raw_input, raw_input_metadata))
+            self.queues["worker_in"].put((raw_input, raw_input_metadata))
         except Empty:
             pass
         
-    def llm_to_output_gateway(self) -> None:
+    def worker_to_output_gateway(self) -> None:
         """
         Collects and refines LLM output.
         """
         try:
-            raw_output, raw_output_metadata = self.queues["llm_out"].get(self.loop_pause)
+            raw_output, raw_output_metadata = self.queues["worker_out"].get(self.loop_pause)
             # TODO: Refine output
             if self.output_method == IOMethod.SPEECH:
                 self.queues["synthesizer_in"].put((raw_output, raw_output_metadata))
@@ -244,10 +244,10 @@ class ConversationHandler(object):
             try:
                 cfg.LOGGER.info(f"[1/4] Handling input...")
                 self.handle_input()
-                cfg.LOGGER.info(f"[2/4] Preparing LLM input...")
-                self.input_to_llm_gateway()
-                cfg.LOGGER.info(f"[3/4] Preparing LLM output...")
-                self.llm_to_output_gateway()
+                cfg.LOGGER.info(f"[2/4] Preparing worker input...")
+                self.input_to_worker_gateway()
+                cfg.LOGGER.info(f"[3/4] Preparing worker output...")
+                self.worker_to_output_gateway()
                 cfg.LOGGER.info(f"[4/4] Handling output...")
                 self.handle_output()
                
