@@ -188,7 +188,7 @@ class SpeechRecorder(object):
 
     def record_single_input(self,
                             recognizer_kwargs: dict = None,
-                            microphone_kwargs: dict = None) -> np.ndarray:
+                            microphone_kwargs: dict = None) -> Tuple[np.ndarray, dict]:
         """
         Records continuesly and puts results into output_queue.
         :param output_queue: Queue to put tuples of recordings and metadata into.
@@ -215,7 +215,7 @@ class SpeechRecorder(object):
                 source=source
             )
         audio_as_numpy_array = np.frombuffer(audio.get_wav_data(), dtype=np.int16).astype(np.float32) / 32768.0
-        return audio_as_numpy_array
+        return audio_as_numpy_array, {"timestamp": get_timestamp()}
 
     def record(self, 
                output_queue: Queue,
@@ -224,7 +224,7 @@ class SpeechRecorder(object):
                interrupt_threshold: float = None) -> None:
         """
         Records continuesly and puts results into output_queue.
-        :param output_queue: Queue to put tuples of recorded audio data (as numpy array).
+        :param output_queue: Queue to put tuples of recorded audio data (as numpy array) and recording metadata.
         :param recognizer_kwargs: Keyword arguments for setting up recognizer instances.
             Defaults to None in which case default values are used.
         :param microphone_kwargs: Keyword arguments for setting up microphone instances.
@@ -270,7 +270,7 @@ class SpeechRecorder(object):
 
                     # Convert and transcribe audio input
                     audio_as_numpy_array = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
-                    output_queue.put(audio_as_numpy_array)
+                    output_queue.put((audio_as_numpy_array, {"timestamp": get_timestamp()}))
                 elif interrupt_threshold is not None and recording_started: 
                     if last_empty_transcription is None:
                         last_empty_transcription = time.time()
