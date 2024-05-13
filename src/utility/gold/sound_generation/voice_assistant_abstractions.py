@@ -292,9 +292,48 @@ class ConversationHandler(object):
             cfg.LOGGER.info(f"TTS Gateway handles {tts_output[0]}.")
             return tts_output
         except Empty:
-            return None
-    
-    def run_live_conversation(self) -> None:
+            return None        
+
+    def run_conversation_loop(self) -> None:
+        """
+        Runs conversation loop.
+        """
+        cfg.LOGGER.info(f"Starting conversation loop...")
+        while not self.interrupt.is_set():
+            try:
+                cfg.LOGGER.info(f"[1/3] Waiting for user input...")
+                stt_output = self.stt_gateway()
+                if stt_output is not None:
+                    self.llm_input_queue.put(stt_output[0])
+                
+                cfg.LOGGER.info(f"[2/3] Waiting for LLM output...")
+                llm_output = self.llm_gateway()
+                if llm_output is not None:
+                    self.tts_input_queue.put(llm_output[0])
+
+                cfg.LOGGER.info(f"[3/3] Generating output...")
+                tts_output = self.tts_gateway()
+                if tts_output is not None:
+                    if self.output_method == IOMethod.SPEECH:
+                        text_to_speech_utility.play_wave(tts_output[0], tts_output[1])
+                    elif self.output_method == IOMethod.COMMAND_LINE:
+                        print(f"Assistant: {tts_output[0]}")
+                    elif self.output_method == IOMethod.TEXT_FILE:
+                        print(f"Assistant: {tts_output[0]}")
+                        open(self.output_path, "a" if os.path.exists(self.output_path) else "w").write(
+                            f"\nAssistant: {tts_output[0]}"
+                        )
+                time.sleep(self.loop_pause)
+            except KeyboardInterrupt:
+                cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
+                self.interrupt.set()
+        self.llm_interrupt.set()
+        self.tts_interrupt.set()
+
+        self.llm_thread.join(1)
+        self.tts_thread.join(1)
+
+    def experimental_live_conversation(self) -> None:
         """
         Runs a live conversation.
         """
@@ -353,46 +392,4 @@ class ConversationHandler(object):
 
         self.llm_thread.join(1)
         self.tts_thread.join(1)
-        
-
-    def run_conversation_loop(self) -> None:
-        """
-        Runs conversation loop.
-        """
-        cfg.LOGGER.info(f"Starting conversation loop...")
-        while not self.interrupt.is_set():
-            try:
-                cfg.LOGGER.info(f"[1/3] Waiting for user input...")
-                stt_output = self.stt_gateway()
-                if stt_output is not None:
-                    self.llm_input_queue.put(stt_output[0])
-                
-                cfg.LOGGER.info(f"[2/3] Waiting for LLM output...")
-                llm_output = self.llm_gateway()
-                if llm_output is not None:
-                    self.tts_input_queue.put(llm_output[0])
-
-                cfg.LOGGER.info(f"[3/3] Generating output...")
-                tts_output = self.tts_gateway()
-                if tts_output is not None:
-                    if self.output_method == IOMethod.SPEECH:
-                        text_to_speech_utility.play_wave(tts_output[0], tts_output[1])
-                    elif self.output_method == IOMethod.COMMAND_LINE:
-                        print(f"Assistant: {tts_output[0]}")
-                    elif self.output_method == IOMethod.TEXT_FILE:
-                        print(f"Assistant: {tts_output[0]}")
-                        open(self.output_path, "a" if os.path.exists(self.output_path) else "w").write(
-                            f"\nAssistant: {tts_output[0]}"
-                        )
-                time.sleep(self.loop_pause)
-            except KeyboardInterrupt:
-                cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-                self.interrupt.set()
-        self.llm_interrupt.set()
-        self.tts_interrupt.set()
-
-        self.llm_thread.join(1)
-        self.tts_thread.join(1)
-
-        
             
