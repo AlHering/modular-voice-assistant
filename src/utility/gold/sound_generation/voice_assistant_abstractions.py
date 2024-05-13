@@ -234,26 +234,6 @@ class ConversationHandler(object):
             except IndexError:
                 cfg.LOGGER.warning(f"Setting output device failed. Could not find device '{output_device}'.")
 
-    def set_stt_processor(self,
-                          stt_engine: str = None,
-                          stt_model: str = None,
-                          stt_instantiation_kwargs: dict = None) -> None:
-        """
-        Sets STT processor.
-        :param stt_engine: STT engine.
-            See AudioHandler.supported_stt_engines for supported engines.
-        :param stt_model: STT model name or path.
-        :param stt_instantiation_kwargs: STT model instantiation keyword arguments.
-        """
-        self.sst_engine = self.supported_stt_engines[0] if stt_engine is None else stt_engine
-        self.stt_processor = {
-            "whisper": speech_to_text_utility.get_whisper_model,
-            "faster-whisper": speech_to_text_utility.get_faster_whisper_model
-        }[self.sst_engine](
-            model_name_or_path=stt_model,
-            instantiation_kwargs=stt_instantiation_kwargs
-        )
-
     def handle_stt_input(self) -> Tuple[Optional[str], Optional[dict]]:
         """
         Acquires input based on STT.
