@@ -239,101 +239,7 @@ class ConversationHandler(object):
         Acquires input based on STT.
         :return: Transcribed input and list of metadata entries.
         """
-        recognizer = speech_recognition.Recognizer()
-        recognizer_kwargs = {
-            "energy_threshold": 1000,
-            "dynamic_energy_threshold": False,
-            "pause_threshold": 1.2
-        }
-        for key in recognizer_kwargs:
-            setattr(recognizer, key, recognizer_kwargs[key])
-        microphone_kwargs = {
-            "device_index": self.input_device_index,
-            "sample_rate": 16000,
-            "chunk_size": 1024
-        }
-        microphone = speech_recognition.Microphone(**microphone_kwargs)
-        with microphone as source:
-            recognizer.adjust_for_ambient_noise(source)
-        
-        audio = None
-        with microphone as source:
-            audio = recognizer.listen(
-                source=source
-            )
-        audio_as_numpy_array = np.frombuffer(audio.get_wav_data(), dtype=np.int16).astype(np.float32) / 32768.0
-        text, metadata_entries = self.transcriber.transcribe(
-            audio_input=audio_as_numpy_array
-        )
-        return text, {"timestamp": get_timestamp(), "input_method": "speech_to_text", "transcription_metadata": metadata_entries}
-
-    def handle_live_stt_input(self) -> Tuple[Optional[str], Optional[dict]]:
-        """
-        Acquires live input based on STT.
-        :return: Transcribed input and list of metadata entries.
-        """
-        cfg.LOGGER.info("Running live audio transcription...")
-        audio_queue = TQueue()
-        recognizer = speech_recognition.Recognizer()
-        recognizer_kwargs = {
-            "energy_threshold": 1000,
-            "dynamic_energy_threshold": False,
-            "pause_threshold": .8
-        }
-        for key in recognizer_kwargs:
-            setattr(recognizer, key, recognizer_kwargs[key])
-        microphone_kwargs = {
-            "device_index": self.input_device_index,
-            "sample_rate": 16000,
-            "chunk_size": 1024
-        }
-        microphone = speech_recognition.Microphone(**microphone_kwargs)
-        with microphone as source:
-            recognizer.adjust_for_ambient_noise(source)
-        
-        def speech_recognition_callback(_, audio: speech_recognition.AudioData) -> None:
-            """
-            Collects audio data.
-            :param audio: Audio data.
-            """
-            data = audio.get_raw_data()
-            audio_queue.put(data)
-
-        recognizer.listen_in_background(
-            source=microphone,
-            callback=speech_recognition_callback,
-        )
-        
-        # Starting transcription loop
-        transcriptions = []
-        interrupt_flag = False
-        interrupt_threshold = 6.0
-        last_empty_transcription = None
-        while not interrupt_flag:
-            try:
-                if not audio_queue.empty():
-                    last_empty_transcription = None
-                    cfg.LOGGER.info("Recieved audio input.")
-                    audio = b"".join(audio_queue.queue)
-                    audio_queue.queue.clear()
-
-                    # Convert and transcribe audio input
-                    audio_as_numpy_array = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
-                    fulltext, segment_metadatas = self.transcriber.transcribe(
-                        audio_input=audio_as_numpy_array
-                    )
-                    transcriptions.append((fulltext, segment_metadatas))
-                    cfg.LOGGER.info(f"Transcribed: {fulltext}")
-                elif last_empty_transcription is None:
-                    if transcriptions:
-                        last_empty_transcription = time.time()
-                elif time.time() - last_empty_transcription >= interrupt_threshold:
-                    interrupt_flag = True
-                time.sleep(self.loop_pause)
-            except KeyboardInterrupt:
-                interrupt_flag = True
-
-        return " ".join(t[0] for t in transcriptions), {"timestamp": get_timestamp(), "input_method": "speech_to_text", "transcription_metadata": [t[1] for t in transcriptions]}
+        return self.speech_recorder.record_single_input()
 
     def handle_cli_input(self) -> Tuple[Optional[str], Optional[dict]]:
         """
@@ -387,6 +293,66 @@ class ConversationHandler(object):
             return tts_output
         except Empty:
             return None
+    
+    def run_live_conversation(self) -> None:
+        """
+        Runs a live conversation.
+        """
+        cfg.LOGGER.info(f"Starting live conversation...")
+        if self.speech_recorder.transcriber is None:
+            self.speech_recorder.transcriber = self.transcriber
+
+        speech_input_queue = TQueue()
+        speech_recorder_thread = Thread(
+            target=self.speech_recorder.record,
+            args=(speech_input_queue,)
+        )
+        speech_recorder_thread.daemon = True
+        speech_recorder_thread.start()
+        input_accumulator = []
+        recieved_valid = False
+        recieved_empty = None
+
+        while not self.interrupt.is_set():
+            try:
+                result = speech_input_queue.get(self.loop_pause)
+                if result[0]:
+                    recieved_valid = True
+                    recieved_empty = None
+                    input_accumulator.append(result[0])
+
+                llm_output = self.llm_gateway()
+                if llm_output is not None:
+                    self.tts_input_queue.put(llm_output[0])
+
+                tts_output = self.tts_gateway()
+                if tts_output is not None:
+                    if self.output_method == IOMethod.SPEECH:
+                        text_to_speech_utility.play_wave(tts_output[0], tts_output[1])
+                    elif self.output_method == IOMethod.COMMAND_LINE:
+                        print(f"Assistant: {tts_output[0]}")
+                    elif self.output_method == IOMethod.TEXT_FILE:
+                        print(f"Assistant: {tts_output[0]}")
+                        open(self.output_path, "a" if os.path.exists(self.output_path) else "w").write(
+                            f"\nAssistant: {tts_output[0]}"
+                        )
+                time.sleep(self.loop_pause)
+            except Empty:
+                if recieved_valid:
+                    if recieved_empty is None:
+                        recieved_empty = time.time()
+                    elif time.time() - recieved_empty >= 3.0:
+                        self.llm_input_queue.put(" ".join(input_accumulator))
+                        input_accumulator = []
+            except KeyboardInterrupt:
+                cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
+                self.interrupt.set()
+        self.llm_interrupt.set()
+        self.tts_interrupt.set()
+        self.interrupt.set()
+
+        self.llm_thread.join(1)
+        self.tts_thread.join(1)
         
 
     def run_conversation_loop(self) -> None:
@@ -421,12 +387,12 @@ class ConversationHandler(object):
                 time.sleep(self.loop_pause)
             except KeyboardInterrupt:
                 cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-                self.llm_interrupt.set()
-                self.tts_interrupt.set()
                 self.interrupt.set()
+        self.llm_interrupt.set()
+        self.tts_interrupt.set()
 
-                self.llm_thread.join(1)
-                self.tts_thread.join(1)
+        self.llm_thread.join(1)
+        self.tts_thread.join(1)
 
         
             
