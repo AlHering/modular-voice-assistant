@@ -22,7 +22,7 @@ from ..text_generation.language_model_abstractions import LanguageModelInstance
 from ...bronze.audio_utility import get_input_devices, get_output_devices
 from ...bronze.time_utility import get_timestamp
 from . import speech_to_text_utility, text_to_speech_utility
-from .sound_model_abstractions import Transcriber, Synthesizer
+from .sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
 
 class IOMethod(Enum):
@@ -91,6 +91,7 @@ class ConversationHandler(object):
 
     def __init__(self, 
                  working_directory: str,
+                 speech_recorder: SpeechRecorder = None,
                  transcriber: Transcriber = None,
                  synthesizer: Synthesizer = None,
                  llm: LanguageModelInstance = None,
@@ -101,6 +102,7 @@ class ConversationHandler(object):
         """
         Initiation method.
         :param working_directory: Directory for productive files.
+        :param speech_recorder: Speech recorder for STT processes.
         :param transcriber: Transcriber for STT processes.
             Defaults to None.
         :param synthesizer: Synthesizer for TTS processes.
@@ -128,6 +130,7 @@ class ConversationHandler(object):
         self.output_device_index = pya.get_default_output_device_info().get("index")
         pya.terminate()
 
+        self.speech_recorder = speech_recorder
         self.transcriber = transcriber
         self.synthesizer = synthesizer
         self.llm = llm
