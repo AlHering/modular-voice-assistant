@@ -262,7 +262,6 @@ class ConversationHandler(object):
         self.llm_output_queue = TQueue()
         self.llm_interrupt = TEvent()
         llm_function = lambda x: (x, {"dummy_method": True, "input": x}) if self.llm is None else self.llm.generate
-        print(type(llm_function))
         self.llm_thread = PipelineComponentThread(
             pipeline_function=llm_function,
             input_queue=self.llm_input_queue,
@@ -413,7 +412,6 @@ class ConversationHandler(object):
                     elif self.output_method == IOMethod.COMMAND_LINE:
                         print(f"Assistant: {tts_output[0]}")
                     elif self.output_method == IOMethod.TEXT_FILE:
-                        print(f"Assistant: {tts_output[0]}")
                         open(self.output_path, "a" if os.path.exists(self.output_path) else "w").write(
                             f"\nAssistant: {tts_output[0]}"
                         )
@@ -463,7 +461,6 @@ class ConversationHandler(object):
                     elif self.output_method == IOMethod.COMMAND_LINE:
                         print(f"Assistant: {tts_output[0]}")
                     elif self.output_method == IOMethod.TEXT_FILE:
-                        print(f"Assistant: {tts_output[0]}")
                         open(self.output_path, "a" if os.path.exists(self.output_path) else "w").write(
                             f"\nAssistant: {tts_output[0]}"
                         )
