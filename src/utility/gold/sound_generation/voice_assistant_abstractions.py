@@ -120,8 +120,8 @@ class ConversationHandler(object):
         if not os.path.exists(working_directory):
             os.makedirs(working_directory)
         self.working_directory = working_directory
-        self.input_path = os.path.join(self.working_directory, "input.wav")
-        self.output_path = os.path.join(self.working_directory, "output.wav")
+        self.input_path = os.path.join(self.working_directory, "input.wav") if input_method == IOMethod.SPEECH else os.path.join(self.working_directory, "input.txt")
+        self.output_path = os.path.join(self.working_directory, "output.wav") if input_method == IOMethod.SPEECH else os.path.join(self.working_directory, "output.txt")
 
         pya = pyaudio.PyAudio()
         self.input_device_index = pya.get_default_input_device_info().get("index")
@@ -192,8 +192,7 @@ class ConversationHandler(object):
 
         self.history = [] if self.history is None or delete_history else self.history
         if self.input_method == IOMethod.TEXT_FILE:
-            input_file = os.path.join(self.working_directory, "input.txt")
-            self.cache["text_input"] = self.cache.get("text_input", open(input_file, "r").readlines() if os.path.exists(input_file) else [])
+            self.cache["text_input"] = self.cache.get("text_input", open(self.input_path, "r").readlines() if os.path.exists(self.input_path) else [])
         self.input_method_handle = {
             IOMethod.SPEECH: self.handle_stt_input,
             IOMethod.COMMAND_LINE: self.handle_cli_input,
@@ -261,7 +260,7 @@ class ConversationHandler(object):
         recognizer_kwargs = {
             "energy_threshold": 1000,
             "dynamic_energy_threshold": False,
-            "pause_threshold": 1.0
+            "pause_threshold": 1.2
         }
         for key in recognizer_kwargs:
             setattr(recognizer, key, recognizer_kwargs[key])
@@ -362,7 +361,6 @@ class ConversationHandler(object):
         metadata = {"timestamp": get_timestamp(), "input_method": "command_line"}
         return text, metadata
 
-
     def handle_file_input(self) -> Tuple[Optional[str], Optional[dict]]:
         """
         Acquires input based on text files.
@@ -380,7 +378,7 @@ class ConversationHandler(object):
         :return: Refined STT output.
         """
         result = self.input_method_handle()
-        cfg.LOGGER.info(f"STT Gateway handles {result}.")
+        cfg.LOGGER.info(f"STT Gateway handles {result[0]}.")
         return result if result[0] else None
     
     def llm_gateway(self) -> Optional[Tuple[str, dict]]:
@@ -390,7 +388,7 @@ class ConversationHandler(object):
         """
         try:
             llm_output = self.llm_output_queue.get(self.loop_pause)
-            cfg.LOGGER.info(f"LLM Gateway handles {llm_output}.")
+            cfg.LOGGER.info(f"LLM Gateway handles {llm_output[0]}.")
             return llm_output
         except Empty:
             return None
@@ -402,7 +400,7 @@ class ConversationHandler(object):
         """
         try:
             tts_output = self.tts_output_queue.get(self.loop_pause)
-            cfg.LOGGER.info(f"TTS Gateway handles {tts_output}.")
+            cfg.LOGGER.info(f"TTS Gateway handles {tts_output[0]}.")
             return tts_output
         except Empty:
             return None
@@ -428,9 +426,15 @@ class ConversationHandler(object):
                 cfg.LOGGER.info(f"[3/3] Generating output...")
                 tts_output = self.tts_gateway()
                 if tts_output is not None:
-                    text_to_speech_utility.play_wave(
-                        tts_output[0], tts_output[1]
-                    )
+                    if self.output_method == IOMethod.SPEECH:
+                        text_to_speech_utility.play_wave(tts_output[0], tts_output[1])
+                    elif self.output_method == IOMethod.COMMAND_LINE:
+                        print(f"Assistant: {tts_output[0]}")
+                    elif self.output_method == IOMethod.TEXT_FILE:
+                        print(f"Assistant: {tts_output[0]}")
+                        open(self.output_path, "a" if os.path.exists(self.output_path) else "w").write(
+                            f"\nAssistant: {tts_output[0]}"
+                        )
                 time.sleep(self.loop_pause)
             except KeyboardInterrupt:
                 cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
