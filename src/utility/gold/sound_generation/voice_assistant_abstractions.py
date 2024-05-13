@@ -40,9 +40,9 @@ class PipelineComponentThread(Thread):
     """
     def __init__(self, 
                  pipeline_function: Callable,
-                 input_queue: TQueue,
-                 output_queue: TQueue,
-                 interrupt: TEvent,
+                 input_queue: TQueue = None,
+                 output_queue: TQueue = None,
+                 interrupt: TEvent = None,
                  loop_pause: float = .1,
                  validation_function: Callable = None,
                  *thread_args: Optional[Any], 
@@ -63,7 +63,7 @@ class PipelineComponentThread(Thread):
         self.pipeline_function = pipeline_function
         self.input_queue = input_queue
         self.output_queue = output_queue
-        self.interrupt = interrupt
+        self.interrupt = TEvent() if interrupt is None else interrupt
         self.loop_pause = loop_pause
         self.validation_function = validation_function
 
@@ -73,11 +73,15 @@ class PipelineComponentThread(Thread):
         """
         while not self.interrupt.is_set():
             try:
+                res = None
+                if self.input_queue is None:
+                    res = self.pipeline_function()
+                else:
+                    input_data = self.input_queue.get(self.loop_pause)
+                    if self.validation_function is None or self.validation_function(input_data):
+                        res = self.pipeline_function(input_data)
                 input_data = self.input_queue.get(self.loop_pause)
-                if self.validation_function is None or self.validation_function(input_data):
-                    print(f"Got {input_data}")
-                    res = self.pipeline_function(input_data)
-                    print(f"Calculated {res}")
+                if self.output_queue is not None:
                     self.output_queue.put(res)
             except Empty:
                 time.sleep(self.loop_pause)
@@ -132,8 +136,6 @@ class ConversationHandler(object):
 
         self.speech_recorder = speech_recorder
         self.transcriber = transcriber
-        if self.speech_recorder.transcriber is None:
-            self.speech_recorder.transcriber = self.transcriber
         self.synthesizer = synthesizer
         self.llm = llm
 
