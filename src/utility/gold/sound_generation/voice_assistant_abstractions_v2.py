@@ -19,6 +19,7 @@ from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent
 from queue import Empty, Queue as TQueue
 from ..text_generation.language_model_abstractions import LanguageModelInstance
+from ..text_generation.agent_abstractions import Agent
 from ...bronze.concurrency_utility import PipelineComponentThread
 from ...bronze.time_utility import get_timestamp
 from . import speech_to_text_utility, text_to_speech_utility
@@ -151,6 +152,7 @@ class ConversationHandler(object):
         """
         result = self.speech_recorder.record_single_input()
         if result[0]:
+            cfg.LOGGER.info(f"Forwarding audio data to transcriber...")
             self.queues["transcriber_in"].put(result)
     
     def input_to_worker_gateway(self) -> None:
@@ -160,7 +162,8 @@ class ConversationHandler(object):
         try:
             raw_input, raw_input_metadata = self.queues["transcriber_out"].get(self.loop_pause)
             # TODO: Refine input
-            self.queues["worker_in"].put((raw_input, raw_input_metadata))
+            cfg.LOGGER.info(f"Forwarding {raw_input} to worker...")
+            self.queues["worker_in"].put(raw_input)
         except Empty:
             pass
         
@@ -171,7 +174,8 @@ class ConversationHandler(object):
         try:
             raw_output, raw_output_metadata = self.queues["worker_out"].get(self.loop_pause)
             # TODO: Refine output
-            self.queues["synthesizer_in"].put((raw_output, raw_output_metadata))
+            cfg.LOGGER.info(f"Forwarding {raw_output} to synthesizer...")
+            self.queues["synthesizer_in"].put(raw_output)
         except Empty:
             return None    
 
@@ -181,6 +185,7 @@ class ConversationHandler(object):
         """  
         output, output_metadata = self.queues["synthesizer_out"].get(self.loop_pause)
         if output:
+            cfg.LOGGER.info(f"Ouputting synthesized response...")
             text_to_speech_utility.play_wave(output, output_metadata)
 
     def run_conversation_loop(self) -> None:
@@ -204,3 +209,62 @@ class ConversationHandler(object):
                 cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
                 self._stop()
         
+
+if __name__ == "__main__":
+    faster_whisper_model = f"{cfg.PATHS.SOUND_GENERATION_MODEL_PATH}/speech_to_text/faster_whisper_models/Systran_faster-whisper-tiny"
+    coqui_tts_model = f"{cfg.PATHS.SOUND_GENERATION_MODEL_PATH}/text_to_speech/coqui_models/tts_models--multilingual--multi-dataset--xtts_v2"
+    coqui_tts_speaker_wav = f"{cfg.PATHS.SOUND_GENERATION_MODEL_PATH}/text_to_speech/coqui_xtts/examples/female.wav"
+    phi_3_path = f"{cfg.PATHS.TEXT_GENERATION_MODEL_PATH}/microsoft_Phi-3-mini-4k-instruct-gguf"
+    phi_3_file = f"Phi-3-mini-4k-instruct-q4.gguf"
+    llama_3_norefusal_path = f"{cfg.PATHS.TEXT_GENERATION_MODEL_PATH}/text_generation_models/mradermacher_Llama-3-8B-Instruct-norefusal-i1-GGUF"
+    llama_3_norefusal_file = f"Llama-3-8B-Instruct-norefusal.i1-Q4_K_M.gguf"
+
+    transcriber_kwargs = {
+        "backend": "faster-whisper",
+        "model_path": faster_whisper_model,
+        "model_parameters": {
+            "device": "cuda",
+            "compute_type": "float32",
+            "local_files_only": True
+        }
+    }
+    synthesizer_kwargs = {
+        "backend": "coqui-tts",
+        "model_path": coqui_tts_model,
+        "model_parameters": {
+            "config_path": f"{coqui_tts_model}/config.json",
+            "gpu": True
+        },
+        "synthesis_parameters": {
+            "speaker_wav": coqui_tts_speaker_wav,
+            "language": "en"
+        }
+    }
+    phi_3_llm_kwargs = {
+        "backend": "transformers",
+        "model_path": phi_3_path,
+        "model_file": phi_3_file,
+        "model_parameters": {"context_length": 4096, "max_new_tokens": 1024},
+        "prompt_maker": lambda history: "\n".join(f"<|{entry[0]}|>\n{entry[1]}{'<|end|>' if entry[0] == 'user' else ''}\n<|assistant|>" for entry in history),
+    }
+
+    transcriber = Transcriber(
+        **transcriber_kwargs
+    )
+
+    synthesizer = Synthesizer(
+        **synthesizer_kwargs
+    )
+
+    llm = LanguageModelInstance(
+        **phi_3_llm_kwargs
+    )
+
+    handler = ConversationHandler(
+        working_directory=os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant"),
+        transcriber=transcriber,
+        synthesizer=synthesizer,
+        worker_function=llm.generate
+    )
+
+    handler.run_conversation_loop()
