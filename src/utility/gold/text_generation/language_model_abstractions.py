@@ -86,8 +86,14 @@ class LanguageModelInstance(object):
         """
         self.backend = backend
         self.system_prompt = default_system_prompt
-        self.prompt_maker = lambda history: "\n".join(
-                     f"<s>{entry[0]}:\n{entry[1]}</s>" for entry in history) + "\n" if prompt_maker is None else prompt_maker
+        if prompt_maker is None:
+            def prompt_maker(history: List[Tuple[str, str, dict]]) -> str:
+                """
+                Default Prompt maker function.
+                :param history: History.
+                """
+                return "\n".join(f"<s>{entry[0]}:\n{entry[1]}</s>" for entry in history) + "\n"
+        self.prompt_maker = prompt_maker
 
         self.use_history = use_history
         self.history = [] if history is None and default_system_prompt is None else [
