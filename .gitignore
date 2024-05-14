@@ -165,14 +165,14 @@ docs/literature/
 docs/api_analysis/
 docs/todo/
 configuration/*.env
-machine_learning_models/LORAS/*
-machine_learning_models/MODELS/*
-machine_learning_models/EMBEDDING_MODELS/*
+machine_learning_models/text_generation/*
+machine_learning_models/sound_generation/*
+machine_learning_models/image_generation/*
 tmp*
 .desktop
 
 # Exceptions
-!machine_learning_models/LORAS/mount ML LoRAs here.txt
-!machine_learning_models/MODELS/mount ML models here.txt
-!machine_learning_models/EMBEDDING_MODELS/mount ML models for embedding here.txt
+!machine_learning_models/text_generation/mount models for text generation here.txt
+!machine_learning_models/sound_generation/mount models for sound generation here.txt
+!machine_learning_models/image_generation/mount models for image generation here.txt
 !src/utility/data/media_types.json
