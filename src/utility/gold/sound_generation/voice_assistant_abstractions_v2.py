@@ -38,10 +38,10 @@ class ConversationHandler(object):
 
     def __init__(self, 
                  working_directory: str,
-                 speech_recorder: SpeechRecorder = None,
-                 transcriber: Transcriber = None,
-                 synthesizer: Synthesizer = None,
-                 worker_function: Callable = None,
+                 speech_recorder: SpeechRecorder,
+                 transcriber: Transcriber,
+                 synthesizer: Synthesizer,
+                 worker_function: Callable,
                  history: List[dict] = None,
                  loop_pause: float = 0.1) -> None:
         """
@@ -49,11 +49,8 @@ class ConversationHandler(object):
         :param working_directory: Directory for productive files.
         :param speech_recorder: Speech recorder for STT processes.
         :param transcriber: Transcriber for STT processes.
-            Defaults to None.
         :param synthesizer: Synthesizer for TTS processes.
-            Defaults to None.
         :param worker_function: Worker function for handling cleaned input.
-            Defaults to None.
         :param history: History as list of dictionaries of the structure
             {"process": <"tts"/"stt">, "text": <text content>, "metadata": {...}}
         :param input_method: Input method.
@@ -80,9 +77,9 @@ class ConversationHandler(object):
         self.worker_function = worker_function
         self.synthesizer = synthesizer
         self.component_functions = {
-            "transcriber": None if self.transcriber is None else self.transcriber.transcribe,
-            "worker": None if self.worker_function is None else self.worker_function,
-            "synthesizer": None if self.synthesizer is None else self.synthesizer.synthesize,
+            "transcriber": self.transcriber.transcribe,
+            "worker": self.worker_function,
+            "synthesizer": self.synthesizer.synthesize,
         }
 
         self.interrupt = None
