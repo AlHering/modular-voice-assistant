@@ -25,15 +25,6 @@ from . import speech_to_text_utility, text_to_speech_utility
 from .sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
 
-class IOMethod(Enum):
-    """
-    Represents input or output methods.
-    """
-    SPEECH = 0
-    COMMAND_LINE = 1
-    TEXT_FILE = 2
-
-
 class ConversationHandler(object):
     """
     Represents a conversation handler for handling audio based interaction.
@@ -42,7 +33,6 @@ class ConversationHandler(object):
         - transcriber: A transcriber to transcribe spoken input into text.
         - worker: A worker to compute an output for the given input.
         - synthesizer: A synthesizer to convert output texts to sound.
-    Depending on the input and output methods, not all components are used.
     """
 
     def __init__(self, 
@@ -52,8 +42,6 @@ class ConversationHandler(object):
                  synthesizer: Synthesizer = None,
                  worker_function: Callable = None,
                  history: List[dict] = None,
-                 input_method: IOMethod = IOMethod.SPEECH,
-                 output_method: IOMethod = IOMethod.SPEECH,
                  loop_pause: float = 0.1) -> None:
         """
         Initiation method.
@@ -78,8 +66,8 @@ class ConversationHandler(object):
         if not os.path.exists(working_directory):
             os.makedirs(working_directory)
         self.working_directory = working_directory
-        self.input_path = os.path.join(self.working_directory, "input.wav") if input_method == IOMethod.SPEECH else os.path.join(self.working_directory, "input.txt")
-        self.output_path = os.path.join(self.working_directory, "output.wav") if input_method == IOMethod.SPEECH else os.path.join(self.working_directory, "output.txt")
+        self.input_path = os.path.join(self.working_directory, "input.wav") 
+        self.output_path = os.path.join(self.working_directory, "output.wav") 
 
         pya = pyaudio.PyAudio()
         self.input_device_index = pya.get_default_input_device_info().get("index")
@@ -103,11 +91,6 @@ class ConversationHandler(object):
 
         self.history = history
         self.loop_pause = loop_pause
-
-        self.input_method = input_method
-        self.output_method = output_method
-
-        self.cache = None
         self._reset()
 
     def _stop(self) -> None:
@@ -124,23 +107,13 @@ class ConversationHandler(object):
     def _setup_components(self) -> None:
         """
         Method for setting up components.
-        """  
-        needed_components = ["transcriber", "worker", "synthesizer"]
-        needed_queues = ["transcriber_in",
-                         "transcriber_out",
-                         "worker_in",
-                         "worker_out",
-                         "synthesizer_in",
-                         "synthesizer_out"]
-        if self.input_method != IOMethod.SPEECH:
-            needed_components.remove("transcriber")
-        if self.output_method != IOMethod.SPEECH:
-            needed_components.remove("synthesizer")
+        """
+        self.interrupts = {component: TEvent() for component in self.component_functions}
 
-        self.interrupts = {component: TEvent() for component in needed_components}
-        self.queues = {component: TQueue() for component in needed_queues}
+        self.queues = {f"{component}_in": TQueue() for component in self.component_functions}
+        self.queues.update({f"{component}_out": TQueue() for component in self.component_functions})
 
-        for component in needed_components:
+        for component in self.component_functions:
             self.threads[component] = PipelineComponentThread(
                 pipeline_function=self.component_functions[component],
                 input_queue=self.queues.get(f"{component}_in"),
@@ -180,20 +153,9 @@ class ConversationHandler(object):
         """
         Acquires and reroutes input based on configured input method.
         """
-        if self.input_method == IOMethod.SPEECH:
-            result = self.speech_recorder.record_single_input()
-            if result[0]:
-                self.queues["transcriber_in"].put(result)
-        elif self.input_method == IOMethod.COMMAND_LINE:
-            result = input("User > ")
-            self.queues["transcriber_out"].put((result, {"timestamp": get_timestamp()}))
-        elif self.input_method == IOMethod.TEXT_FILE:
-            if self.cache["input"]:
-                result = self.cache["input"][0]
-                self.cache["input"] = self.cache["input"][1:]
-                self.queues["transcriber_out"].put((result, {"timestamp": get_timestamp()}))
-            
-        return self.speech_recorder.record_single_input()
+        result = self.speech_recorder.record_single_input()
+        if result[0]:
+            self.queues["transcriber_in"].put(result)
     
     def input_to_worker_gateway(self) -> None:
         """
@@ -213,10 +175,7 @@ class ConversationHandler(object):
         try:
             raw_output, raw_output_metadata = self.queues["worker_out"].get(self.loop_pause)
             # TODO: Refine output
-            if self.output_method == IOMethod.SPEECH:
-                self.queues["synthesizer_in"].put((raw_output, raw_output_metadata))
-            else:
-                self.queues["synthesizer_out"].put((raw_output, raw_output_metadata))
+            self.queues["synthesizer_in"].put((raw_output, raw_output_metadata))
         except Empty:
             return None    
 
@@ -226,14 +185,7 @@ class ConversationHandler(object):
         """  
         output, output_metadata = self.queues["synthesizer_out"].get(self.loop_pause)
         if output:
-            if self.output_method == IOMethod.SPEECH:
-                text_to_speech_utility.play_wave(output, output_metadata)
-            elif self.output_method == IOMethod.COMMAND_LINE:
-                print(f"Assistant: {output}")
-            elif self.output_method == IOMethod.TEXT_FILE:
-                open(self.output_path, "a" if os.path.exists(self.output_path) else "w").write(
-                    f"\nAssistant: {output}"
-                )  
+            text_to_speech_utility.play_wave(output, output_metadata)
 
     def run_conversation_loop(self) -> None:
         """
