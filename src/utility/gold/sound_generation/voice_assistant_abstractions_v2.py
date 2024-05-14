@@ -149,46 +149,63 @@ class ConversationHandler(object):
         Acquires and reroutes input based on configured input method.
         """
         result = self.speech_recorder.record_single_input()
-        if result[0]:
+        if result[0].any():
             cfg.LOGGER.info(f"Forwarding audio data to transcriber...")
-            self.queues["transcriber_in"].put(result)
+            self.queues["transcriber_in"].put(result[0])
     
-    def input_to_worker_gateway(self) -> None:
+    def input_to_worker_gateway(self) -> bool:
         """
         Collects and refines input before passing on to LLM.
+        :return: True, if data was successfully forwarded, else False.
         """
         try:
+            cfg.LOGGER.info(f"Trying to fetch 'transcriber_out' data ...")
             raw_input, raw_input_metadata = self.queues["transcriber_out"].get(self.loop_pause)
             # TODO: Refine input
             cfg.LOGGER.info(f"Forwarding {raw_input} to worker...")
             self.queues["worker_in"].put(raw_input)
+            return True
         except Empty:
-            pass
+            cfg.LOGGER.info(f"'transcriber_out'-queue is empty.")
+            return False
         
-    def worker_to_output_gateway(self) -> None:
+    def worker_to_output_gateway(self) -> bool:
         """
         Collects and refines LLM output.
+        :return: True, if data was successfully forwarded, else False.
         """
         try:
+            cfg.LOGGER.info(f"Trying to fetch 'worker_out' data ...")
             raw_output, raw_output_metadata = self.queues["worker_out"].get(self.loop_pause)
             # TODO: Refine output
             cfg.LOGGER.info(f"Forwarding {raw_output} to synthesizer...")
             self.queues["synthesizer_in"].put(raw_output)
+            return True
         except Empty:
-            return None    
+            cfg.LOGGER.info(f"'worker_out'-queue is empty.")
+            return False
 
-    def handle_output(self) -> None:
+    def handle_output(self) -> bool:
         """
         Acquires and reroutes generated output based on configured output method.
+        :return: True, if data was successfully outputted, else False.
         """  
-        output, output_metadata = self.queues["synthesizer_out"].get(self.loop_pause)
-        if output:
-            cfg.LOGGER.info(f"Ouputting synthesized response...")
-            text_to_speech_utility.play_wave(output, output_metadata)
+        try:
+            cfg.LOGGER.info(f"Trying to fetch 'synthesizer_out' data ...")
+            output, output_metadata = self.queues["synthesizer_out"].get(self.loop_pause)
+            if output:
+                cfg.LOGGER.info(f"Ouputting synthesized response...")
+                text_to_speech_utility.play_wave(output, output_metadata)
+            return True
+        except Empty:
+            cfg.LOGGER.info(f"'synthesizer_out'-queue is empty.")
+            return False
 
-    def run_conversation_loop(self) -> None:
+    def run_conversation_loop(self, blocking: bool = True) -> None:
         """
         Runs conversation loop.
+        :param blocking: Flag which declares whether or not to wait for each step.
+            Defaults to True.
         """
         cfg.LOGGER.info(f"Starting conversation loop...")
         while not self.interrupt.is_set():
@@ -196,11 +213,14 @@ class ConversationHandler(object):
                 cfg.LOGGER.info(f"[1/4] Handling input...")
                 self.handle_input()
                 cfg.LOGGER.info(f"[2/4] Preparing worker input...")
-                self.input_to_worker_gateway()
+                while not self.input_to_worker_gateway() and blocking:
+                    time.sleep(self.loop_pause)
                 cfg.LOGGER.info(f"[3/4] Preparing worker output...")
-                self.worker_to_output_gateway()
+                while not self.worker_to_output_gateway() and blocking:
+                    time.sleep(self.loop_pause)
                 cfg.LOGGER.info(f"[4/4] Handling output...")
-                self.handle_output()
+                while not self.handle_output() and blocking:
+                    time.sleep(self.loop_pause)
                
                 time.sleep(self.loop_pause)
             except KeyboardInterrupt:
