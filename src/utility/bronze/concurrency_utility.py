@@ -6,7 +6,7 @@
 ****************************************************
 """
 import sys
-from typing import Optional, Any, Callable, Union, Dict
+from typing import Optional, Any, Callable, Union, Dict, Generator
 import time
 from abc import ABC, abstractmethod
 from uuid import uuid4
@@ -307,7 +307,11 @@ class PipelineComponentThread(Thread):
                     if self.validation_function is None or self.validation_function(input_data):
                         res = self.pipeline_function(input_data)
                 if self.output_queue is not None:
-                    self.output_queue.put(res)
+                    if isinstance(res, Generator):
+                        for elem in res:
+                            self.output_queue.put(elem)
+                    else:
+                        self.output_queue.put(elem)
             except Empty:
                 time.sleep(self.loop_pause)
 
