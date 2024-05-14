@@ -109,6 +109,7 @@ class ConversationHandler(object):
         """
         Method for setting up components.
         """
+        self.interrupt = TEvent()
         self.interrupts = {component: TEvent() for component in self.component_functions}
 
         self.queues = {f"{component}_in": TQueue() for component in self.component_functions}
