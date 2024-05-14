@@ -143,10 +143,6 @@ class ConversationHandler(object):
 
         self._setup_components()
         self.history = [] if self.history is None or delete_history else self.history
-        self.cache = {
-            "input": [line.replace("\n", "") 
-                      for line in open(self.input_path, "r").readlines()] 
-                      if os.path.exists(self.input_path) else []} if self.input_method == IOMethod.TEXT_FILE else {}
         cfg.LOGGER.info("Setup is done.")
 
     def handle_input(self) -> None:
