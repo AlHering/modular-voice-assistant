@@ -34,6 +34,7 @@ class LanguageModelInstance(object):
                  config_path: str = None,
                  config_parameters: dict = None,
                  default_system_prompt: str = None,
+                 prompt_maker: Callable = None,
                  use_history: bool = True,
                  history: List[Tuple[str, str, dict]] = None,
                  encoding_parameters: dict = None,
@@ -64,6 +65,8 @@ class LanguageModelInstance(object):
             Defaults to None.
         :param default_system_prompt: Default system prompt.
             Defaults to a standard system prompt.
+        :param prompt_maker: Function which takes the prompt history as a list of (<role>, <message>, <metadata>)-tuples 
+            (already including the new user prompt) as argument and calculates the final prompt.
         :param use_history: Flag, declaring whether to use the history.
             Defaults to True.
         :param history: Interaction history as list of (<role>, <message>, <metadata>)-tuples tuples.
@@ -83,6 +86,8 @@ class LanguageModelInstance(object):
         """
         self.backend = backend
         self.system_prompt = "You are a friendly and helpful assistant answering questions based on the context provided." if default_system_prompt is None else default_system_prompt
+        self.prompt_maker = lambda history: "\n".join(
+                     f"<s>{entry[0]}:\n{entry[1]}</s>" for entry in history) + "\n" if prompt_maker is None else prompt_maker
 
         self.use_history = use_history
         self.history = [("system", self.system_prompt, {
@@ -150,16 +155,12 @@ class LanguageModelInstance(object):
 
     def generate(self,
                  prompt: str,
-                 history_merger: Callable = lambda history: "\n".join(
-                     f"<s>{entry[0]}:\n{entry[1]}</s>" for entry in history) + "\n",
                  encoding_parameters: dict = None,
                  generating_parameters: dict = None,
                  decoding_parameters: dict = None) -> Tuple[str, Optional[dict]]:
         """
         Method for generating a response to a given prompt and conversation history.
         :param prompt: Prompt.
-        :param history_merger: Merger function for creating full prompt, 
-            taking in the prompt history as a list of (<role>, <message>, <metadata>)-tuples as argument (already including the new user prompt).
         :param encoding_parameters: Kwargs for encoding as dictionary.
             Defaults to None.
         :param generating_parameters: Kwargs for generating as dictionary.
@@ -170,8 +171,9 @@ class LanguageModelInstance(object):
         """
         if not self.use_history:
             self.history = [self.history[0]]
-        self.history.append(("user", prompt))
-        full_prompt = history_merger(self.history)
+        self.history.append(("user", prompt, {
+            "timestamp": dt.now()}))
+        full_prompt = self.prompt_maker(self.history)
 
         encoding_parameters = self.encoding_parameters if encoding_parameters is None else encoding_parameters
         generating_parameters = self.generating_parameters if generating_parameters is None else generating_parameters
