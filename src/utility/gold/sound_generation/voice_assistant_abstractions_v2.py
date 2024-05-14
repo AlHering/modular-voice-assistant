@@ -114,19 +114,19 @@ class ConversationHandler(object):
         self.queues = {f"{component}_in": TQueue() for component in self.component_functions}
         self.queues.update({f"{component}_out": TQueue() for component in self.component_functions})
 
+        self.threads = {}
         for component in self.component_functions:
             self.threads[component] = PipelineComponentThread(
                 pipeline_function=self.component_functions[component],
                 input_queue=self.queues.get(f"{component}_in"),
                 output_queue=self.queues.get(f"{component}_out"),
-                interrupt=self.interrupt["component"],
+                interrupt=self.interrupts[component],
                 loop_pause=self.loop_pause
             )
             self.threads[component].daemon = True
 
         for component in self.threads:
             self.threads[component].start()
-
 
     def _reset(self, delete_history: bool = False) -> None:
         """
