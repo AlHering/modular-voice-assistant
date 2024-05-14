@@ -311,7 +311,7 @@ class PipelineComponentThread(Thread):
                         for elem in res:
                             self.output_queue.put(elem)
                     else:
-                        self.output_queue.put(elem)
+                        self.output_queue.put(res)
             except Empty:
                 time.sleep(self.loop_pause)
 
