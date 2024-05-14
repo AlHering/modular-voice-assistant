@@ -64,7 +64,7 @@ class LanguageModelInstance(object):
         :param config_parameters: Config loading kwargs as dictionary.
             Defaults to None.
         :param default_system_prompt: Default system prompt.
-            Defaults to a standard system prompt.
+            Defaults to a None in which case no system prompt is used.
         :param prompt_maker: Function which takes the prompt history as a list of (<role>, <message>, <metadata>)-tuples 
             (already including the new user prompt) as argument and calculates the final prompt.
         :param use_history: Flag, declaring whether to use the history.
@@ -85,13 +85,15 @@ class LanguageModelInstance(object):
             different initation methods.
         """
         self.backend = backend
-        self.system_prompt = "You are a friendly and helpful assistant answering questions based on the context provided." if default_system_prompt is None else default_system_prompt
+        self.system_prompt = default_system_prompt
         self.prompt_maker = lambda history: "\n".join(
                      f"<s>{entry[0]}:\n{entry[1]}</s>" for entry in history) + "\n" if prompt_maker is None else prompt_maker
 
         self.use_history = use_history
-        self.history = [("system", self.system_prompt, {
-            "intitated": dt.now()})] if history is None else history
+        self.history = [] if history is None and default_system_prompt is None else [
+            ("system", self.system_prompt, {
+            "intitated": dt.now()})
+            ] if history is None else history
 
         self.encoding_parameters = {} if encoding_parameters is None else encoding_parameters
         self.embedding_parameters = {} if embedding_parameters is None else embedding_parameters
