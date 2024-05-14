@@ -170,6 +170,7 @@ machine_learning_models/sound_generation/*
 machine_learning_models/image_generation/*
 tmp*
 .desktop
+link_local_models.sh
 
 # Exceptions
 !machine_learning_models/text_generation/mount models for text generation here.txt
