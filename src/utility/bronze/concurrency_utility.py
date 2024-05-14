@@ -306,7 +306,6 @@ class PipelineComponentThread(Thread):
                     input_data = self.input_queue.get(self.loop_pause)
                     if self.validation_function is None or self.validation_function(input_data):
                         res = self.pipeline_function(input_data)
-                input_data = self.input_queue.get(self.loop_pause)
                 if self.output_queue is not None:
                     self.output_queue.put(res)
             except Empty:
