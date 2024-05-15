@@ -76,16 +76,19 @@ class ConversationHandler(object):
         self.transcriber = transcriber
         self.worker_function = worker_function
         self.synthesizer = synthesizer
-        self.component_functions = {
+        self.component_functions: Dict[str, Callable] = {
             "transcriber": self.transcriber.transcribe,
             "worker": self.worker_function,
             "synthesizer": self.synthesizer.synthesize,
         }
 
-        self.interrupt = None
-        self.interrupts = {}
-        self.queues = {}
-        self.threads = {}
+        self.interrupt: TEvent = None
+        self.pause_inputting: TEvent = None
+        self.pause_forwarding: TEvent = None
+        self.pause_outputting: TEvent = None
+        self.interrupts: Dict[str, TEvent] = {}
+        self.queues: Dict[str, TQueue] = {}
+        self.threads: Dict[str, PipelineComponentThread] = {}
 
         self.history = history
         self.loop_pause = loop_pause
@@ -95,18 +98,27 @@ class ConversationHandler(object):
         """
         Method for stopping processes.
         """
-        if self.interrupt is not None:
-            self.interrupt.set()
+        for event in [
+            self.interrupt,
+            self.pause_inputting,
+            self.pause_forwarding,
+            self.pause_outputting
+        ]:
+            if event is not None:
+                event.set()
         for component in self.interrupts:
             self.interrupts[component].set()
         for component in self.threads:
-            self.threads[component].join(1) 
+            self.threads[component].join(self.loop_pause) 
 
     def _setup_components(self) -> None:
         """
         Method for setting up components.
         """
         self.interrupt = TEvent()
+        self.pause_inputting = TEvent()
+        self.pause_forwarding = TEvent()
+        self.pause_outputting = TEvent()
         self.interrupts = {component: TEvent() for component in self.component_functions}
 
         self.queues = {f"{component}_in": TQueue() for component in self.component_functions}
@@ -119,7 +131,7 @@ class ConversationHandler(object):
                 input_queue=self.queues.get(f"{component}_in"),
                 output_queue=self.queues.get(f"{component}_out"),
                 interrupt=self.interrupts[component],
-                loop_pause=self.loop_pause
+                loop_pause=self.loop_pause/8
             )
             self.threads[component].daemon = True
 
@@ -144,62 +156,129 @@ class ConversationHandler(object):
         self.history = [] if self.history is None or delete_history else self.history
         cfg.LOGGER.info("Setup is done.")
 
-    def handle_input(self) -> None:
+    def handle_input(self) -> bool:
         """
-        Acquires and reroutes input based on configured input method.
+        Acquires and forwards user input.
+        :return: True, if data was successfully forwarded, else False.
         """
-        result = self.speech_recorder.record_single_input()
-        if result[0].any():
-            cfg.LOGGER.info(f"Forwarding audio data to transcriber...")
-            self.queues["transcriber_in"].put(result[0])
+        if not self.pause_inputting.is_set():
+            audio_data, audio_metadata = self.speech_recorder.record_single_input()
+            if audio_data.any():
+                cfg.LOGGER.info(f"Forwarding audio data to transcriber...")
+                self.queues["transcriber_in"].put(audio_data)
+                return True
+        return False
     
     def input_to_worker_gateway(self) -> bool:
         """
         Collects and refines input before passing on to LLM.
         :return: True, if data was successfully forwarded, else False.
         """
-        try:
-            cfg.LOGGER.info(f"Trying to fetch 'transcriber_out' data ...")
-            raw_input, raw_input_metadata = self.queues["transcriber_out"].get(self.loop_pause)
-            # TODO: Refine input
-            cfg.LOGGER.info(f"Forwarding {raw_input} to worker...")
-            self.queues["worker_in"].put(raw_input)
-            return True
-        except Empty:
-            cfg.LOGGER.info(f"'transcriber_out'-queue is empty.")
-            return False
+        if not self.pause_forwarding.is_set():
+            try:
+                cfg.LOGGER.info(f"Trying to fetch 'transcriber_out' data ...")
+                raw_input, raw_input_metadata = self.queues["transcriber_out"].get(self.loop_pause/4)
+                # Refine input
+                cfg.LOGGER.info(f"Forwarding {raw_input} to worker...")
+                self.queues["worker_in"].put(raw_input)
+                return True
+            except Empty:
+                cfg.LOGGER.info(f"'transcriber_out'-queue is empty.")
+        return False
         
     def worker_to_output_gateway(self) -> bool:
         """
         Collects and refines LLM output.
         :return: True, if data was successfully forwarded, else False.
         """
-        try:
-            cfg.LOGGER.info(f"Trying to fetch 'worker_out' data ...")
-            raw_output, raw_output_metadata = self.queues["worker_out"].get(self.loop_pause)
-            # TODO: Refine output
-            cfg.LOGGER.info(f"Forwarding {raw_output} to synthesizer...")
-            self.queues["synthesizer_in"].put(raw_output)
-            return True
-        except Empty:
-            cfg.LOGGER.info(f"'worker_out'-queue is empty.")
-            return False
+        if not self.pause_forwarding.is_set():
+            try:
+                cfg.LOGGER.info(f"Trying to fetch 'worker_out' data ...")
+                response_text, response_metadata = self.queues["worker_out"].get(self.loop_pause/4)
+                if response_text:
+                    cfg.LOGGER.info(f"Forwarding {response_text} to synthesizer...")
+                    self.queues["synthesizer_in"].put(response_text)
+                return True
+            except Empty:
+                cfg.LOGGER.info(f"'worker_out'-queue is empty.")
+        return False
 
     def handle_output(self) -> bool:
         """
-        Acquires and reroutes generated output based on configured output method.
+        Acquires and reroutes generated output based.
         :return: True, if data was successfully outputted, else False.
         """  
-        try:
-            cfg.LOGGER.info(f"Trying to fetch 'synthesizer_out' data ...")
-            output, output_metadata = self.queues["synthesizer_out"].get(self.loop_pause)
-            if output:
-                cfg.LOGGER.info(f"Ouputting synthesized response...")
-                text_to_speech_utility.play_wave(output, output_metadata)
-            return True
-        except Empty:
-            cfg.LOGGER.info(f"'synthesizer_out'-queue is empty.")
-            return False
+        if not self.pause_outputting.is_set():
+            self.pause_outputting.set()
+            try:
+                cfg.LOGGER.info(f"Trying to fetch 'synthesizer_out' data ...")
+                output, output_metadata = self.queues["synthesizer_out"].get(self.loop_pause/4)
+                if output.any():
+                    cfg.LOGGER.info(f"Ouputting synthesized response...")
+                    text_to_speech_utility.play_wave(output, output_metadata)
+                    cfg.LOGGER.info(f"Ouput finished.")
+                return True
+            except Empty:
+                cfg.LOGGER.info(f"'synthesizer_out'-queue is empty.")
+            self.pause_outputting.clear()
+        return False
+        
+    def _forward_queued_elements(self) -> None:
+        """
+        Method for forwarding queued elements.
+        """
+        self.input_to_worker_gateway()
+        self.worker_to_output_gateway()
+        self.handle_output()
+        time.sleep(self.loop_pause/8)
+        
+    def _run_blocking_conversation_steps(self) -> None:
+        """
+        Runs conversation steps for step.
+        """
+        cfg.LOGGER.info(f"[1/4] Handling input...")
+        while not self.handle_input():
+            time.sleep(self.loop_pause/4)
+        cfg.LOGGER.info(f"[2/4] Preparing worker input...")
+        while not self.input_to_worker_gateway():
+            time.sleep(self.loop_pause/4)
+        cfg.LOGGER.info(f"[3/4] Preparing worker output...")
+        while not self.worker_to_output_gateway():
+            time.sleep(self.loop_pause/4)
+        cfg.LOGGER.info(f"[4/4] Handling output...")
+        while not self.handle_output():
+            time.sleep(self.loop_pause/4)
+
+    def _run_non_blocking_conversation_steps(self) -> None:
+        """
+        Runs conversation in a non-blocking manner.
+        """
+        if "_forward_queued_elements" not in self.threads:
+            cfg.LOGGER.info(f"Setting up forwarder thread...")
+            self.threads["_forward_queued_elements"] = PipelineComponentThread(
+                pipeline_function=self._forward_queued_elements,
+                interrupt=self.interrupt,
+                loop_pause=self.loop_pause
+            )
+            self.threads["_forward_queued_elements"].daemon = True
+            self.threads["_forward_queued_elements"].start()
+        
+        cfg.LOGGER.info(f"[1/4] Handling input...")
+        while not self.handle_input():
+            cfg.LOGGER.info(f"Looping audio input handler...")
+            time.sleep(self.loop_pause)
+        if self.queues["worker_in"].qsize() > 0 or self.queues["synthesizer_out"].qsize() > 0:
+            self.pause_inputting.set()
+            self.pause_forwarding.set()
+            while self.pause_outputting.is_set():
+                time.sleep(self.loop_pause/16)
+            self.pause_outputting.set()
+            for queue in ["worker_in", "worker_out", "synthesizer_in", "synthesizer_out"]:
+                with self.queues[queue].mutex:
+                    self.queues[queue].queue.clear()
+            self.pause_forwarding.clear()
+            self.pause_outputting.clear()
+            self.pause_inputting.clear()
 
     def run_conversation_loop(self, blocking: bool = True) -> None:
         """
@@ -208,81 +287,21 @@ class ConversationHandler(object):
             Defaults to True.
         """
         cfg.LOGGER.info(f"Starting conversation loop...")
+        self.queues["synthesizer_out"].put(self.synthesizer.synthesize(
+            "Hello there, how may I help you today?"
+        ))
+        while not self.handle_output():
+            time.sleep(self.loop_pause/4)
         while not self.interrupt.is_set():
             try:
-                cfg.LOGGER.info(f"[1/4] Handling input...")
-                self.handle_input()
-                cfg.LOGGER.info(f"[2/4] Preparing worker input...")
-                while not self.input_to_worker_gateway() and blocking:
-                    time.sleep(self.loop_pause)
-                cfg.LOGGER.info(f"[3/4] Preparing worker output...")
-                while not self.worker_to_output_gateway() and blocking:
-                    time.sleep(self.loop_pause)
-                cfg.LOGGER.info(f"[4/4] Handling output...")
-                while not self.handle_output() and blocking:
-                    time.sleep(self.loop_pause)
+                cfg.LOGGER.info(f"Looping main loop...")
+                if blocking:
+                    self._run_blocking_conversation_steps()
+                else:
+                   self._run_non_blocking_conversation_steps()
                
                 time.sleep(self.loop_pause)
             except KeyboardInterrupt:
                 cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
                 self._stop()
         
-
-if __name__ == "__main__":
-    faster_whisper_model = f"{cfg.PATHS.SOUND_GENERATION_MODEL_PATH}/speech_to_text/faster_whisper_models/Systran_faster-whisper-tiny"
-    coqui_tts_model = f"{cfg.PATHS.SOUND_GENERATION_MODEL_PATH}/text_to_speech/coqui_models/tts_models--multilingual--multi-dataset--xtts_v2"
-    coqui_tts_speaker_wav = f"{cfg.PATHS.SOUND_GENERATION_MODEL_PATH}/text_to_speech/coqui_xtts/examples/female.wav"
-    phi_3_path = f"{cfg.PATHS.TEXT_GENERATION_MODEL_PATH}/microsoft_Phi-3-mini-4k-instruct-gguf"
-    phi_3_file = f"Phi-3-mini-4k-instruct-q4.gguf"
-    llama_3_norefusal_path = f"{cfg.PATHS.TEXT_GENERATION_MODEL_PATH}/text_generation_models/mradermacher_Llama-3-8B-Instruct-norefusal-i1-GGUF"
-    llama_3_norefusal_file = f"Llama-3-8B-Instruct-norefusal.i1-Q4_K_M.gguf"
-
-    transcriber_kwargs = {
-        "backend": "faster-whisper",
-        "model_path": faster_whisper_model,
-        "model_parameters": {
-            "device": "cuda",
-            "compute_type": "float32",
-            "local_files_only": True
-        }
-    }
-    synthesizer_kwargs = {
-        "backend": "coqui-tts",
-        "model_path": coqui_tts_model,
-        "model_parameters": {
-            "config_path": f"{coqui_tts_model}/config.json",
-            "gpu": True
-        },
-        "synthesis_parameters": {
-            "speaker_wav": coqui_tts_speaker_wav,
-            "language": "en"
-        }
-    }
-    phi_3_llm_kwargs = {
-        "backend": "transformers",
-        "model_path": phi_3_path,
-        "model_file": phi_3_file,
-        "model_parameters": {"context_length": 4096, "max_new_tokens": 1024},
-        "prompt_maker": lambda history: "\n".join(f"<|{entry[0]}|>\n{entry[1]}{'<|end|>' if entry[0] == 'user' else ''}\n<|assistant|>" for entry in history),
-    }
-
-    transcriber = Transcriber(
-        **transcriber_kwargs
-    )
-
-    synthesizer = Synthesizer(
-        **synthesizer_kwargs
-    )
-
-    llm = LanguageModelInstance(
-        **phi_3_llm_kwargs
-    )
-
-    handler = ConversationHandler(
-        working_directory=os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant"),
-        transcriber=transcriber,
-        synthesizer=synthesizer,
-        worker_function=llm.generate
-    )
-
-    handler.run_conversation_loop()
