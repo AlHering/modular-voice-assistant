@@ -286,6 +286,7 @@ class PipelineComponentThread(Thread):
         :param thread_kwargs: Thread constructor keyword arguments.
         """
         super().__init__(*thread_args, **thread_kwargs)
+        self.busy = TEvent()
         self.pipeline_function = pipeline_function
         self.input_queue = input_queue
         self.output_queue = output_queue
@@ -301,17 +302,21 @@ class PipelineComponentThread(Thread):
             try:
                 res = None
                 if self.input_queue is None:
+                    self.busy.set()
                     res = self.pipeline_function()
                 else:
                     input_data = self.input_queue.get(self.loop_pause)
                     if self.validation_function is None or self.validation_function(input_data):
+                        self.busy.set()
                         res = self.pipeline_function(input_data)
                 if self.output_queue is not None:
                     if isinstance(res, Generator):
                         for elem in res:
                             self.output_queue.put(elem)
+                            
                     else:
                         self.output_queue.put(res)
+                self.busy.clear()
             except Empty:
                 time.sleep(self.loop_pause)
 
