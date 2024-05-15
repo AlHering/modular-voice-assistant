@@ -86,7 +86,6 @@ class ConversationHandler(object):
         self.pause_inputting: TEvent = None
         self.pause_forwarding: TEvent = None
         self.pause_outputting: TEvent = None
-        self.interrupts: Dict[str, TEvent] = {}
         self.queues: Dict[str, TQueue] = {}
         self.threads: Dict[str, PipelineComponentThread] = {}
 
@@ -106,8 +105,6 @@ class ConversationHandler(object):
         ]:
             if event is not None:
                 event.set()
-        for component in self.interrupts:
-            self.interrupts[component].set()
         for component in self.threads:
             self.threads[component].join(self.loop_pause) 
 
@@ -119,7 +116,6 @@ class ConversationHandler(object):
         self.pause_inputting = TEvent()
         self.pause_forwarding = TEvent()
         self.pause_outputting = TEvent()
-        self.interrupts = {component: TEvent() for component in self.component_functions}
 
         self.queues = {f"{component}_in": TQueue() for component in self.component_functions}
         self.queues.update({f"{component}_out": TQueue() for component in self.component_functions})
@@ -130,7 +126,7 @@ class ConversationHandler(object):
                 pipeline_function=self.component_functions[component],
                 input_queue=self.queues.get(f"{component}_in"),
                 output_queue=self.queues.get(f"{component}_out"),
-                interrupt=self.interrupts[component],
+                interrupt=self.interrupt,
                 loop_pause=self.loop_pause/8
             )
             self.threads[component].daemon = True
@@ -147,7 +143,6 @@ class ConversationHandler(object):
         cfg.LOGGER.info("(Re)setting Conversation Handler...")
         self._stop()
         self.interrupt = None
-        self.interrupts = None
         self.queues = None
         self.threads = None
         gc.collect()
