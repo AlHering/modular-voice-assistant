@@ -82,7 +82,7 @@ class ConversationHandler(object):
         self.pause_worker: TEvent = None
         self.pause_output: TEvent = None
         self.queues: Dict[str, TQueue] = {}
-        self.threads: Dict[str, PipelineComponentThread] = {}
+        self.threads: Dict[str, Thread] = {}
 
         self.history = history
         self.loop_pause = loop_pause
@@ -115,9 +115,9 @@ class ConversationHandler(object):
         self.queues = {f"worker_in": TQueue(), "worker_out": TQueue() }
 
         self.threads = {
-            "input": Thread(target=self.handle_step_in_loop, args=("input", )),
-            "worker": Thread(target=self.handle_step_in_loop, args=("worker", )),
-            "output": Thread(target=self.handle_step_in_loop, args=("output", ))
+            "input": Thread(target=self.handle_input, kwargs={"loop": True}),
+            "worker": Thread(target=self.handle_work, kwargs={"timeout": self.loop_pause, "loop": True}),
+            "output": Thread(target=self.handle_output, kwargs={"timeout": self.loop_pause, "loop": True})
         }
         for thread in self.threads:
             self.threads[thread].daemon = True
@@ -135,9 +135,10 @@ class ConversationHandler(object):
         self.history = [] if self.history is None or delete_history else self.history
         cfg.LOGGER.info("Setup is done.")
 
-    def handle_input(self) -> None:
+    def handle_input(self, loop: bool = False) -> None:
         """
         Acquires and forwards user input.
+        :param loop: Loops method until self.interrupt is set.
         """
         if not self.pause_input.is_set():
             recorder_data, recorder_metadata = self.speech_recorder.record_single_input()
@@ -146,18 +147,30 @@ class ConversationHandler(object):
             input_data, transcriber_metadata = self.transcriber.transcribe(recorder_data)
             cfg.LOGGER.info(f"Forwarding {input_data} to worker...")
             self.queues["worker_in"].put(input_data)
+        if loop and not self.interrupt.is_set():
+            time.sleep(self.loop_pause)
+            self.handle_input(loop=loop)
 
-    def handle_work(self, timeout: float = None) -> None:
+    def handle_work(self, timeout: float = None, loop: bool = False, streamed: bool = False) -> None:
         """
         Acquires input, computes and reroutes worker output.
         :param timeout: Timeout for blocking methods.
+        :param loop: Flag for declaring whether method shell be looped until self.interrupt is set.
+        :param streamed: Flag for declaring whether worker function return should be handled as a generator.
         """  
-        self.queues["worker_out"].put(self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)))
+        if streamed:
+            for elem in self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)):
+                self.queues["worker_out"].put(elem)
+        else:
+            self.queues["worker_out"].put(self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)))
+        if loop and not self.interrupt.is_set():
+            self.handle_input(timeout=timeout, loop=loop, streamed=streamed)
 
-    def handle_output(self, timeout: float = None) -> None:
+    def handle_output(self, timeout: float = None, loop: bool = False) -> None:
         """
         Acquires and reroutes generated output based.
         :param timeout: Timeout for blocking methods.
+        :param loop: Loops method until self.interrupt is set.
         """  
         if not self.pause_output.is_set():
             try:
@@ -171,20 +184,8 @@ class ConversationHandler(object):
                 self.pause_output.clear()
             except Empty:
                 pass
-
-    def handle_step_in_loop(self, step: str) -> None:
-        """
-        Runs work handling in loop.
-        :param step: Pipeline step to handle in loop.
-        """
-        target_function = {
-            "input": self.handle_input,
-            "work": self.handle_work,
-            "output": self.handle_output
-        }[step]
-        kwargs = {} if step == "input" else {"timeout": self.loop_pause}
-        while not self.interrupt.is_set():
-            target_function(**kwargs)
+        if loop and not self.interrupt.is_set():
+            self.handle_input(timeout=timeout, loop=loop)
 
     def pipeline_is_busy(self) -> bool:
         """
