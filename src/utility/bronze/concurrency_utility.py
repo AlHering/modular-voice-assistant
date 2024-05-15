@@ -8,9 +8,11 @@
 import sys
 from typing import Optional, Any, Callable, Union, Dict, Generator
 import time
+import functools
 from abc import ABC, abstractmethod
 from uuid import uuid4
 from queue import Empty, Queue as TQueue
+import multiprocessing
 from multiprocessing import Process, Queue as MPQueue, Event as mp_get_event
 from multiprocessing.synchronize import Event as MPEvent
 from threading import Thread, Event as TEvent
@@ -409,3 +411,25 @@ class Pipeline(object):
                 self.output_queues["*"].get(self.loop_pause)
             except Empty:
                 return None
+
+
+def timeout(max_timeout: float) -> Any:
+    """
+    Timeout decorator, parameter in seconds.
+    Taken from https://stackoverflow.com/questions/492519/timeout-on-a-function-call.
+    :param max_timeout: Maximum timeout.
+    :raises multiprocessing.context.TimeoutError: In case of timeout.
+    :returns: Return value of the decorated callable.
+    """
+    def timeout_decorator(item):
+        """Wrap the original function."""
+        @functools.wraps(item)
+        def func_wrapper(*args: Optional[Any], **kwargs: Optional[Any]):
+            """Closure for function."""
+            pool = multiprocessing.pool.ThreadPool(processes=1)
+            async_result = pool.apply_async(item, args, kwargs)
+            # raises a TimeoutError if execution exceeds max_timeout
+            return async_result.get(max_timeout)
+        
+        return func_wrapper
+    return timeout_decorator
