@@ -86,7 +86,6 @@ class ConversationHandler(object):
         self.pause_inputting: TEvent = None
         self.pause_forwarding: TEvent = None
         self.pause_outputting: TEvent = None
-        self.interrupts: Dict[str, TEvent] = {}
         self.queues: Dict[str, TQueue] = {}
         self.threads: Dict[str, PipelineComponentThread] = {}
 
@@ -106,8 +105,6 @@ class ConversationHandler(object):
         ]:
             if event is not None:
                 event.set()
-        for component in self.interrupts:
-            self.interrupts[component].set()
         for component in self.threads:
             self.threads[component].join(self.loop_pause) 
 
@@ -119,7 +116,6 @@ class ConversationHandler(object):
         self.pause_inputting = TEvent()
         self.pause_forwarding = TEvent()
         self.pause_outputting = TEvent()
-        self.interrupts = {component: TEvent() for component in self.component_functions}
 
         self.queues = {f"{component}_in": TQueue() for component in self.component_functions}
         self.queues.update({f"{component}_out": TQueue() for component in self.component_functions})
@@ -130,7 +126,7 @@ class ConversationHandler(object):
                 pipeline_function=self.component_functions[component],
                 input_queue=self.queues.get(f"{component}_in"),
                 output_queue=self.queues.get(f"{component}_out"),
-                interrupt=self.interrupts[component],
+                interrupt=self.interrupt,
                 loop_pause=self.loop_pause/8
             )
             self.threads[component].daemon = True
@@ -146,28 +142,20 @@ class ConversationHandler(object):
         """
         cfg.LOGGER.info("(Re)setting Conversation Handler...")
         self._stop()
-        self.interrupt = None
-        self.interrupts = None
-        self.queues = None
-        self.threads = None
         gc.collect()
 
         self._setup_components()
         self.history = [] if self.history is None or delete_history else self.history
         cfg.LOGGER.info("Setup is done.")
 
-    def handle_input(self) -> bool:
+    def handle_input(self) -> Tuple[Optional[np.ndarray], Optional[dict]]:
         """
         Acquires and forwards user input.
-        :return: True, if data was successfully forwarded, else False.
+        :return: User input audio data and metadata.
         """
         if not self.pause_inputting.is_set():
-            audio_data, audio_metadata = self.speech_recorder.record_single_input()
-            if audio_data.any():
-                cfg.LOGGER.info(f"Forwarding audio data to transcriber...")
-                self.queues["transcriber_in"].put(audio_data)
-                return True
-        return False
+            return self.speech_recorder.record_single_input()
+        return None, None
     
     def input_to_worker_gateway(self) -> bool:
         """
@@ -209,18 +197,18 @@ class ConversationHandler(object):
         :return: True, if data was successfully outputted, else False.
         """  
         if not self.pause_outputting.is_set():
-            self.pause_outputting.set()
             try:
                 cfg.LOGGER.info(f"Trying to fetch 'synthesizer_out' data ...")
                 output, output_metadata = self.queues["synthesizer_out"].get(self.loop_pause/4)
                 if output.any():
                     cfg.LOGGER.info(f"Ouputting synthesized response...")
+                    self.pause_outputting.set()
                     text_to_speech_utility.play_wave(output, output_metadata)
+                    self.pause_outputting.clear()
                     cfg.LOGGER.info(f"Ouput finished.")
                 return True
             except Empty:
                 cfg.LOGGER.info(f"'synthesizer_out'-queue is empty.")
-            self.pause_outputting.clear()
         return False
         
     def _forward_queued_elements(self) -> None:
@@ -230,24 +218,51 @@ class ConversationHandler(object):
         self.input_to_worker_gateway()
         self.worker_to_output_gateway()
         self.handle_output()
-        time.sleep(self.loop_pause/8)
         
     def _run_blocking_conversation_steps(self) -> None:
         """
         Runs conversation steps for step.
         """
         cfg.LOGGER.info(f"[1/4] Handling input...")
-        while not self.handle_input():
-            time.sleep(self.loop_pause/4)
-        cfg.LOGGER.info(f"[2/4] Preparing worker input...")
-        while not self.input_to_worker_gateway():
-            time.sleep(self.loop_pause/4)
-        cfg.LOGGER.info(f"[3/4] Preparing worker output...")
-        while not self.worker_to_output_gateway():
-            time.sleep(self.loop_pause/4)
-        cfg.LOGGER.info(f"[4/4] Handling output...")
-        while not self.handle_output():
-            time.sleep(self.loop_pause/4)
+        audio_data, audio_metadata = self.handle_input()
+        if audio_data is not None and audio_data.any():
+            cfg.LOGGER.info(f"Forwarding audio data to transcriber...")
+            self.queues["transcriber_in"].put(audio_data)
+            cfg.LOGGER.info(f"[2/4] Preparing worker input...")
+            while not self.input_to_worker_gateway():
+                time.sleep(self.loop_pause/4)
+            cfg.LOGGER.info(f"[3/4] Preparing worker output...")
+            while not self.worker_to_output_gateway():
+                time.sleep(self.loop_pause/4)
+            cfg.LOGGER.info(f"[4/4] Handling output...")
+            while not self.handle_output():
+                time.sleep(self.loop_pause/4)
+
+    def _busy_threads(self) -> bool:
+        """
+        Returns flag which declares whether there is currently a process running.
+        """
+        return any(self.threads[thread].busy.is_set() for thread in self.threads if 
+                   thread != "_forward_queued_elements" and
+                   thread != "print_component_status")
+
+    def print_component_status(self) -> None:
+        """
+        Prints out component status.
+        """
+        print("="*20 + "\nCOMPONENT STATUS START\n" + "="*18)
+        print("THREADS")
+        for thread in self.threads:
+            print(f"{thread}: {'busy' if self.threads[thread].busy.is_set() else 'waiting'}")
+        print("QUEUES")
+        for queue in self.queues:
+            print(f"{queue}: {self.queues[queue].qsize()} elements waiting")
+        print("FLAGS")
+        print(f"interrupt: {self.interrupt.is_set()}")
+        print(f"pause_inputting: {self.pause_inputting.is_set()}")
+        print(f"pause_forwarding: {self.pause_forwarding.is_set()}")
+        print(f"pause_outputting: {self.pause_outputting.is_set()}")
+        print("="*20 + "\nCOMPONENT STATUS END\n" + "="*20)
 
     def _run_non_blocking_conversation_steps(self) -> None:
         """
@@ -261,24 +276,37 @@ class ConversationHandler(object):
                 loop_pause=self.loop_pause
             )
             self.threads["_forward_queued_elements"].daemon = True
+
             self.threads["_forward_queued_elements"].start()
+            cfg.LOGGER.info(f"Setting up forwarder thread...")
+            self.threads["print_component_status"] = PipelineComponentThread(
+                pipeline_function=self.print_component_status,
+                interrupt=self.interrupt,
+                loop_pause=3
+            )
+            self.threads["print_component_status"].daemon = True
+            self.threads["print_component_status"].start()
         
         cfg.LOGGER.info(f"[1/4] Handling input...")
-        while not self.handle_input():
-            cfg.LOGGER.info(f"Looping audio input handler...")
-            time.sleep(self.loop_pause)
-        if self.queues["worker_in"].qsize() > 0 or self.queues["synthesizer_out"].qsize() > 0:
+        audio_data, audio_metadata = self.handle_input()
+        if audio_data is not None and audio_data.any():
+            cfg.LOGGER.info(f"Clearing out artefacts from last input...")
             self.pause_inputting.set()
             self.pause_forwarding.set()
-            while self.pause_outputting.is_set():
+            for queue in ["transcriber_in", "worker_in", "synthesizer_in"]:
+                with self.queues[queue].mutex:
+                    self.queues[queue].queue.clear()
+            while self._busy_threads():
+                print("busy threads")
                 time.sleep(self.loop_pause/16)
-            self.pause_outputting.set()
-            for queue in ["worker_in", "worker_out", "synthesizer_in", "synthesizer_out"]:
+            for queue in ["transcriber_out", "worker_out", "synthesizer_out"]:
                 with self.queues[queue].mutex:
                     self.queues[queue].queue.clear()
             self.pause_forwarding.clear()
-            self.pause_outputting.clear()
             self.pause_inputting.clear()
+            cfg.LOGGER.info(f"Finished clearing...")
+            cfg.LOGGER.info(f"Forwarding audio data to transcriber...")
+            self.queues["transcriber_in"].put(audio_data)
 
     def run_conversation_loop(self, blocking: bool = True) -> None:
         """
