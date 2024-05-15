@@ -305,7 +305,7 @@ class PipelineComponentThread(Thread):
                     self.busy.set()
                     res = self.pipeline_function()
                 else:
-                    input_data = self.input_queue.get(self.loop_pause)
+                    input_data = self.input_queue.get(self.loop_pause/8)
                     if self.validation_function is None or self.validation_function(input_data):
                         self.busy.set()
                         res = self.pipeline_function(input_data)
@@ -317,6 +317,7 @@ class PipelineComponentThread(Thread):
                     else:
                         self.output_queue.put(res)
                 self.busy.clear()
+                time.sleep(self.loop_pause*7/8)
             except Empty:
                 time.sleep(self.loop_pause)
 
