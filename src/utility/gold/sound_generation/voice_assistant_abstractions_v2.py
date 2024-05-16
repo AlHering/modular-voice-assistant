@@ -95,13 +95,16 @@ class ConversationHandler(object):
         for event in [
             self.interrupt,
             self.pause_input,
-            self.worker_function,
+            self.pause_worker,
             self.pause_output
         ]:
             if event is not None:
                 event.set()
         for component in self.threads:
-            self.threads[component].join(self.loop_pause) 
+            try:
+                self.threads[component].join(self.loop_pause) 
+            except RuntimeError:
+                pass
 
     def _setup_components(self) -> None:
         """
@@ -109,7 +112,7 @@ class ConversationHandler(object):
         """
         self.interrupt = TEvent()
         self.pause_input = TEvent()
-        self.worker_function = TEvent()
+        self.pause_worker = TEvent()
         self.pause_output = TEvent()
 
         self.queues = {f"worker_in": TQueue(), "worker_out": TQueue() }
@@ -158,11 +161,15 @@ class ConversationHandler(object):
         :param loop: Flag for declaring whether method shell be looped until self.interrupt is set.
         :param streamed: Flag for declaring whether worker function return should be handled as a generator.
         """  
-        if streamed:
-            for elem in self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)):
-                self.queues["worker_out"].put(elem)
-        else:
-            self.queues["worker_out"].put(self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)))
+        if not self.pause_worker.is_set():
+            try:
+                if streamed:
+                    for elem in self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)):
+                        self.queues["worker_out"].put(elem)
+                else:
+                    self.queues["worker_out"].put(self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)))
+            except Empty:
+                pass
         if loop and not self.interrupt.is_set():
             self.handle_input(timeout=timeout, loop=loop, streamed=streamed)
 
@@ -195,7 +202,7 @@ class ConversationHandler(object):
         return (any(self.queues[queue].qsize() > 0 for queue in self.queues) or
                 any(self.threads[thread].is_alive() for thread in self.threads))
 
-    def run_conversation_loop(self, blocking: bool = True) -> None:
+    def run_conversation(self, blocking: bool = True) -> None:
         """
         Runs conversation loop.
         :param blocking: Flag which declares whether or not to wait for each step.
@@ -210,7 +217,24 @@ class ConversationHandler(object):
                 self.threads["worker"].start()
                 self.threads["output"].start()
             else:
-                self.handle_input()
+                while not self.interrupt.is_set():
+                    self.handle_input()
+                    self.handle_work()
+                    self.handle_output()
+        except KeyboardInterrupt:
+            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
+            self._stop()
+
+    def run_terminal_based_conversation(self) -> None:
+        """
+        Runs conversation loop with terminal input.
+        """
+        cfg.LOGGER.info(f"Starting conversation loop...")
+        self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
+        self.handle_output()
+        try:
+            while not self.interrupt.is_set():
+                self.queues["worker_in"].put(input("User: "))
                 self.handle_work()
                 self.handle_output()
         except KeyboardInterrupt:
