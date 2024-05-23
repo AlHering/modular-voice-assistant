@@ -39,9 +39,9 @@ class Transcriber(object):
         :param backend: Backend for model loading.
             Check Transcriber.supported_backends for supported backends.
         :param model_path: Path to model files.
-        :param model_parameters: Model loading kwargs as dictionary.
+        :param model_parameters: Model loading parameters as dictionary.
             Defaults to None.
-        :param transcription_parameters: Transcription kwargs as dictionary.
+        :param transcription_parameters: Transcription parameters as dictionary.
             Defaults to None.
         """
         self.backend = backend
@@ -66,13 +66,13 @@ class Transcriber(object):
         """
         Transcribes audio to text.
         :param audio_input: Wave file path or waveform.
-        :param transcription_parameters: Transcription kwargs as dictionary.
+        :param transcription_parameters: Transcription parameters as dictionary.
             Defaults to None.
         """
         return self.transcription_function(
             audio_input=audio_input,
             model=self.model,
-            transcription_kwargs=self.transcription_parameters if transcription_parameters is None else transcription_parameters
+            transcription_parameters=self.transcription_parameters if transcription_parameters is None else transcription_parameters
         )
 
 
@@ -93,9 +93,9 @@ class Synthesizer(object):
         :param backend: Backend for model loading.
             Check Transcriber.supported_backends for supported backends.
         :param model_path: Path to model files.
-        :param model_parameters: Model loading kwargs as dictionary.
+        :param model_parameters: Model loading parameters as dictionary.
             Defaults to None.
-        :param synthesis_parameters: Synthesis kwargs as dictionary.
+        :param synthesis_parameters: Synthesis parameters as dictionary.
             Defaults to None.
         """
         self.backend = backend
@@ -121,21 +121,21 @@ class Synthesizer(object):
         """
         Synthesize text to audio.
         :param text: Text to synthesize to audio.
-        :param synthesis_parameters: Synthesis kwargs as dictionary.
+        :param synthesis_parameters: Synthesis parameters as dictionary.
             Defaults to None.
         :return: File path and metadata.
         """
         return self.sound_out_snythesis_functions(
             text=text, 
             model=self.model,
-            synthesis_kwargs=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters)
+            synthesis_parameters=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters)
 
     def synthesize_to_file(self, text: str, output_path: str, synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
         """
         Synthesize text to audio.
         :param text: Text to synthesize to audio.
         :param output_path: Path for output file.
-        :param synthesis_parameters: Synthesis kwargs as dictionary.
+        :param synthesis_parameters: Synthesis parameters as dictionary.
             Defaults to None.
         :return: Output file path and metadata.
         """
@@ -143,7 +143,7 @@ class Synthesizer(object):
             text=text, 
             output_path=output_path,
             model=self.model,
-            synthesis_kwargs=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters)
+            synthesis_parameters=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters)
         
 
 class SpeechRecorder(object):
@@ -153,16 +153,16 @@ class SpeechRecorder(object):
 
     def __init__(self,
                  input_device_index: int = None,
-                 recognizer_kwargs: dict = None,
-                 microphone_kwargs: dict = None,
+                 recognizer_parameters: dict = None,
+                 microphone_parameters: dict = None,
                  loop_pause = .1) -> None:
         """
         Initiation method.
         :param input_device_index: Input device index.
             Defaults to None in which case the default input device index is fetched.
-        :param recognizer_kwargs: Keyword arguments for setting up recognizer instances.
+        :param recognizer_parameters: Keyword arguments for setting up recognizer instances.
             Defaults to None in which case default values are used.
-        :param microphone_kwargs: Keyword arguments for setting up microphone instances.
+        :param microphone_parameters: Keyword arguments for setting up microphone instances.
             Defaults to None in which case default values are used.
         :param loop_pause: Forced pause between loops in seconds.
             Defaults to 0.1.
@@ -175,37 +175,37 @@ class SpeechRecorder(object):
         self.loop_pause = loop_pause
         self.interrupt_flag = False
 
-        self.recognizer_kwargs = {
+        self.recognizer_parameters = {
             "energy_threshold": 1000,
             "dynamic_energy_threshold": False,
             "pause_threshold": .8
-        } if recognizer_kwargs is None else recognizer_kwargs
-        self.microphone_kwargs = {
+        } if recognizer_parameters is None else recognizer_parameters
+        self.microphone_parameters = {
             "device_index": self.input_device_index,
             "sample_rate": 16000,
             "chunk_size": 1024
-        } if microphone_kwargs is None else microphone_kwargs
+        } if microphone_parameters is None else microphone_parameters
 
     def record_single_input(self,
-                            recognizer_kwargs: dict = None,
-                            microphone_kwargs: dict = None) -> Tuple[np.ndarray, dict]:
+                            recognizer_parameters: dict = None,
+                            microphone_parameters: dict = None) -> Tuple[np.ndarray, dict]:
         """
         Records continuesly and puts results into output_queue.
         :param output_queue: Queue to put tuples of recordings and metadata into.
             Recordings are either audio data (as numpy arrays) or texts, if a transriber is available.
-        :param recognizer_kwargs: Keyword arguments for setting up recognizer instances.
+        :param recognizer_parameters: Keyword arguments for setting up recognizer instances.
             Defaults to None in which case default values are used.
-        :param microphone_kwargs: Keyword arguments for setting up microphone instances.
+        :param microphone_parameters: Keyword arguments for setting up microphone instances.
             Defaults to None in which case default values are used.
         :return: Recorded input as numpy array and recording metadata.
         """
-        recognizer_kwargs = self.recognizer_kwargs if recognizer_kwargs is None else recognizer_kwargs
-        microphone_kwargs = self.microphone_kwargs if microphone_kwargs is None else microphone_kwargs
+        recognizer_parameters = self.recognizer_parameters if recognizer_parameters is None else recognizer_parameters
+        microphone_parameters = self.microphone_parameters if microphone_parameters is None else microphone_parameters
 
         recognizer = speech_recognition.Recognizer()
-        for key in recognizer_kwargs:
-            setattr(recognizer, key, recognizer_kwargs[key])
-        microphone = speech_recognition.Microphone(**microphone_kwargs)
+        for key in recognizer_parameters:
+            setattr(recognizer, key, recognizer_parameters[key])
+        microphone = speech_recognition.Microphone(**microphone_parameters)
         with microphone as source:
             recognizer.adjust_for_ambient_noise(source)
         
@@ -217,27 +217,27 @@ class SpeechRecorder(object):
 
     def record(self, 
                output_queue: Queue,
-               recognizer_kwargs: dict = None,
-               microphone_kwargs: dict = None,
+               recognizer_parameters: dict = None,
+               microphone_parameters: dict = None,
                interrupt_threshold: float = None) -> None:
         """
         Records continuesly and puts results into output_queue.
         :param output_queue: Queue to put tuples of recorded audio data (as numpy array) and recording metadata.
-        :param recognizer_kwargs: Keyword arguments for setting up recognizer instances.
+        :param recognizer_parameters: Keyword arguments for setting up recognizer instances.
             Defaults to None in which case default values are used.
-        :param microphone_kwargs: Keyword arguments for setting up microphone instances.
+        :param microphone_parameters: Keyword arguments for setting up microphone instances.
             Defaults to None in which case default values are used.
         :param interrupt_threshold: Interrupt threshold of silence after which the recording loop stops.
             Defaults to None in which case the loop runs indefinitely.
         """
-        recognizer_kwargs = self.recognizer_kwargs if recognizer_kwargs is None else recognizer_kwargs
-        microphone_kwargs = self.microphone_kwargs if microphone_kwargs is None else microphone_kwargs
+        recognizer_parameters = self.recognizer_parameters if recognizer_parameters is None else recognizer_parameters
+        microphone_parameters = self.microphone_parameters if microphone_parameters is None else microphone_parameters
 
         audio_queue = Queue()
         recognizer = speech_recognition.Recognizer()
-        for key in recognizer_kwargs:
-            setattr(recognizer, key, recognizer_kwargs[key])
-        microphone = speech_recognition.Microphone(**microphone_kwargs)
+        for key in recognizer_parameters:
+            setattr(recognizer, key, recognizer_parameters[key])
+        microphone = speech_recognition.Microphone(**microphone_parameters)
         with microphone as source:
             recognizer.adjust_for_ambient_noise(source)
         
