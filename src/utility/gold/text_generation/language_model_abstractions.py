@@ -7,7 +7,7 @@
 ****************************************************
 """
 import traceback
-from typing import List, Tuple, Any, Callable, Optional, Union
+from typing import List, Tuple, Any, Callable, Optional, Union, Dict
 from datetime import datetime as dt
 from .language_model_instantiation import load_ctransformers_model, load_transformers_model, load_llamacpp_model, load_autogptq_model, load_exllamav2_model, load_langchain_llamacpp_model
 
@@ -33,10 +33,6 @@ class LanguageModelInstance(object):
                  embeddings_parameters: dict = None,
                  config_path: str = None,
                  config_parameters: dict = None,
-                 default_system_prompt: str = None,
-                 prompt_maker: Callable = None,
-                 use_history: bool = True,
-                 history: List[Tuple[str, str, dict]] = None,
                  encoding_parameters: dict = None,
                  embedding_parameters: dict = None,
                  generating_parameters: dict = None,
@@ -63,14 +59,6 @@ class LanguageModelInstance(object):
             Defaults to None.
         :param config_parameters: Config loading kwargs as dictionary.
             Defaults to None.
-        :param default_system_prompt: Default system prompt.
-            Defaults to a None in which case no system prompt is used.
-        :param prompt_maker: Function which takes the prompt history as a list of (<role>, <message>, <metadata>)-tuples 
-            (already including the new user prompt) as argument and calculates the final prompt.
-        :param use_history: Flag, declaring whether to use the history.
-            Defaults to True.
-        :param history: Interaction history as list of (<role>, <message>, <metadata>)-tuples tuples.
-            Defaults to None.
         :param encoding_parameters: Kwargs for encoding in the generation process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the backend in the 
             different initation methods.
@@ -85,21 +73,6 @@ class LanguageModelInstance(object):
             different initation methods.
         """
         self.backend = backend
-        self.system_prompt = default_system_prompt
-        if prompt_maker is None:
-            def prompt_maker(history: List[Tuple[str, str, dict]]) -> str:
-                """
-                Default Prompt maker function.
-                :param history: History.
-                """
-                return "\n".join(f"<s>{entry[0]}:\n{entry[1]}</s>" for entry in history) + "\n"
-        self.prompt_maker = prompt_maker
-
-        self.use_history = use_history
-        self.history = [] if history is None and default_system_prompt is None else [
-            ("system", self.system_prompt, {
-            "intitated": dt.now()})
-            ] if history is None else history
 
         self.encoding_parameters = {} if encoding_parameters is None else encoding_parameters
         self.embedding_parameters = {} if embedding_parameters is None else embedding_parameters
@@ -177,12 +150,6 @@ class LanguageModelInstance(object):
             Defaults to None.
         :return: Tuple of textual answer and metadata.
         """
-        if not self.use_history:
-            self.history = [self.history[0]]
-        self.history.append(("user", prompt, {
-            "timestamp": dt.now()}))
-        full_prompt = self.prompt_maker(self.history)
-
         encoding_parameters = self.encoding_parameters if encoding_parameters is None else encoding_parameters
         generating_parameters = self.generating_parameters if generating_parameters is None else generating_parameters
         decoding_parameters = self.decoding_parameters if decoding_parameters is None else decoding_parameters
@@ -190,28 +157,105 @@ class LanguageModelInstance(object):
         metadata = {}
         answer = ""
 
-        start = dt.now()
         if self.backend == "ctransformers" or self.backend == "langchain_llamacpp":
-            metadata = self.model(full_prompt, **generating_parameters)
+            metadata = self.model(prompt, **generating_parameters)
         elif self.backend == "transformers" or self.backend == "autogptq":
             input_tokens = self.tokenizer(
-                full_prompt, **encoding_parameters).to(self.model.device)
+                prompt, **encoding_parameters).to(self.model.device)
             output_tokens = self.model.generate(
                 **input_tokens, **generating_parameters)[0]
             metadata = self.tokenizer.decode(
                 output_tokens, **decoding_parameters)
         elif self.backend == "llamacpp":
-            metadata = self.model(full_prompt, **generating_parameters)
+            metadata = self.model(prompt, **generating_parameters)
             answer = metadata["choices"][0]["text"]
         elif self.backend == "exllamav2":
             metadata = self.generator.generate_simple(
-                full_prompt, **generating_parameters)
-        self.history.append(("assistant", answer))
-
-        metadata.update({"processing_time": dt.now() -
-                        start, "timestamp": dt.now()})
+                prompt, **generating_parameters)
 
         return answer, metadata
+    
+
+class ChatModelInstance(object):
+    """
+    Chat model class.
+    """
+    supported_backends: List[str] = ["ctransformers", "transformers",
+                                     "llamacpp", "autogptq", "exllamav2", "langchain_llamacpp"]
+
+    def __init__(self,
+                 language_model_instance: LanguageModelInstance,
+                 chat_parameters: dict = None,
+                 default_system_prompt: str = None,
+                 prompt_maker: Callable = None,
+                 use_history: bool = True,
+                 history: List[Dict[str, ]] = None,
+                 ) -> None:
+        """
+        Initiation method.
+        :param LanguageModelInstance: Language model instance.
+        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
+            Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
+            model backend.
+        :param default_system_prompt: Default system prompt.
+            Defaults to a None in which case no system prompt is used.
+        :param prompt_maker: Function which takes the prompt history as a list of {"role": <role>, "content": <message>, "metadata": <metadata>}-dictionaries 
+            (already including the new user prompt) as argument and calculates the final prompt. Only necessary, if the backend does not support chat interaction.
+        :param use_history: Flag, declaring whether to use the history.
+            Defaults to True.
+        :param history: Interaction history as list of {"role": <role>, "content": <message>, "metadata": <metadata>}-dictionaries.
+            Defaults to None.
+        """
+        self.language_model_instance = language_model_instance
+        self.chat_parameters = {} if chat_parameters is None else chat_parameters
+        self.system_prompt = default_system_prompt
+        if prompt_maker is None:
+            def prompt_maker(history: List[Tuple[str, str, dict]]) -> str:
+                """
+                Default Prompt maker function.
+                :param history: History.
+                """
+                return "\n".join(f"<s>{entry[0]}:\n{entry[1]}</s>" for entry in history) + "\n"
+        self.prompt_maker = prompt_maker
+
+        self.use_history = use_history
+        self.history = [] if history is None and default_system_prompt is None else [
+            ("system", self.system_prompt, {
+            "intitated": dt.now()})
+            ] if history is None else history
+
+    """
+    Generation methods
+    """
+
+    def chat(self, prompt: str, chat_parameters: dict = None) -> Tuple[str, dict]:
+        """
+        Method for chatting with language model isntance.
+        :param prompt: User input.
+        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
+            Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
+            model backend.
+        :return: Response and metadata.
+        """
+        chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
+        self.history.append({"role": "user", "content": prompt})
+        if self.language_model_instance.backend == "ctransformers":
+            return None, None
+        elif self.language_model_instance.backend == "langchain_llamacpp":
+            None, None
+        elif self.language_model_instance.backend == "transformers":
+            return None, None
+        elif self.language_model_instance.backend == "autogptq":
+            None, None
+        elif self.language_model_instance.backend == "llamacpp":
+            metadata = self.language_model_instance.model.create_chat_completion(
+                messages=self.history,
+                **chat_parameters
+            )
+            response = metadata["choices"][0]["message"]
+            return response, metadata
+        elif self.language_model_instance.backend == "exllamav2":
+            None, None
 
 
 """
