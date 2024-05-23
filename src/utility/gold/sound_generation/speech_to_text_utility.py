@@ -18,12 +18,7 @@ from queue import Queue
 import whisper
 from faster_whisper import WhisperModel
 import keyboard
-
-
-TEMPORARY_DATA_FOLDER = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, "data")
-if not os.path.exists:
-    os.makedirs(TEMPORARY_DATA_FOLDER)
-TEMPORARY_INPUT_PATH = os.path.join(TEMPORARY_DATA_FOLDER, "in.wav")
+from .sound_model_instantiation import load_whisper_model, load_faster_whisper_model
 
 
 class InterruptMethod(Enum):
@@ -88,14 +83,14 @@ def record_audio_with_pyaudio(interrupt_method: InterruptMethod = InterruptMetho
 
     return frames
 
-def record_audio_with_pyaudio_to_file(wave_file: str = None, 
+def record_audio_with_pyaudio_to_file(output_path: str, 
                                       interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
                                       interrupt_threshold: Any = 5.0,
                                       chunk_size: int = 2024,
                                       stream_kwargs: dict = None) -> None:
     """
     Records audio with pyaudio and saves it to wave file.
-    :param wave_file: Wave file path.
+    :param output_path: Wave file output path.
     :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT". 
         Defaults to "TIME_INTERVAL".
     :param interrupt_threshold: Interrupt threshold as time interval in seconds for "TIME_INTERVAL", key(s) as string for "KEYBOARD_INTERRUPT".
@@ -113,7 +108,7 @@ def record_audio_with_pyaudio_to_file(wave_file: str = None,
     )
 
     pya = pyaudio.PyAudio()
-    wave_output = wave.open(TEMPORARY_INPUT_PATH if wave_file is None else wave_file, "wb")
+    wave_output = wave.open(output_path, "wb")
     wave_output.setsampwidth(pya.get_sample_size(stream_kwargs.get("format", pyaudio.paInt16)))
     wave_output.setnchannels(stream_kwargs.get("channels", 1)) 
     wave_output.setframerate(stream_kwargs.get("rate", 16000))
@@ -149,22 +144,8 @@ def record_audio_with_pyaudio_to_numpy_array(interrupt_method: InterruptMethod =
         pyaudio.paInt32: np.int32,
     }[stream_kwargs.get("format", pyaudio.paInt16)])
 
-def get_whisper_model(model_name_or_path: str = "large-v3", instantiation_kwargs: dict = None) -> whisper.Whisper:
-    """
-    Returns a whisper based model instance.
-    :param model_name_or_path: Model name or path.
-        Defaults to "large-v3".
-    :param instantiation_kwargs: Instatiation keyword arguments.
-        Defaults to None in which case default values are used.
-    :returns: Whisper model instance.
-    """
-    instantiation_kwargs = {} if instantiation_kwargs is None else instantiation_kwargs
-    return whisper.load_model(
-            name=model_name_or_path,
-            **instantiation_kwargs)
 
-
-def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor] = None, model: whisper.Whisper = None, transcription_kwargs: dict = None) -> Tuple[str, List[dict]]:
+def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], model: whisper.Whisper = None, transcription_kwargs: dict = None) -> Tuple[str, List[dict]]:
     """
     Transcribes wave file or waveform with whisper.
     :param audio_input: Wave file path or waveform.
@@ -175,8 +156,8 @@ def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor] = 
         Defaults to None in which case default values are used.
     :returns: Tuple of transcribed text and a list of metadata entries for the transcribed segments.
     """
-    model = get_whisper_model(model_name_or_path="large-v3") if model is None else model
-    audio_input = TEMPORARY_INPUT_PATH if audio_input is None else audio_input
+    model = load_whisper_model(model_name_or_path="large-v3") if model is None else model
+    audio_input = audio_input
     transcription_kwargs = {} if transcription_kwargs is None else transcription_kwargs
     
     transcription = model.transcribe(
@@ -188,23 +169,7 @@ def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor] = 
     fulltext, segment_metadatas
 
 
-def get_faster_whisper_model(model_name_or_path: str = "large-v3", instantiation_kwargs: dict = None) -> WhisperModel:
-    """
-    Returns a faster whisper based model instance.
-    :param model_name_or_path: Model name or path.
-        Defaults to "large-v3".
-    :param instantiation_kwargs: Instatiation keyword arguments.
-        Defaults to None in which case default values are used.
-    :returns: Whisper model instance.
-    """
-    instantiation_kwargs = {} if instantiation_kwargs is None else instantiation_kwargs
-    return WhisperModel(
-        model_size_or_path=model_name_or_path,
-        **instantiation_kwargs
-    )
-
-
-def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Tensor] = None, model: whisper.Whisper = None, transcription_kwargs: dict = None) -> Tuple[str, List[dict]]:
+def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], model: whisper.Whisper = None, transcription_kwargs: dict = None) -> Tuple[str, List[dict]]:
     """
     Transcribes wave file or waveform with faster whisper.
     :param audio_input: Wave file path or waveform.
@@ -215,8 +180,8 @@ def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Ten
         Defaults to None in which case default values are used.
     :returns: Tuple of transcribed text and a list of metadata entries for the transcribed segments.
     """
-    model = get_faster_whisper_model(model_name_or_path="large-v3") if model is None else model
-    audio_input = TEMPORARY_INPUT_PATH if audio_input is None else audio_input
+    model = load_faster_whisper_model(model_name_or_path="large-v3") if model is None else model
+    audio_input = audio_input
     transcription_kwargs = {} if transcription_kwargs is None else transcription_kwargs
     
     transcription, metadata = model.transcribe(
@@ -372,7 +337,7 @@ if __name__ == "__main__":
 
     record_and_transcribe_speech_with_speech_recognition(
         transcription_callback=transcribe_with_faster_whisper,
-        transcription_model=get_faster_whisper_model(
+        transcription_model=load_faster_whisper_model(
             model_name_or_path=model_path,
             instantiation_kwargs={
                 "device": "cuda",
