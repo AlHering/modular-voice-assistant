@@ -211,9 +211,7 @@ class SpeechRecorder(object):
         
         audio = None
         with microphone as source:
-            audio = recognizer.listen(
-                source=source
-            )
+            audio = recognizer.listen(source=source)
         audio_as_numpy_array = np.frombuffer(audio.get_wav_data(), dtype=np.int16).astype(np.float32) / 32768.0
         return audio_as_numpy_array, {"timestamp": get_timestamp()}
 
