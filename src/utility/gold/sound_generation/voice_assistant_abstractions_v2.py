@@ -22,6 +22,8 @@ from ..text_generation.language_model_abstractions import LanguageModelInstance
 from ..text_generation.agent_abstractions import Agent
 from ...bronze.concurrency_utility import PipelineComponentThread, timeout
 from ...bronze.time_utility import get_timestamp
+from ...silver.file_system_utility import safely_create_path
+from ...bronze.pyaudio_utility import play_wave
 from . import speech_to_text_utility, text_to_speech_utility
 from .sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
@@ -187,7 +189,7 @@ class ConversationHandler(object):
                 synthesizer_output, synthesizer_metadata = self.synthesizer.synthesize(worker_output)
                 cfg.LOGGER.info(f"Ouputting synthesized response...")
                 self.pause_output.set()
-                text_to_speech_utility.play_wave(synthesizer_output, synthesizer_metadata)
+                play_wave(synthesizer_output, synthesizer_metadata)
                 self.pause_output.clear()
             except Empty:
                 pass
@@ -240,4 +242,123 @@ class ConversationHandler(object):
         except KeyboardInterrupt:
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
             self._stop()
-        
+
+
+class VoiceAssistantSession(object):
+    """
+    Represents a voice assistant session.
+    """
+    transcriber_supported_backends: List[str] = Transcriber.supported_backends
+    synthesizer_supported_backends: List[str] = Synthesizer.supported_backends
+
+    def __init__(self,
+        working_directory: str = None,
+        history: List[dict] = None, 
+        loop_pause: float = .1,
+        transcriber_backend: str = None,
+        transcriber_model_path: str = None,
+        transcriber_model_parameters: dict = None,
+        transcriber_transcription_parameters: dict = None,
+        synthesizer_backend: str = None,
+        synthesizer_model_path: str = None,
+        synthesizer_model_parameters: dict = None,
+        synthesizer_synthesis_parameters: dict = None,
+        speechrecorder_input_device_index: int = None,
+        speechrecorder_recognizer_parameters: dict = None,
+        speechrecorder_microphone_parameters: dict = None,
+        speechrecorder_loop_pause: float = .1 
+    ) -> None:
+        """
+        Initiation method.
+        :param working_directory: Working directory.
+        :param history: Conversation handler history.
+        :param loop_pause: Conversation handler loop pause.
+        :param transcriber_backend: Transcriber backend.
+        :param transcriber_model_path: Transcriber model path.
+        :param transcriber_model_parameters: Transcriber model parameters.
+        :param transcriber_transcription_parameters: Transcription parameters.
+        :param synthesizer_backend: Synthesizer backend.
+        :param synthesizer_model_path: Synthesizer model path.
+        :param synthesizer_model_parameters: Synthesizer model parameters.
+        :param synthesizer_synthesis_parameters: Synthesizer synthesis parameters.
+        :param speechrecorder_input_device_index: Speech Recorder input device index.
+        :param speechrecorder_recognizer_parameters: Speech Recorder recognizer parameters.
+        :param speechrecorder_microphone_parameters: Speech Recorder microphone parameters.
+        :param speechrecorder_loop_pause: Speech Recorder loop pause.
+        """
+        self.working_directory = working_directory
+        self.history = history
+        self.loop_pause = loop_pause
+        self.transcriber_backend = transcriber_backend
+        self.transcriber_model_path = transcriber_model_path
+        self.transcriber_model_parameters = transcriber_model_parameters
+        self.transcriber_transcription_parameters = transcriber_transcription_parameters
+        self.synthesizer_backend = synthesizer_backend
+        self.synthesizer_model_path = synthesizer_model_path
+        self.synthesizer_model_parameters = synthesizer_model_parameters
+        self.synthesizer_synthesis_parameters = synthesizer_synthesis_parameters
+        self.speechrecorder_input_device_index = speechrecorder_input_device_index
+        self.speechrecorder_recognizer_parameters = speechrecorder_recognizer_parameters
+        self.speechrecorder_microphone_parameters = speechrecorder_microphone_parameters
+        self.speechrecorder_loop_pause = speechrecorder_loop_pause
+
+    @classmethod
+    def from_dict(cls, parameters: dict) -> Any:
+        """
+        Returns session instance from dict.
+        :returns: VoiceAssistantSession instance.
+        """
+        return cls(**parameters)
+    
+    def to_dict(self) -> dict:
+        """
+        Returns a parameter dictionary for later instantiation.
+        :returns: Parameter dictionary.
+        """
+        return {
+            "working_directory": self.working_directory,
+            "history": self.history,
+            "loop_pause": self.loop_pause,
+            "transcriber_backend": self.transcriber_backend,
+            "transcriber_model_path": self.transcriber_model_path,
+            "transcriber_model_parameters": self.transcriber_model_parameters,
+            "transcriber_transcription_parameters": self.transcriber_transcription_parameters,
+            "synthesizer_backend": self.synthesizer_backend,
+            "synthesizer_model_path": self.synthesizer_model_path,
+            "synthesizer_model_parameters": self.synthesizer_model_parameters,
+            "synthesizer_synthesis_parameters": self.synthesizer_synthesis_parameters,
+            "speechrecorder_input_device_index": self.speechrecorder_input_device_index,
+            "speechrecorder_recognizer_parameters": self.speechrecorder_recognizer_parameters,
+            "speechrecorder_microphone_parameters": self.speechrecorder_microphone_parameters,
+            "speechrecorder_loop_pause": self.speechrecorder_loop_pause,
+        }
+
+    def spawn_conversation_handler(self, worker_function: Callable) -> ConversationHandler:
+        """
+        Spawns a conversation handler based on the session parameters
+        :param worker_function: Worker function.
+        """
+        return ConversationHandler(
+            working_directory=safely_create_path(self.working_directory),
+            speech_recorder=SpeechRecorder(
+                input_device_index=self.speechrecorder_input_device_index,
+                recognizer_parameters=self.speechrecorder_recognizer_parameters,
+                microphone_parameters=self.speechrecorder_microphone_parameters,
+                loop_pause=self.speechrecorder_loop_pause
+            ),
+            transcriber=Transcriber(
+                backend=self.transcriber_backend,
+                model_path=self.transcriber_model_path,
+                model_parameters=self.transcriber_model_parameters,
+                transcription_parameters=self.transcriber_transcription_parameters
+            ),
+            synthesizer=Synthesizer(
+                backend=self.synthesizer_backend,
+                model_path=self.synthesizer_model_path,
+                model_parameters=self.synthesizer_model_parameters,
+                synthesis_parameters=self.synthesizer_synthesis_parameters
+            ),
+            worker_function=worker_function,
+            history=self.history,
+            loop_pause=self.loop_pause
+        )
