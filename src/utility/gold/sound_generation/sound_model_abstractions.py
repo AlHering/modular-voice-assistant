@@ -15,7 +15,7 @@ from enum import Enum
 import pyaudio
 import numpy as np
 import time
-from ...bronze.audio_utility import get_input_devices, get_output_devices
+from ...bronze.sounddevice_utility import get_input_devices, get_output_devices
 from ...bronze.time_utility import get_timestamp
 from .sound_model_instantiation import load_whisper_model, load_faster_whisper_model, load_coqui_tts_model
 from .speech_to_text_utility import transcribe_with_faster_whisper, transcribe_with_whisper
