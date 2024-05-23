@@ -180,8 +180,6 @@ class ChatModelInstance(object):
     """
     Chat model class.
     """
-    supported_backends: List[str] = ["ctransformers", "transformers",
-                                     "llamacpp", "autogptq", "exllamav2", "langchain_llamacpp"]
 
     def __init__(self,
                  language_model_instance: LanguageModelInstance,
@@ -189,7 +187,7 @@ class ChatModelInstance(object):
                  default_system_prompt: str = None,
                  prompt_maker: Callable = None,
                  use_history: bool = True,
-                 history: List[Dict[str, ]] = None,
+                 history: List[Dict[str, Union[str, dict]]] = None,
                  ) -> None:
         """
         Initiation method.
@@ -210,12 +208,12 @@ class ChatModelInstance(object):
         self.chat_parameters = {} if chat_parameters is None else chat_parameters
         self.system_prompt = default_system_prompt
         if prompt_maker is None:
-            def prompt_maker(history: List[Tuple[str, str, dict]]) -> str:
+            def prompt_maker(history: List[Dict[str, Union[str, dict]]]) -> str:
                 """
                 Default Prompt maker function.
                 :param history: History.
                 """
-                return "\n".join(f"<s>{entry[0]}:\n{entry[1]}</s>" for entry in history) + "\n"
+                return "\n".join(f"<s>{entry['role']}:\n{entry['content']}</s>" for entry in history) + "\n"
         self.prompt_maker = prompt_maker
 
         self.use_history = use_history
@@ -239,14 +237,15 @@ class ChatModelInstance(object):
         """
         chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
         self.history.append({"role": "user", "content": prompt})
+        full_prompt = self.prompt_maker(self.history)
         if self.language_model_instance.backend == "ctransformers":
-            return None, None
+            return self.language_model_instance.generate(full_prompt)
         elif self.language_model_instance.backend == "langchain_llamacpp":
-            None, None
+            return self.language_model_instance.generate(full_prompt)
         elif self.language_model_instance.backend == "transformers":
-            return None, None
+            return self.language_model_instance.generate(full_prompt)
         elif self.language_model_instance.backend == "autogptq":
-            None, None
+            return self.language_model_instance.generate(full_prompt)
         elif self.language_model_instance.backend == "llamacpp":
             metadata = self.language_model_instance.model.create_chat_completion(
                 messages=self.history,
@@ -255,7 +254,7 @@ class ChatModelInstance(object):
             response = metadata["choices"][0]["message"]
             return response, metadata
         elif self.language_model_instance.backend == "exllamav2":
-            None, None
+            return self.language_model_instance.generate(full_prompt)
 
 
 """
