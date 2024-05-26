@@ -17,22 +17,22 @@ from .sound_model_instantiation import load_coqui_tts_model
 
 def synthesize_with_coqui_tts(text: str, 
                               model: TTS = None, 
-                              synthesis_kwargs: dict = None) -> Tuple[np.ndarray, dict]:
+                              synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
     """
     Synthesizes text with Coqui TTS and saves results to a file.
     :param text: Output text.
     :param model: TTS model. 
         Defaults to None in which case a default model is instantiated and used.
         Not providing a model therefore increases processing time tremendously!
-    :param synthesis_kwargs: Synthesis keyword arguments. 
+    :param synthesis_parameters: Synthesis keyword arguments. 
         Defaults to None in which case default values are used.
     :returns: Synthesized audio and audio metadata which can be used as stream keyword arguments for outputting.
     """
     model = load_coqui_tts_model(TTS().list_models()[0]) if model is None else model
-    synthesis_kwargs = {} if synthesis_kwargs is None else synthesis_kwargs
+    synthesis_parameters = {} if synthesis_parameters is None else synthesis_parameters
     snythesized = model.tts(
         text=text,
-        **synthesis_kwargs)
+        **synthesis_parameters)
     
     # Conversion taken from 
     # https://github.com/coqui-ai/TTS/blob/dev/TTS/utils/synthesizer.py and
@@ -51,7 +51,7 @@ def synthesize_with_coqui_tts(text: str,
     }
 
 
-def synthesize_with_coqui_tts_to_file(text: str, output_path: str, model: TTS = None, synthesis_kwargs: dict = None) -> str:
+def synthesize_with_coqui_tts_to_file(text: str, output_path: str, model: TTS = None, synthesis_parameters: dict = None) -> str:
     """
     Synthesizes text with Coqui TTS and saves results to a file.
     :param text: Output text.
@@ -59,13 +59,13 @@ def synthesize_with_coqui_tts_to_file(text: str, output_path: str, model: TTS = 
     :param model: TTS model. 
         Defaults to None in which case a default model is instantiated and used.
         Not providing a model therefore increases processing time tremendously!
-    :param synthesis_kwargs: Synthesis keyword arguments. 
+    :param synthesis_parameters: Synthesis keyword arguments. 
         Defaults to None in which case default values are used.
     :returns: Output file path.
     """
     model = load_coqui_tts_model(TTS.list_models()[0]) if model is None else model
-    synthesis_kwargs = {} if synthesis_kwargs is None else synthesis_kwargs
+    synthesis_parameters = {} if synthesis_parameters is None else synthesis_parameters
     return model.tts_to_file(
         text=text,
         file_path=output_path,
-        **synthesis_kwargs)
+        **synthesis_parameters)
