@@ -130,7 +130,7 @@ class Synthesizer(object):
             model=self.model,
             synthesis_parameters=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters)
 
-    def synthesize_to_file(self, text: str, output_path: str, synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
+    def synthesize_to_file(self, text: str, output_path: str, synthesis_parameters: dict = None) -> Tuple[str, dict]:
         """
         Synthesize text to audio.
         :param text: Text to synthesize to audio.
@@ -143,7 +143,7 @@ class Synthesizer(object):
             text=text, 
             output_path=output_path,
             model=self.model,
-            synthesis_parameters=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters)
+            synthesis_parameters=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters), {}
         
 
 class SpeechRecorder(object):
