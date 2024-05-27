@@ -27,8 +27,8 @@ from src.utility.silver.file_system_utility import safely_create_path
 """
 Backend control
 """
-BACKEND = FastAPI(title=cfg.BACKEND_TITLE, version=cfg.BACKEND_VERSION,
-                  description=cfg.BACKEND_DESCRIPTION)
+BACKEND = FastAPI(title=cfg.TEXT_GENERATION_BACKEND_TITLE, version=cfg.TEXT_GENERATION_BACKEND_VERSION,
+                  description=cfg.TEXT_GENERATION_BACKEND_DESCRIPTION)
 CONTROLLER: BackendController = BackendController()
 CONTROLLER.setup()
 for path in [cfg.PATHS.FILE_PATH]:
@@ -100,7 +100,7 @@ for registering_function in [register_lm_instance_endpoints,
     registering_function(backend=BACKEND,
                          interaction_decorator=interface_function,
                          controller=CONTROLLER,
-                         endpoint_base=cfg.ENDPOINT_BASE)
+                         endpoint_base=cfg.TEXT_GENERATION_BACKEND_ENDPOINT_BASE)
 
 
 @BACKEND.get("/", include_in_schema=False)
@@ -143,12 +143,12 @@ def run_backend(host: str = None, port: int = None, reload: bool = True) -> None
     :param reload: Reload flag for server. Defaults to True.
     """
     if host is not None:
-        cfg.BACKEND_HOST = host
+        cfg.TEXT_GENERATION_BACKEND_HOST = host
     if port is not None:
-        cfg.BACKEND_PORT = port
+        cfg.TEXT_GENERATION_BACKEND_PORT = port
     uvicorn.run("src.interface.backend_interface:BACKEND",
-                host=cfg.BACKEND_HOST,
-                port=int(cfg.BACKEND_PORT),
+                host=cfg.TEXT_GENERATION_BACKEND_HOST,
+                port=int(cfg.TEXT_GENERATION_BACKEND_PORT),
                 reload=reload)
 
 
