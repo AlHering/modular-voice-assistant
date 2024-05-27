@@ -37,12 +37,12 @@ def register_endpoints(backend: FastAPI,
 
     @backend.get(f"{endpoint_base}")
     @interaction_decorator()
-    async def get_agent_memory() -> dict:
+    async def get_agent_memories() -> dict:
         """
         Endpoint for getting all AgentMemory entries.
         :return: Response.
         """
-        return {"agent_memory": controller.get_object_count_by_type("agent_memory")}
+        return {"agent_memories": controller.get_objects_by_type("agent_memory")}
 
     @backend.post(f"{endpoint_base}")
     @interaction_decorator()
@@ -78,7 +78,7 @@ def register_endpoints(backend: FastAPI,
     @interaction_decorator()
     async def patch_agent_memory(id: int, patch: dict) -> dict:
         """
-        Endpoint for deleting an AgentMemory entry.
+        Endpoint for patching an AgentMemory entry.
         :param id: AgentMemory ID.
         :param patch: Patch payload.
         :return: Response.

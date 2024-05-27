@@ -50,12 +50,12 @@ def register_endpoints(backend: FastAPI,
 
     @backend.get(f"{endpoint_base}")
     @interaction_decorator()
-    async def get_agent_tool() -> dict:
+    async def get_agent_tools() -> dict:
         """
         Endpoint for getting all AgentTool entries.
         :return: Response.
         """
-        return {"agent_tool": controller.get_object_count_by_type("agent_tool")}
+        return {"agent_tool": controller.get_objects_by_type("agent_tool")}
 
     @backend.post(f"{endpoint_base}")
     @interaction_decorator()
@@ -91,7 +91,7 @@ def register_endpoints(backend: FastAPI,
     @interaction_decorator()
     async def patch_agent_tool(id: int, patch: dict) -> dict:
         """
-        Endpoint for deleting an AgentTool entry.
+        Endpoint for patching an AgentTool entry.
         :param id: AgentTool ID.
         :param patch: Patch payload.
         :return: Response.

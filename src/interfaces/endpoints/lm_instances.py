@@ -56,7 +56,7 @@ def register_endpoints(backend: FastAPI,
         Endpoint for getting all LM instance entries.
         :return: Response.
         """
-        return {"lm_instances": controller.get_object_count_by_type("lm_instance")}
+        return {"lm_instances": controller.get_objects_by_type("lm_instance")}
 
     @backend.post(f"{endpoint_base}")
     @interaction_decorator()
@@ -92,7 +92,7 @@ def register_endpoints(backend: FastAPI,
     @interaction_decorator()
     async def patch_lm_instance(id: int, patch: dict) -> dict:
         """
-        Endpoint for deleting an LM instance entry.
+        Endpoint for patching an LM instance entry.
         :param id: LM instance ID.
         :param patch: Patch payload.
         :return: Response.
