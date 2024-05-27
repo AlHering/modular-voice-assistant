@@ -14,6 +14,7 @@ from src.utility.gold.basic_sqlalchemy_interface import BasicSQLAlchemyInterface
 from src.control.text_generation_controller import TextGenerationController
 from src.model.voice_assistant_control.data_model import populate_data_instrastructure
 
+
 class VoiceAssistantController(BasicSQLAlchemyInterface):
     """
     Controller class for handling voice assistant interface requests.
