@@ -6,8 +6,8 @@
 ****************************************************
 """
 from src.configuration import configuration as cfg
-from src.interfaces import backend_interface
+from src.interfaces import text_generation_interface
 
 
 if __name__ == "__main__":
-    backend_interface.run_backend(cfg.BACKEND_HOST, cfg.BACKEND_PORT)
+    text_generation_interface.run_backend(cfg.BACKEND_HOST, cfg.BACKEND_PORT)
