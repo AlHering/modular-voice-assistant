@@ -11,17 +11,6 @@ from pydantic import BaseModel
 from src.control.backend_controller import BackendController
 
 
-class Synthesizer(BaseModel):
-    """
-    Synthesizer dataclass.
-    """
-    backend: str
-    model_path: str
-    model_path: Optional[str] = None
-    model_parameters: Optional[dict] = None
-    synthesis_parameters: Optional[dict] = None
-
-
 class Transcriber(BaseModel):
     """
     Transcriber dataclass.
@@ -31,16 +20,6 @@ class Transcriber(BaseModel):
     model_path: Optional[str] = None
     model_parameters: Optional[dict] = None
     transcription_parameters: Optional[dict] = None
-
-
-class SpeechRecorder(BaseModel):
-    """
-    SpeechRecorder dataclass.
-    """
-    input_device_index: Optional[int] = None
-    recognizer_parameters: Optional[dict] = None
-    microphone_parameters: Optional[dict] = None
-    loop_pause: Optional[float] = None
 
 
 def register_endpoints(backend: FastAPI,
@@ -60,7 +39,7 @@ def register_endpoints(backend: FastAPI,
 
     @backend.get(f"{endpoint_base}")
     @interaction_decorator()
-    async def get__transcribers() -> dict:
+    async def get_transcribers() -> dict:
         """
         Endpoint for getting all transcriber entries.
         :return: Response.
