@@ -116,8 +116,6 @@ async def upload_file(file_name: str, file_data: UploadFile = File(...)) -> dict
     return {"file_path": upload_path}
 
 
-
-
 """
 Backend runner
 """
