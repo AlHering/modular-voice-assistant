@@ -43,12 +43,12 @@ class SpeechRecorder(BaseModel):
     loop_pause: Optional[float] = None
 
 
-def register_transcriber_endpoints(backend: FastAPI,
+def register_endpoints(backend: FastAPI,
                        interaction_decorator: Callable,
                        controller: BackendController,
                        endpoint_base: str) -> None:
     """
-    Function for registering transcriber endpoints to given FastAPI based backend.
+    Function for registering endpoints to given FastAPI based backend.
     :param backend: backend to register endpoints under. 
     :param interaction_decorator: Decorator function for wrapping endpoint functions.
     :param controller: Backend controller to handle endpoint accesses.
