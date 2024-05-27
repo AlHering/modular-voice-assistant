@@ -126,4 +126,11 @@ def register_endpoints(backend: FastAPI,
             """
             return {target: controller.put_object(target, **dict(data))}
         
+        get_all.__name__ = f"get_{target}s"
+        post.__name__ = f"post_{target}"
+        get.__name__ = f"get_{target}"
+        delete.__name__ = f"delete_{target}"
+        patch.__name__ = f"patch_{target}"
+        put.__name__ = f"put_{target}"
+        
     print(backend.openapi_schema)
