@@ -95,4 +95,4 @@ def register_endpoints(backend: FastAPI,
         :param synthesizer: Synthesizer.
         :return: Response.
         """
-        return {"synthesizer": controller.put_document(**dict(synthesizer))}
+        return {"synthesizer": controller.put_object("synthesizer", **dict(synthesizer))}

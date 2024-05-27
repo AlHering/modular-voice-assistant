@@ -107,4 +107,4 @@ def register_endpoints(backend: FastAPI,
         :param lm_instance: LM instance.
         :return: Response.
         """
-        return {"lm_instance": controller.put_document(**dict(lm_instance))}
+        return {"lm_instance": controller.put_object("lm_instance", **dict(lm_instance))}

@@ -94,4 +94,4 @@ def register_endpoints(backend: FastAPI,
         :param speech_recorder: SpeechRecorder.
         :return: Response.
         """
-        return {"speech_recorder": controller.put_document(**dict(speech_recorder))}
+        return {"speech_recorder": controller.put_object("speech_recorder", **dict(speech_recorder))}

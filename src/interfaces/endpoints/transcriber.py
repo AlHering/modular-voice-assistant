@@ -95,4 +95,4 @@ def register_endpoints(backend: FastAPI,
         :param transcriber: Transcriber.
         :return: Response.
         """
-        return {"transcriber": controller.put_document(**dict(transcriber))}
+        return {"transcriber": controller.put_object("transcriber", **dict(transcriber))}

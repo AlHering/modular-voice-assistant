@@ -106,4 +106,4 @@ def register_endpoints(backend: FastAPI,
         :param agent_tool: AgentTool.
         :return: Response.
         """
-        return {"agent_tool": controller.put_document(**dict(agent_tool))}
+        return {"agent_tool": controller.put_object("agent_tool", **dict(agent_tool))}

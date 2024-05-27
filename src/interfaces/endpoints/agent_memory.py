@@ -93,4 +93,4 @@ def register_endpoints(backend: FastAPI,
         :param agent_memory: AgentMemory.
         :return: Response.
         """
-        return {"agent_memory": controller.put_document(**dict(agent_memory))}
+        return {"agent_memory": controller.put_object("agent_memory", **dict(agent_memory))}
