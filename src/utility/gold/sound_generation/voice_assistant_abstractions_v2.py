@@ -244,9 +244,9 @@ class ConversationHandler(object):
             self._stop()
 
 
-class VoiceAssistantSession(object):
+class ConversationHandlerSession(object):
     """
-    Represents a voice assistant session.
+    Represents a conversation handler session.
     """
     transcriber_supported_backends: List[str] = Transcriber.supported_backends
     synthesizer_supported_backends: List[str] = Synthesizer.supported_backends
