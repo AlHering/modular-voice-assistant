@@ -18,13 +18,16 @@ from functools import wraps
 from src.control.voice_assistant_controller import VoiceAssistantController
 from src.configuration import configuration as cfg
 from src.utility.silver.file_system_utility import safely_create_path
+from src.interfaces.endpoints.transcriber import register_endpoints as register_transcriber_endpoints
+from src.interfaces.endpoints.synthesizer import register_endpoints as register_synthesizer_endpoints
+from src.interfaces.endpoints.speech_recorder import register_endpoints as register_speech_recorder_endpoints
 
 
 """
 Backend control
 """
-BACKEND = FastAPI(title=cfg.BACKEND_TITLE, version=cfg.BACKEND_VERSION,
-                  description=cfg.BACKEND_DESCRIPTION)
+BACKEND = FastAPI(title=cfg.VOICE_ASSISTANT_BACKEND_TITLE, version=cfg.VOICE_ASSISTANT_BACKEND_VERSION,
+                  description=cfg.VOICE_ASSISTANT_BACKEND_DESCRIPTION)
 CONTROLLER: VoiceAssistantController = VoiceAssistantController()
 CONTROLLER.setup()
 for path in [cfg.PATHS.FILE_PATH]:
@@ -89,6 +92,15 @@ def interface_function() -> Optional[Any]:
 """
 Endpoints
 """
+for registering_function in [register_transcriber_endpoints,
+                             register_synthesizer_endpoints,
+                             register_speech_recorder_endpoints]:
+    registering_function(backend=BACKEND,
+                         interaction_decorator=interface_function,
+                         controller=CONTROLLER,
+                         endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)
+    
+
 @BACKEND.get("/", include_in_schema=False)
 async def root() -> dict:
     """
@@ -129,12 +141,12 @@ def run_backend(host: str = None, port: int = None, reload: bool = True) -> None
     :param reload: Reload flag for server. Defaults to True.
     """
     if host is not None:
-        cfg.BACKEND_HOST = host
+        cfg.VOICE_ASSISTANT_BACKEND_HOST = host
     if port is not None:
-        cfg.BACKEND_PORT = port
+        cfg.VOICE_ASSISTANT_BACKEND_PORT = port
     uvicorn.run("src.interface.backend_interface:BACKEND",
-                host=cfg.BACKEND_HOST,
-                port=int(cfg.BACKEND_PORT),
+                host=cfg.VOICE_ASSISTANT_BACKEND_HOST,
+                port=int(cfg.VOICE_ASSISTANT_BACKEND_PORT),
                 reload=reload)
 
 
