@@ -113,7 +113,7 @@ def register_endpoints(backend: FastAPI,
     async def put_transcriber(transcriber: Transcriber) -> dict:
         """
         Endpoint for posting or updating an transcriber entry.
-        :param transcriber: Trancriber.
+        :param transcriber: Transcriber.
         :return: Response.
         """
         return {"transcriber": controller.put_document(**dict(transcriber))}
