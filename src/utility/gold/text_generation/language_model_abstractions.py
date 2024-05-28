@@ -206,7 +206,7 @@ class ChatModelInstance(object):
             Defaults to None.
         """
         self.language_model_instance = language_model_instance
-        self.chat_parameters = {} if chat_parameters is None else chat_parameters
+        self.chat_parameters = self.language_model_instance.generating_parameters if chat_parameters is None else chat_parameters
         self.system_prompt = default_system_prompt
         if prompt_maker is None:
             def prompt_maker(history: List[Dict[str, Union[str, dict]]]) -> str:
