@@ -152,7 +152,7 @@ def populate_data_instrastructure(engine: Engine, schema: str, model: dict) -> N
                       comment="Name of the Agent Tool.")
         description = Column(String, nullable=False,
                              comment="Description of the Agent Tool.")
-        func = Column(String, nullable=False,
+        function = Column(String, nullable=False,
                       comment="Function of the Agent Tool.")
         return_type = Column(String, nullable=False,
                              comment="Return type of the Agent Tool.")

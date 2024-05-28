@@ -27,7 +27,7 @@ class AgentTool(BaseModel):
     """
     name: str
     description: str
-    func: str = None
+    function: str = None
     return_type: str = None
 
     tool_arguments: Optional[List[ToolArgument]] = None
