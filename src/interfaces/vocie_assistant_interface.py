@@ -18,9 +18,6 @@ from functools import wraps
 from src.control.voice_assistant_controller import VoiceAssistantController
 from src.configuration import configuration as cfg
 from src.utility.silver.file_system_utility import safely_create_path
-from src.interfaces.endpoints.transcriber import register_endpoints as register_transcriber_endpoints
-from src.interfaces.endpoints.synthesizer import register_endpoints as register_synthesizer_endpoints
-from src.interfaces.endpoints.speech_recorder import register_endpoints as register_speech_recorder_endpoints
 from src.interfaces.endpoints.voice_assistant_endpoints import register_endpoints
 
 
