@@ -7,6 +7,7 @@
 ****************************************************
 """
 import traceback
+import copy
 from typing import List, Tuple, Any, Callable, Optional, Union, Dict
 from datetime import datetime as dt
 from .language_model_instantiation import load_ctransformers_model, load_transformers_model, load_llamacpp_model, load_autogptq_model, load_exllamav2_model, load_langchain_llamacpp_model
@@ -238,12 +239,27 @@ class ChatModelInstance(object):
         chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
         self.history.append({"role": "user", "content": prompt})
         full_prompt = self.prompt_maker(self.history)
+
+        metadata = {}
+        answer = ""
+
         if self.language_model_instance.backend == "ctransformers":
             return self.language_model_instance.generate(full_prompt)
         elif self.language_model_instance.backend == "langchain_llamacpp":
             return self.language_model_instance.generate(full_prompt)
         elif self.language_model_instance.backend == "transformers":
-            return self.language_model_instance.generate(full_prompt)
+            chat_encoding_kwargs = copy.deepcopy(self.language_model_instance.encoding_parameters)
+            chat_encoding_kwargs["add_generation_prompt"] = True
+            input_tokens = self.language_model_instance.tokenizer.apply_chat_template(
+                    self.history, 
+                    **chat_encoding_kwargs).to(self.language_model_instance.model.device)
+
+            output_tokens = self.language_model_instance.model.generate(
+                **input_tokens, **chat_parameters)[0]
+            metadata = self.language_model_instance.tokenizer.decode(
+                output_tokens, 
+                **self.language_model_instance.decoding_parameters)
+            return answer, metadata
         elif self.language_model_instance.backend == "autogptq":
             return self.language_model_instance.generate(full_prompt)
         elif self.language_model_instance.backend == "llamacpp":
@@ -251,8 +267,8 @@ class ChatModelInstance(object):
                 messages=self.history,
                 **chat_parameters
             )
-            response = metadata["choices"][0]["message"]
-            return response, metadata
+            answer = metadata["choices"][0]["message"]
+            return answer, metadata
         elif self.language_model_instance.backend == "exllamav2":
             return self.language_model_instance.generate(full_prompt)
 
