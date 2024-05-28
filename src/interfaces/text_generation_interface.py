@@ -93,14 +93,6 @@ def interface_function() -> Optional[Any]:
 """
 Endpoints
 """
-for registering_function in [register_lm_instance_endpoints,
-                             register_tooling_endpoints,
-                             register_agent_memory_endpoints,
-                             register_agent_endpoints]:
-    registering_function(backend=BACKEND,
-                         interaction_decorator=interface_function,
-                         controller=CONTROLLER,
-                         endpoint_base=cfg.TEXT_GENERATION_BACKEND_ENDPOINT_BASE)
 
 
 @BACKEND.get("/", include_in_schema=False)
@@ -112,7 +104,7 @@ async def root() -> dict:
     return RedirectResponse(url="/docs")
 
 
-@BACKEND.post(f"{cfg.BACKEND_ENDPOINT_BASE}/upload")
+@BACKEND.post(f"{cfg.TEXT_GENERATION_BACKEND_ENDPOINT_BASE}/upload")
 @interface_function()
 async def upload_file(file_name: str, file_data: UploadFile = File(...)) -> dict:
     """
@@ -128,6 +120,16 @@ async def upload_file(file_name: str, file_data: UploadFile = File(...)) -> dict
             output_file.write(contents)
     file_data.file.close()
     return {"file_path": upload_path}
+
+
+for registering_function in [register_lm_instance_endpoints,
+                             register_tooling_endpoints,
+                             register_agent_memory_endpoints,
+                             register_agent_endpoints]:
+    registering_function(backend=BACKEND,
+                         interaction_decorator=interface_function,
+                         controller=CONTROLLER,
+                         endpoint_base=cfg.TEXT_GENERATION_BACKEND_ENDPOINT_BASE)
 
 
 """
@@ -146,7 +148,7 @@ def run_backend(host: str = None, port: int = None, reload: bool = True) -> None
         cfg.TEXT_GENERATION_BACKEND_HOST = host
     if port is not None:
         cfg.TEXT_GENERATION_BACKEND_PORT = port
-    uvicorn.run("src.interface.text_generation_interface:BACKEND",
+    uvicorn.run("src.interfaces.text_generation_interface:BACKEND",
                 host=cfg.TEXT_GENERATION_BACKEND_HOST,
                 port=int(cfg.TEXT_GENERATION_BACKEND_PORT),
                 reload=reload)

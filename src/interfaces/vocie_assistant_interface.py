@@ -21,7 +21,7 @@ from src.utility.silver.file_system_utility import safely_create_path
 from src.interfaces.endpoints.transcriber import register_endpoints as register_transcriber_endpoints
 from src.interfaces.endpoints.synthesizer import register_endpoints as register_synthesizer_endpoints
 from src.interfaces.endpoints.speech_recorder import register_endpoints as register_speech_recorder_endpoints
-from src.interfaces.endpoints.experimental_voice_assistant_endpoints import register_endpoints
+from src.interfaces.endpoints.voice_assistant_endpoints import register_endpoints
 
 
 """
@@ -93,17 +93,6 @@ def interface_function() -> Optional[Any]:
 """
 Endpoints
 """
-"""for registering_function in [register_transcriber_endpoints,
-                             register_synthesizer_endpoints,
-                             register_speech_recorder_endpoints]:
-    registering_function(backend=BACKEND,
-                         interaction_decorator=interface_function,
-                         controller=CONTROLLER,
-                         endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)"""
-register_endpoints(backend=BACKEND,
-                   interaction_decorator=interface_function,
-                   controller=CONTROLLER,
-                   endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)
 
 
 @BACKEND.get("/", include_in_schema=False)
@@ -133,10 +122,22 @@ async def upload_file(file_name: str, file_data: UploadFile = File(...)) -> dict
     return {"file_path": upload_path}
 
 
+"""for registering_function in [register_transcriber_endpoints,
+                             register_synthesizer_endpoints,
+                             register_speech_recorder_endpoints]:
+    registering_function(backend=BACKEND,
+                         interaction_decorator=interface_function,
+                         controller=CONTROLLER,
+                         endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)"""
+register_endpoints(backend=BACKEND,
+                   interaction_decorator=interface_function,
+                   controller=CONTROLLER,
+                   endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)
+
+
 """
 Backend runner
 """
-
 
 def run_backend(host: str = None, port: int = None, reload: bool = True) -> None:
     """
@@ -149,7 +150,7 @@ def run_backend(host: str = None, port: int = None, reload: bool = True) -> None
         cfg.VOICE_ASSISTANT_BACKEND_HOST = host
     if port is not None:
         cfg.VOICE_ASSISTANT_BACKEND_PORT = port
-    uvicorn.run("src.interface.voice_assistant_interface:BACKEND",
+    uvicorn.run("src.interfaces.vocie_assistant_interface:BACKEND",
                 host=cfg.VOICE_ASSISTANT_BACKEND_HOST,
                 port=int(cfg.VOICE_ASSISTANT_BACKEND_PORT),
                 reload=reload)

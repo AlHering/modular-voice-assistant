@@ -40,7 +40,7 @@ class SpeechRecorder(BaseModel):
     input_device_index: Optional[int] = None
     recognizer_parameters: Optional[dict] = None
     microphone_parameters: Optional[dict] = None
-    loop_pause: Optional[float] = None
+    loop_pause: Optional[float] = 0.1
 
 
 def register_endpoints(backend: FastAPI,
@@ -126,11 +126,14 @@ def register_endpoints(backend: FastAPI,
             """
             return {target: controller.put_object(target, **dict(data))}
         
-        get_all.__name__ = f"get_{target}s"
-        post.__name__ = f"post_{target}"
-        get.__name__ = f"get_{target}"
-        delete.__name__ = f"delete_{target}"
-        patch.__name__ = f"patch_{target}"
-        put.__name__ = f"put_{target}"
-        
-    print(backend.openapi_schema)
+    scheme = backend.openapi()
+    for path in scheme["paths"]:
+        target = path.replace(f"{endpoint_base}/", "").split("/")[0]
+        if target in target_classes:
+            for method in ["post", "put"]:
+                # 'requestBody': {'content': {'application/json': {'schema': {'$ref': '#/components/schemas/Transcriber'}}}, 'required': True}
+                if "requestBody" in scheme["paths"][path].get(method, {}):
+                    scheme["paths"][path][method]["requestBody"]["content"]["application/json"]["schema"] = {"$ref": f"#/components/schemas/{target_classes[target].__name__}"}
+                    scheme["paths"][path][method]["summary"] = + f" {target_classes[target].__name__}"
+    backend.openapi_schema = scheme
+
