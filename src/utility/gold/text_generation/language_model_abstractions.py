@@ -267,7 +267,7 @@ class ChatModelInstance(object):
                 messages=self.history,
                 **chat_parameters
             )
-            answer = metadata["choices"][0]["message"]
+            answer = metadata["choices"][0]["message"].get("content", "")
             return answer, metadata
         elif self.language_model_instance.backend == "exllamav2":
             return self.language_model_instance.generate(full_prompt)
