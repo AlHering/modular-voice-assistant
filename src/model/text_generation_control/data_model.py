@@ -46,17 +46,19 @@ def populate_data_instrastructure(engine: Engine, schema: str, model: dict) -> N
                                 comment="Path of the tokenizer.")
         tokenizer_parameters = Column(JSON,
                                       comment="Parameters for the tokenizer instantiation.")
+        embeddings_path = Column(String,
+                                comment="Embeddings path.")
+        embeddings_parameters = Column(JSON,
+                                      comment="Parameters for the embeddings instantiation.")
         config_path = Column(String,
                              comment="Path of the config.")
         config_parameters = Column(JSON,
                                    comment="Parameters for the config.")
 
-        default_system_prompt = Column(String,
-                                       comment="Default system prompt of the model instance.")
-        use_history = Column(Boolean, default=True,
-                             comment="Flag for declaring whether to use a history.")
         encoding_parameters = Column(JSON,
                                      comment="Parameters for prompt encoding.")
+        embedding_parameters = Column(JSON,
+                                     comment="Parameters for embedding.")
         generating_parameters = Column(JSON,
                                        comment="Parameters for the response generation.")
         decoding_parameters = Column(JSON,
