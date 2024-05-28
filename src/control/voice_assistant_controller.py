@@ -52,16 +52,14 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
         """
         Method for running setup process.
         """
-        for controller_instance in self.controllers.values():
-            controller_instance.setup()
+        pass
 
 
     def shutdown(self) -> None:
         """
         Method for running shutdown process.
         """
-        for controller_instance in self.controllers.values():
-            controller_instance.shutdown()
+        pass
 
 
     """
