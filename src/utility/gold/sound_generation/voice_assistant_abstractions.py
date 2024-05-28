@@ -16,12 +16,14 @@ import pyaudio
 import speech_recognition
 from datetime import datetime as dt
 from src.configuration import configuration as cfg
-from threading import Thread, Event as TEvent
+from threading import Thread, Event as TEvent, Lock
 from queue import Empty, Queue as TQueue
 from ..text_generation.language_model_abstractions import LanguageModelInstance
 from ..text_generation.agent_abstractions import Agent
-from ...bronze.concurrency_utility import PipelineComponentThread
+from ...bronze.concurrency_utility import PipelineComponentThread, timeout
 from ...bronze.time_utility import get_timestamp
+from ...silver.file_system_utility import safely_create_path
+from ...bronze.pyaudio_utility import play_wave
 from . import speech_to_text_utility, text_to_speech_utility
 from .sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
@@ -42,7 +44,6 @@ class ConversationHandler(object):
                  transcriber: Transcriber,
                  synthesizer: Synthesizer,
                  worker_function: Callable,
-                 history: List[dict] = None,
                  loop_pause: float = 0.1) -> None:
         """
         Initiation method.
@@ -51,8 +52,6 @@ class ConversationHandler(object):
         :param transcriber: Transcriber for STT processes.
         :param synthesizer: Synthesizer for TTS processes.
         :param worker_function: Worker function for handling cleaned input.
-        :param history: History as list of dictionaries of the structure
-            {"process": <"tts"/"stt">, "text": <text content>, "metadata": {...}}
         :param input_method: Input method.
             Defaults to SPEECH (STT).
         :param output_method: Output method.
@@ -76,260 +75,290 @@ class ConversationHandler(object):
         self.transcriber = transcriber
         self.worker_function = worker_function
         self.synthesizer = synthesizer
-        self.component_functions: Dict[str, Callable] = {
-            "transcriber": self.transcriber.transcribe,
-            "worker": self.worker_function,
-            "synthesizer": self.synthesizer.synthesize,
-        }
 
         self.interrupt: TEvent = None
-        self.pause_inputting: TEvent = None
-        self.pause_forwarding: TEvent = None
-        self.pause_outputting: TEvent = None
+        self.pause_input: TEvent = None
+        self.pause_worker: TEvent = None
+        self.pause_output: TEvent = None
         self.queues: Dict[str, TQueue] = {}
-        self.threads: Dict[str, PipelineComponentThread] = {}
+        self.threads: Dict[str, Thread] = {}
 
-        self.history = history
         self.loop_pause = loop_pause
-        self._reset()
+        self._setup_components()
 
     def _stop(self) -> None:
         """
-        Method for stopping processes.
+        Stops processes.
         """
         for event in [
             self.interrupt,
-            self.pause_inputting,
-            self.pause_forwarding,
-            self.pause_outputting
+            self.pause_input,
+            self.pause_worker,
+            self.pause_output
         ]:
             if event is not None:
                 event.set()
         for component in self.threads:
-            self.threads[component].join(self.loop_pause) 
+            try:
+                self.threads[component].join(self.loop_pause) 
+            except RuntimeError:
+                pass
 
     def _setup_components(self) -> None:
         """
-        Method for setting up components.
+        Sets up components.
         """
         self.interrupt = TEvent()
-        self.pause_inputting = TEvent()
-        self.pause_forwarding = TEvent()
-        self.pause_outputting = TEvent()
+        self.pause_input = TEvent()
+        self.pause_worker = TEvent()
+        self.pause_output = TEvent()
 
-        self.queues = {f"{component}_in": TQueue() for component in self.component_functions}
-        self.queues.update({f"{component}_out": TQueue() for component in self.component_functions})
+        self.queues = {f"worker_in": TQueue(), "worker_out": TQueue() }
 
-        self.threads = {}
-        for component in self.component_functions:
-            self.threads[component] = PipelineComponentThread(
-                pipeline_function=self.component_functions[component],
-                input_queue=self.queues.get(f"{component}_in"),
-                output_queue=self.queues.get(f"{component}_out"),
-                interrupt=self.interrupt,
-                loop_pause=self.loop_pause/8
-            )
-            self.threads[component].daemon = True
+        self.threads = {
+            "input": Thread(target=self.loop, kwargs={"task": "input"}),
+            "worker": Thread(target=self.loop, kwargs={"task": "worker"}),
+            "output": Thread(target=self.loop, kwargs={"task": "output"})
+        }
+        for thread in self.threads:
+            self.threads[thread].daemon = True
 
-        for component in self.threads:
-            self.threads[component].start()
-
-    def _reset(self, delete_history: bool = False) -> None:
+    def reset(self) -> None:
         """
-        Method for setting up and resetting handler. 
-        :param delete_history: Flag for declaring whether to delete history.    
-            Defaults to None.
+        Sets up and resets handler. 
         """
         cfg.LOGGER.info("(Re)setting Conversation Handler...")
         self._stop()
         gc.collect()
-
         self._setup_components()
-        self.history = [] if self.history is None or delete_history else self.history
         cfg.LOGGER.info("Setup is done.")
 
-    def handle_input(self) -> Tuple[Optional[np.ndarray], Optional[dict]]:
+    def handle_input(self, timeout: float = None) -> None:
         """
         Acquires and forwards user input.
-        :return: User input audio data and metadata.
+        :param timeout: Timeout for blocking methods.
         """
-        if not self.pause_inputting.is_set():
-            return self.speech_recorder.record_single_input()
-        return None, None
-    
-    def input_to_worker_gateway(self) -> bool:
-        """
-        Collects and refines input before passing on to LLM.
-        :return: True, if data was successfully forwarded, else False.
-        """
-        if not self.pause_forwarding.is_set():
-            try:
-                cfg.LOGGER.info(f"Trying to fetch 'transcriber_out' data ...")
-                raw_input, raw_input_metadata = self.queues["transcriber_out"].get(self.loop_pause/4)
-                # Refine input
-                cfg.LOGGER.info(f"Forwarding {raw_input} to worker...")
-                self.queues["worker_in"].put(raw_input)
-                return True
-            except Empty:
-                cfg.LOGGER.info(f"'transcriber_out'-queue is empty.")
-        return False
-        
-    def worker_to_output_gateway(self) -> bool:
-        """
-        Collects and refines LLM output.
-        :return: True, if data was successfully forwarded, else False.
-        """
-        if not self.pause_forwarding.is_set():
-            try:
-                cfg.LOGGER.info(f"Trying to fetch 'worker_out' data ...")
-                response_text, response_metadata = self.queues["worker_out"].get(self.loop_pause/4)
-                if response_text:
-                    cfg.LOGGER.info(f"Forwarding {response_text} to synthesizer...")
-                    self.queues["synthesizer_in"].put(response_text)
-                return True
-            except Empty:
-                cfg.LOGGER.info(f"'worker_out'-queue is empty.")
-        return False
+        if not self.pause_input.is_set():
+            recorder_data, recorder_metadata = self.speech_recorder.record_single_input()
+            cfg.LOGGER.info(f"Got voice input.")
+            cfg.LOGGER.info(f"Transcribing input...")
+            input_data, transcriber_metadata = self.transcriber.transcribe(recorder_data)
+            cfg.LOGGER.info(f"Forwarding {input_data} to worker...")
+            self.queues["worker_in"].put(input_data)
 
-    def handle_output(self) -> bool:
+    def handle_work(self, timeout: float = None, streamed: bool = False) -> None:
+        """
+        Acquires input, computes and reroutes worker output.
+        :param timeout: Timeout for blocking methods.
+        :param streamed: Flag for declaring whether worker function return should be handled as a generator.
+        """  
+        if not self.pause_worker.is_set():
+            try:
+                if streamed:
+                    for elem in self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)):
+                        self.queues["worker_out"].put(elem)
+                else:
+                    self.queues["worker_out"].put(self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)))
+            except Empty:
+                pass
+
+    def handle_output(self, timeout: float = None) -> None:
         """
         Acquires and reroutes generated output based.
-        :return: True, if data was successfully outputted, else False.
+        :param timeout: Timeout for blocking methods.
         """  
-        if not self.pause_outputting.is_set():
+        if not self.pause_output.is_set():
             try:
-                cfg.LOGGER.info(f"Trying to fetch 'synthesizer_out' data ...")
-                output, output_metadata = self.queues["synthesizer_out"].get(self.loop_pause/4)
-                if output.any():
-                    cfg.LOGGER.info(f"Ouputting synthesized response...")
-                    self.pause_outputting.set()
-                    text_to_speech_utility.play_wave(output, output_metadata)
-                    self.pause_outputting.clear()
-                    cfg.LOGGER.info(f"Ouput finished.")
-                return True
+                worker_output, worker_metadata = self.queues["worker_out"].get(block=True, timeout=timeout)
+                self.pause_output.set()
+                cfg.LOGGER.info(f"Fetched worker output {worker_output}.")
+                cfg.LOGGER.info(f"Synthesizing output...")
+                synthesizer_output, synthesizer_metadata = self.synthesizer.synthesize(worker_output)
+                cfg.LOGGER.info(f"Ouputting synthesized response...")
+                self.pause_output.set()
+                play_wave(synthesizer_output, synthesizer_metadata)
+                self.pause_output.clear()
             except Empty:
-                cfg.LOGGER.info(f"'synthesizer_out'-queue is empty.")
-        return False
-        
-    def _forward_queued_elements(self) -> None:
-        """
-        Method for forwarding queued elements.
-        """
-        self.input_to_worker_gateway()
-        self.worker_to_output_gateway()
-        self.handle_output()
-        
-    def _run_blocking_conversation_steps(self) -> None:
-        """
-        Runs conversation steps for step.
-        """
-        cfg.LOGGER.info(f"[1/4] Handling input...")
-        audio_data, audio_metadata = self.handle_input()
-        if audio_data is not None and audio_data.any():
-            cfg.LOGGER.info(f"Forwarding audio data to transcriber...")
-            self.queues["transcriber_in"].put(audio_data)
-            cfg.LOGGER.info(f"[2/4] Preparing worker input...")
-            while not self.input_to_worker_gateway():
-                time.sleep(self.loop_pause/4)
-            cfg.LOGGER.info(f"[3/4] Preparing worker output...")
-            while not self.worker_to_output_gateway():
-                time.sleep(self.loop_pause/4)
-            cfg.LOGGER.info(f"[4/4] Handling output...")
-            while not self.handle_output():
-                time.sleep(self.loop_pause/4)
+                pass
 
-    def _busy_threads(self) -> bool:
+    def loop(self, task: str = "output", timeout: float = None) -> None:
         """
-        Returns flag which declares whether there is currently a process running.
+        Method for looping task.
+        :param task: Task out of "input", "worker" and "output".
+        :param timeout: Timeout for blocking methods.
         """
-        return any(self.threads[thread].busy.is_set() for thread in self.threads if 
-                   thread != "_forward_queued_elements" and
-                   thread != "print_component_status")
+        method = {
+            "input": self.handle_input,
+            "worker": self.handle_work,
+            "output": self.handle_output
+        }[task]
+        while not self.interrupt.is_set():
+            method(timeout=timeout)
 
-    def print_component_status(self) -> None:
-        """
-        Prints out component status.
-        """
-        print("="*20 + "\nCOMPONENT STATUS START\n" + "="*18)
-        print("THREADS")
-        for thread in self.threads:
-            print(f"{thread}: {'busy' if self.threads[thread].busy.is_set() else 'waiting'}")
-        print("QUEUES")
-        for queue in self.queues:
-            print(f"{queue}: {self.queues[queue].qsize()} elements waiting")
-        print("FLAGS")
-        print(f"interrupt: {self.interrupt.is_set()}")
-        print(f"pause_inputting: {self.pause_inputting.is_set()}")
-        print(f"pause_forwarding: {self.pause_forwarding.is_set()}")
-        print(f"pause_outputting: {self.pause_outputting.is_set()}")
-        print("="*20 + "\nCOMPONENT STATUS END\n" + "="*20)
 
-    def _run_non_blocking_conversation_steps(self) -> None:
+    def pipeline_is_busy(self) -> bool:
         """
-        Runs conversation in a non-blocking manner.
+        Returns pipeline status:
+        :return: True, if pipeline is busy, else False.
         """
-        if "_forward_queued_elements" not in self.threads:
-            cfg.LOGGER.info(f"Setting up forwarder thread...")
-            self.threads["_forward_queued_elements"] = PipelineComponentThread(
-                pipeline_function=self._forward_queued_elements,
-                interrupt=self.interrupt,
-                loop_pause=self.loop_pause
-            )
-            self.threads["_forward_queued_elements"].daemon = True
+        return (any(self.queues[queue].qsize() > 0 for queue in self.queues) or
+                any(self.threads[thread].is_alive() for thread in self.threads))
 
-            self.threads["_forward_queued_elements"].start()
-            cfg.LOGGER.info(f"Setting up forwarder thread...")
-            self.threads["print_component_status"] = PipelineComponentThread(
-                pipeline_function=self.print_component_status,
-                interrupt=self.interrupt,
-                loop_pause=3
-            )
-            self.threads["print_component_status"].daemon = True
-            self.threads["print_component_status"].start()
-        
-        cfg.LOGGER.info(f"[1/4] Handling input...")
-        audio_data, audio_metadata = self.handle_input()
-        if audio_data is not None and audio_data.any():
-            cfg.LOGGER.info(f"Clearing out artefacts from last input...")
-            self.pause_inputting.set()
-            self.pause_forwarding.set()
-            for queue in ["transcriber_in", "worker_in", "synthesizer_in"]:
-                with self.queues[queue].mutex:
-                    self.queues[queue].queue.clear()
-            while self._busy_threads():
-                print("busy threads")
-                time.sleep(self.loop_pause/16)
-            for queue in ["transcriber_out", "worker_out", "synthesizer_out"]:
-                with self.queues[queue].mutex:
-                    self.queues[queue].queue.clear()
-            self.pause_forwarding.clear()
-            self.pause_inputting.clear()
-            cfg.LOGGER.info(f"Finished clearing...")
-            cfg.LOGGER.info(f"Forwarding audio data to transcriber...")
-            self.queues["transcriber_in"].put(audio_data)
-
-    def run_conversation_loop(self, blocking: bool = True) -> None:
+    def run_conversation(self, blocking: bool = True) -> None:
         """
         Runs conversation loop.
         :param blocking: Flag which declares whether or not to wait for each step.
             Defaults to True.
         """
         cfg.LOGGER.info(f"Starting conversation loop...")
-        self.queues["synthesizer_out"].put(self.synthesizer.synthesize(
-            "Hello there, how may I help you today?"
-        ))
-        while not self.handle_output():
-            time.sleep(self.loop_pause/4)
-        while not self.interrupt.is_set():
-            try:
-                cfg.LOGGER.info(f"Looping main loop...")
-                if blocking:
-                    self._run_blocking_conversation_steps()
-                else:
-                   self._run_non_blocking_conversation_steps()
-               
-                time.sleep(self.loop_pause)
-            except KeyboardInterrupt:
-                cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-                self._stop()
-        
+        self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
+        self.handle_output()
+        try:
+            if not blocking:
+                self.threads["input"].start()
+                self.threads["worker"].start()
+                self.threads["output"].start()
+            else:
+                while not self.interrupt.is_set():
+                    self.handle_input()
+                    self.handle_work()
+                    self.handle_output()
+        except KeyboardInterrupt:
+            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
+            self._stop()
+
+    def run_terminal_based_conversation(self, streaming: bool = False) -> None:
+        """
+        Runs conversation loop with terminal input.
+        :param streaming: Stream responses for faster interaction.
+            Defaults to False
+        """
+        cfg.LOGGER.info(f"Starting conversation loop...")
+        if streaming:
+            self.threads["output"].start()
+        self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
+        self.handle_output()
+        try:
+            while not self.interrupt.is_set():
+                self.queues["worker_in"].put(input("User: "))
+                self.handle_work(streamed=streaming)
+                if not streaming:
+                    self.handle_output()
+        except KeyboardInterrupt:
+            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
+            self._stop()
+
+
+class ConversationHandlerSession(object):
+    """
+    Represents a conversation handler session.
+    """
+    transcriber_supported_backends: List[str] = Transcriber.supported_backends
+    synthesizer_supported_backends: List[str] = Synthesizer.supported_backends
+
+    def __init__(self,
+        working_directory: str = None,
+        loop_pause: float = .1,
+        transcriber_backend: str = None,
+        transcriber_model_path: str = None,
+        transcriber_model_parameters: dict = None,
+        transcriber_transcription_parameters: dict = None,
+        synthesizer_backend: str = None,
+        synthesizer_model_path: str = None,
+        synthesizer_model_parameters: dict = None,
+        synthesizer_synthesis_parameters: dict = None,
+        speechrecorder_input_device_index: int = None,
+        speechrecorder_recognizer_parameters: dict = None,
+        speechrecorder_microphone_parameters: dict = None,
+        speechrecorder_loop_pause: float = .1 
+    ) -> None:
+        """
+        Initiation method.
+        :param working_directory: Working directory.
+        :param loop_pause: Conversation handler loop pause.
+        :param transcriber_backend: Transcriber backend.
+        :param transcriber_model_path: Transcriber model path.
+        :param transcriber_model_parameters: Transcriber model parameters.
+        :param transcriber_transcription_parameters: Transcription parameters.
+        :param synthesizer_backend: Synthesizer backend.
+        :param synthesizer_model_path: Synthesizer model path.
+        :param synthesizer_model_parameters: Synthesizer model parameters.
+        :param synthesizer_synthesis_parameters: Synthesizer synthesis parameters.
+        :param speechrecorder_input_device_index: Speech Recorder input device index.
+        :param speechrecorder_recognizer_parameters: Speech Recorder recognizer parameters.
+        :param speechrecorder_microphone_parameters: Speech Recorder microphone parameters.
+        :param speechrecorder_loop_pause: Speech Recorder loop pause.
+        """
+        self.working_directory = working_directory
+        self.loop_pause = loop_pause
+        self.transcriber_backend = transcriber_backend
+        self.transcriber_model_path = transcriber_model_path
+        self.transcriber_model_parameters = transcriber_model_parameters
+        self.transcriber_transcription_parameters = transcriber_transcription_parameters
+        self.synthesizer_backend = synthesizer_backend
+        self.synthesizer_model_path = synthesizer_model_path
+        self.synthesizer_model_parameters = synthesizer_model_parameters
+        self.synthesizer_synthesis_parameters = synthesizer_synthesis_parameters
+        self.speechrecorder_input_device_index = speechrecorder_input_device_index
+        self.speechrecorder_recognizer_parameters = speechrecorder_recognizer_parameters
+        self.speechrecorder_microphone_parameters = speechrecorder_microphone_parameters
+        self.speechrecorder_loop_pause = speechrecorder_loop_pause
+
+    @classmethod
+    def from_dict(cls, parameters: dict) -> Any:
+        """
+        Returns session instance from dict.
+        :returns: VoiceAssistantSession instance.
+        """
+        return cls(**parameters)
+    
+    def to_dict(self) -> dict:
+        """
+        Returns a parameter dictionary for later instantiation.
+        :returns: Parameter dictionary.
+        """
+        return {
+            "working_directory": self.working_directory,
+            "loop_pause": self.loop_pause,
+            "transcriber_backend": self.transcriber_backend,
+            "transcriber_model_path": self.transcriber_model_path,
+            "transcriber_model_parameters": self.transcriber_model_parameters,
+            "transcriber_transcription_parameters": self.transcriber_transcription_parameters,
+            "synthesizer_backend": self.synthesizer_backend,
+            "synthesizer_model_path": self.synthesizer_model_path,
+            "synthesizer_model_parameters": self.synthesizer_model_parameters,
+            "synthesizer_synthesis_parameters": self.synthesizer_synthesis_parameters,
+            "speechrecorder_input_device_index": self.speechrecorder_input_device_index,
+            "speechrecorder_recognizer_parameters": self.speechrecorder_recognizer_parameters,
+            "speechrecorder_microphone_parameters": self.speechrecorder_microphone_parameters,
+            "speechrecorder_loop_pause": self.speechrecorder_loop_pause,
+        }
+
+    def spawn_conversation_handler(self, worker_function: Callable) -> ConversationHandler:
+        """
+        Spawns a conversation handler based on the session parameters
+        :param worker_function: Worker function.
+        """
+        return ConversationHandler(
+            working_directory=safely_create_path(self.working_directory),
+            speech_recorder=SpeechRecorder(
+                input_device_index=self.speechrecorder_input_device_index,
+                recognizer_parameters=self.speechrecorder_recognizer_parameters,
+                microphone_parameters=self.speechrecorder_microphone_parameters,
+                loop_pause=self.speechrecorder_loop_pause
+            ),
+            transcriber=Transcriber(
+                backend=self.transcriber_backend,
+                model_path=self.transcriber_model_path,
+                model_parameters=self.transcriber_model_parameters,
+                transcription_parameters=self.transcriber_transcription_parameters
+            ),
+            synthesizer=Synthesizer(
+                backend=self.synthesizer_backend,
+                model_path=self.synthesizer_model_path,
+                model_parameters=self.synthesizer_model_parameters,
+                synthesis_parameters=self.synthesizer_synthesis_parameters
+            ),
+            worker_function=worker_function,
+            loop_pause=self.loop_pause
+        )
