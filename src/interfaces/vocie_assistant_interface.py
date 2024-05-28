@@ -21,6 +21,7 @@ from src.utility.silver.file_system_utility import safely_create_path
 from src.interfaces.endpoints.transcriber import register_endpoints as register_transcriber_endpoints
 from src.interfaces.endpoints.synthesizer import register_endpoints as register_synthesizer_endpoints
 from src.interfaces.endpoints.speech_recorder import register_endpoints as register_speech_recorder_endpoints
+from src.interfaces.endpoints.experimental_voice_assistant_endpoints import register_endpoints
 
 
 """
@@ -92,14 +93,17 @@ def interface_function() -> Optional[Any]:
 """
 Endpoints
 """
-for registering_function in [register_transcriber_endpoints,
+"""for registering_function in [register_transcriber_endpoints,
                              register_synthesizer_endpoints,
                              register_speech_recorder_endpoints]:
     registering_function(backend=BACKEND,
                          interaction_decorator=interface_function,
                          controller=CONTROLLER,
-                         endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)
-    
+                         endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)"""
+register_endpoints(interaction_decorator=interface_function,
+                   controller=CONTROLLER,
+                   endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)
+
 
 @BACKEND.get("/", include_in_schema=False)
 async def root() -> dict:

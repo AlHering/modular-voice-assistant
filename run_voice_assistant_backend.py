@@ -5,9 +5,8 @@
 *            (c) 2023 Alexander Hering             *
 ****************************************************
 """
-from src.configuration import configuration as cfg
-from src.interfaces import text_generation_interface
+from src.interfaces import vocie_assistant_interface
 
 
 if __name__ == "__main__":
-    text_generation_interface.run_backend()
+    vocie_assistant_interface.run_backend()
