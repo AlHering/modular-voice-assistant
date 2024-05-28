@@ -157,6 +157,22 @@ def register_endpoints(backend: FastAPI,
                                                     text=text,
                                                     synthesis_parameters=synthesis_parameters)
         return {"synthesis": synthesis.tolist(), "metadata": metadata}
+    
+    @backend.get(f"{endpoint_base}/speech_recorder/{{id}}/record")
+    async def record(id: int, recognizer_parameters: dict = None, microphone_parameters: dict = None) -> dict:
+        """
+        Endpoint for recording.
+        :param id: SpeechRecorder ID.
+        :param recognizer_parameters: Keyword arguments for setting up recognizer instances.
+            Defaults to None in which case default values are used.
+        :param microphone_parameters: Keyword arguments for setting up microphone instances.
+            Defaults to None in which case default values are used.
+        :return: Response.
+        """
+        audio, metadata = controller.record(speech_recorder_id=id,
+                                            recognizer_parameters=recognizer_parameters,
+                                            microphone_parameters=microphone_parameters)
+        return {"audio": audio.tolist(), "metadata": metadata}
         
     descriptions = {
         "get": "Endpoint for getting entries.",
