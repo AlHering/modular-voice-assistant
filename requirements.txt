@@ -39,6 +39,7 @@ python-multipart==0.0.6
 uvicorn==0.23.1
 SQLAlchemy==2.0.15
 
+prompt-toolkit==3.0.43
 streamlit==1.29.0
 streamlit-code-editor==0.1.10
 streamlit-extras==0.3.6
