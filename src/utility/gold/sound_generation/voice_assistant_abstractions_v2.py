@@ -44,7 +44,6 @@ class ConversationHandler(object):
                  transcriber: Transcriber,
                  synthesizer: Synthesizer,
                  worker_function: Callable,
-                 history: List[dict] = None,
                  loop_pause: float = 0.1) -> None:
         """
         Initiation method.
@@ -53,8 +52,6 @@ class ConversationHandler(object):
         :param transcriber: Transcriber for STT processes.
         :param synthesizer: Synthesizer for TTS processes.
         :param worker_function: Worker function for handling cleaned input.
-        :param history: History as list of dictionaries of the structure
-            {"process": <"tts"/"stt">, "text": <text content>, "metadata": {...}}
         :param input_method: Input method.
             Defaults to SPEECH (STT).
         :param output_method: Output method.
@@ -86,7 +83,6 @@ class ConversationHandler(object):
         self.queues: Dict[str, TQueue] = {}
         self.threads: Dict[str, Thread] = {}
 
-        self.history = history
         self.loop_pause = loop_pause
         self._setup_components()
 
@@ -127,17 +123,14 @@ class ConversationHandler(object):
         for thread in self.threads:
             self.threads[thread].daemon = True
 
-    def reset(self, delete_history: bool = False) -> None:
+    def reset(self) -> None:
         """
         Sets up and resets handler. 
-        :param delete_history: Flag for declaring whether to delete history.    
-            Defaults to None.
         """
         cfg.LOGGER.info("(Re)setting Conversation Handler...")
         self._stop()
         gc.collect()
         self._setup_components()
-        self.history = [] if self.history is None or delete_history else self.history
         cfg.LOGGER.info("Setup is done.")
 
     def handle_input(self, loop: bool = False) -> None:
@@ -253,7 +246,6 @@ class ConversationHandlerSession(object):
 
     def __init__(self,
         working_directory: str = None,
-        history: List[dict] = None, 
         loop_pause: float = .1,
         transcriber_backend: str = None,
         transcriber_model_path: str = None,
@@ -271,7 +263,6 @@ class ConversationHandlerSession(object):
         """
         Initiation method.
         :param working_directory: Working directory.
-        :param history: Conversation handler history.
         :param loop_pause: Conversation handler loop pause.
         :param transcriber_backend: Transcriber backend.
         :param transcriber_model_path: Transcriber model path.
@@ -287,7 +278,6 @@ class ConversationHandlerSession(object):
         :param speechrecorder_loop_pause: Speech Recorder loop pause.
         """
         self.working_directory = working_directory
-        self.history = history
         self.loop_pause = loop_pause
         self.transcriber_backend = transcriber_backend
         self.transcriber_model_path = transcriber_model_path
@@ -317,7 +307,6 @@ class ConversationHandlerSession(object):
         """
         return {
             "working_directory": self.working_directory,
-            "history": self.history,
             "loop_pause": self.loop_pause,
             "transcriber_backend": self.transcriber_backend,
             "transcriber_model_path": self.transcriber_model_path,
@@ -359,6 +348,5 @@ class ConversationHandlerSession(object):
                 synthesis_parameters=self.synthesizer_synthesis_parameters
             ),
             worker_function=worker_function,
-            history=self.history,
             loop_pause=self.loop_pause
         )
