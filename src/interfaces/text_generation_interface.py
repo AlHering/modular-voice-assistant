@@ -146,7 +146,7 @@ def run_backend(host: str = None, port: int = None, reload: bool = True) -> None
         cfg.TEXT_GENERATION_BACKEND_HOST = host
     if port is not None:
         cfg.TEXT_GENERATION_BACKEND_PORT = port
-    uvicorn.run("src.interface.backend_interface:BACKEND",
+    uvicorn.run("src.interface.text_generation_interface:BACKEND",
                 host=cfg.TEXT_GENERATION_BACKEND_HOST,
                 port=int(cfg.TEXT_GENERATION_BACKEND_PORT),
                 reload=reload)

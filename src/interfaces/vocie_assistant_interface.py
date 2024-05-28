@@ -100,7 +100,8 @@ Endpoints
                          interaction_decorator=interface_function,
                          controller=CONTROLLER,
                          endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)"""
-register_endpoints(interaction_decorator=interface_function,
+register_endpoints(backend=BACKEND,
+                   interaction_decorator=interface_function,
                    controller=CONTROLLER,
                    endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)
 
@@ -114,7 +115,7 @@ async def root() -> dict:
     return RedirectResponse(url="/docs")
 
 
-@BACKEND.post(f"{cfg.BACKEND_ENDPOINT_BASE}/upload")
+@BACKEND.post(f"{cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE}/upload")
 @interface_function()
 async def upload_file(file_name: str, file_data: UploadFile = File(...)) -> dict:
     """
@@ -148,7 +149,7 @@ def run_backend(host: str = None, port: int = None, reload: bool = True) -> None
         cfg.VOICE_ASSISTANT_BACKEND_HOST = host
     if port is not None:
         cfg.VOICE_ASSISTANT_BACKEND_PORT = port
-    uvicorn.run("src.interface.backend_interface:BACKEND",
+    uvicorn.run("src.interface.voice_assistant_interface:BACKEND",
                 host=cfg.VOICE_ASSISTANT_BACKEND_HOST,
                 port=int(cfg.VOICE_ASSISTANT_BACKEND_PORT),
                 reload=reload)
