@@ -89,7 +89,7 @@ def register_endpoints(backend: FastAPI,
         @interaction_decorator()
         async def get(id: int) -> dict:
             """
-            Endpoint for getting an entry.
+            Endpoint for getting entries.
             :param id: Instance ID.
             :return: Response.
             """
@@ -120,11 +120,19 @@ def register_endpoints(backend: FastAPI,
         @interaction_decorator()
         async def put(data: Union[Transcriber, Synthesizer, SpeechRecorder]) -> dict:
             """
-            Endpoint for posting or updating an transcriber entry.
+            Endpoint for posting or updating entries.
             :param data: Instance data.
             :return: Response.
             """
             return {target: controller.put_object(target, **dict(data))}
+        
+    descriptions = {
+        "get": "Endpoint for getting entries.",
+        "post": "Endpoint for posting entries.",
+        "patch": "Endpoint for patching entries.",
+        "put": "Endpoint for putting entries.",
+        "delete": "Endpoint for deleting entries."
+    }
         
     scheme = backend.openapi()
     for path in scheme["paths"]:
@@ -135,5 +143,7 @@ def register_endpoints(backend: FastAPI,
                 if "requestBody" in scheme["paths"][path].get(method, {}):
                     scheme["paths"][path][method]["requestBody"]["content"]["application/json"]["schema"] = {"$ref": f"#/components/schemas/{target_classes[target].__name__}"}
                     scheme["paths"][path][method]["summary"] += f" {target_classes[target].__name__}"
+            for method in scheme["paths"][path]:
+                scheme["paths"][path][method]["description"] = descriptions[method]
     backend.openapi_schema = scheme
 
