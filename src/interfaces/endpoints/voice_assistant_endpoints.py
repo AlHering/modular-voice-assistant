@@ -8,6 +8,7 @@
 from typing import Callable, Optional, Union
 from fastapi import FastAPI
 from pydantic import BaseModel
+import numpy as np
 from src.control.voice_assistant_controller import VoiceAssistantController
 
 
@@ -125,6 +126,31 @@ def register_endpoints(backend: FastAPI,
             :return: Response.
             """
             return {target: controller.put_object(target, **dict(data))}
+        
+
+    @backend.get(f"{endpoint_base}/transcriber/{{id}}/transcribe")
+    async def transcribe(id: int, audio_input: np.ndarray) -> dict:
+        """
+        Endpoint for transcribing.
+        :param id: Transcriber ID.
+        :param audio_input: Audio data to transcribe.
+        :return: Response.
+        """
+        transcript, metadata = controller.transcribe(transcriber_id=id,
+                                               audio_input=audio_input)
+        return {"transcript": transcript, "metadata": metadata}
+    
+    @backend.get(f"{endpoint_base}/synthesizer/{{id}}/synthesize")
+    async def synthesize(id: int, text: str) -> dict:
+        """
+        Endpoint for synthesis.
+        :param id: Synthesizer ID.
+        :param text: Text to synthesize audio for.
+        :return: Response.
+        """
+        synthesis, metadata = controller.synthesize(synthesizer_id=id,
+                                                    text=text)
+        return {"synthesis": synthesis.tolist(), "metadata": metadata}
         
     descriptions = {
         "get": "Endpoint for getting entries.",
