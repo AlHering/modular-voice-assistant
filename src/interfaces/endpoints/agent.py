@@ -9,7 +9,6 @@ from typing import Callable, Optional, List
 from fastapi import FastAPI
 from pydantic import BaseModel
 from src.interfaces.endpoints.lm_instances import LMInstance
-from src.interfaces.endpoints.agent import Agent
 from src.interfaces.endpoints.agent_memory import AgentMemory
 from src.interfaces.endpoints.tooling import AgentTool
 from src.control.backend_controller import BackendController
