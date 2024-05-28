@@ -79,38 +79,3 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
     """
     Orchestration interaction
     """
-    def transcribe(self, transcriber_id: int, audio_input: np.ndarray) -> Tuple[str, dict]:
-        """
-        Method for transcribing audio data with specific transriber.
-        :param transcriber_id: Transcriber ID.
-        :param audio_input: Audio input data.
-        :return: Tuple of transcription and metadata.
-        """
-        if str(transcriber_id) not in self.workers["transcibers"]:
-            entry = self.get_object_by_id("transcriber", transcriber_id)
-            self.workers["transcribers"][str(transcriber_id)] = Transcriber(
-                backend=entry.backend,
-                model_path=entry.model_path,
-                model_parameters=entry.model_paramters,
-                transcription_parameters=entry.transcription_parameters
-            )
-        return self.workers["transcribers"][str(transcriber_id)].transcribe(audio_input=audio_input)
-
-    def synthesize(self, synthesizer_id: int, text: str) -> Tuple[np.ndarray, dict]:
-        """
-        Endpoint for synthesis.
-        :param synthesizer_id: Synthesizer ID.
-        :param text: Text to synthesize audio for.
-        :return: Tuple of synthesis and metadata.
-        """
-        if str(synthesizer_id) not in self.workers["synthesizers"]:
-            entry = self.get_object_by_id("synthesizers", synthesizer_id)
-            self.workers["synthesizers"][str(synthesizer_id)] = Synthesizer(
-                backend=entry.backend,
-                model_path=entry.model_path,
-                model_parameters=entry.model_paramters,
-                synthesis_parameters=entry.synthesis_parameters
-            )
-        return self.workers["synthesizers"][str(synthesizer_id)].synthesize(text=text)
-
-
