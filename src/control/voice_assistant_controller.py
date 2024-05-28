@@ -8,11 +8,13 @@
 import os
 from time import sleep
 from datetime import datetime as dt
-from typing import Optional, Any, List, Dict, Union
+import numpy as np
+from typing import Optional, Any, List, Dict, Union, Tuple
 from src.configuration import configuration as cfg
 from src.utility.gold.basic_sqlalchemy_interface import BasicSQLAlchemyInterface
 from src.control.text_generation_controller import TextGenerationController
 from src.model.voice_assistant_control.data_model import populate_data_instrastructure
+from src.utility.gold.sound_generation.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
 
 class VoiceAssistantController(BasicSQLAlchemyInterface):
@@ -41,7 +43,9 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
         
         # Orchestrated workers
         self.workers = {
-            
+            "transcribers": {},
+            "synthesizers": {},
+            "speech_recorders": {}
         }
 
         
@@ -75,5 +79,38 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
     """
     Orchestration interaction
     """
+    def transcribe(self, transcriber_id: int, audio_input: np.ndarray) -> Tuple[str, dict]:
+        """
+        Method for transcribing audio data with specific transriber.
+        :param transcriber_id: Transcriber ID.
+        :param audio_input: Audio input data.
+        :return: Tuple of transcription and metadata.
+        """
+        if str(transcriber_id) not in self.workers["transcibers"]:
+            entry = self.get_object_by_id("transcriber", transcriber_id)
+            self.workers["transcribers"][str(transcriber_id)] = Transcriber(
+                backend=entry.backend,
+                model_path=entry.model_path,
+                model_parameters=entry.model_paramters,
+                transcription_parameters=entry.transcription_parameters
+            )
+        return self.workers["transcribers"][str(transcriber_id)].transcribe(audio_input=audio_input)
+
+    def synthesize(self, synthesizer_id: int, text: str) -> Tuple[np.ndarray, dict]:
+        """
+        Endpoint for synthesis.
+        :param synthesizer_id: Synthesizer ID.
+        :param text: Text to synthesize audio for.
+        :return: Tuple of synthesis and metadata.
+        """
+        if str(synthesizer_id) not in self.workers["synthesizers"]:
+            entry = self.get_object_by_id("synthesizers", synthesizer_id)
+            self.workers["synthesizers"][str(synthesizer_id)] = Synthesizer(
+                backend=entry.backend,
+                model_path=entry.model_path,
+                model_parameters=entry.model_paramters,
+                synthesis_parameters=entry.synthesis_parameters
+            )
+        return self.workers["synthesizers"][str(synthesizer_id)].synthesize(text=text)
 
 
