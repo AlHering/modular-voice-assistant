@@ -69,8 +69,8 @@ def register_endpoints(backend: FastAPI,
         @backend.get(f"{constructed_endpoint}")
         @interaction_decorator()
         async def get_all() -> dict:
-            f"""
-            Endpoint for getting all {target} entries.
+            """
+            Endpoint for getting all entries.
             :return: Response.
             """
             return {f"{target}s": controller.get_objects_by_type(target)}
@@ -78,9 +78,9 @@ def register_endpoints(backend: FastAPI,
         @backend.post(f"{constructed_endpoint}")
         @interaction_decorator()
         async def post(data: Union[Transcriber, Synthesizer, SpeechRecorder]) -> dict:
-            f"""
-            Endpoint for posting {target} entries.
-            :param {target}: {target_classes[target].__name__} data.
+            """
+            Endpoint for posting entries.
+            :param data: Instance data.
             :return: Response.
             """
             return {target: controller.post_object(target, **dict(data))}
@@ -88,9 +88,9 @@ def register_endpoints(backend: FastAPI,
         @backend.get(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
         async def get(id: int) -> dict:
-            f"""
-            Endpoint for getting an {target} entry.
-            :param id: {target_classes[target].__name__} ID.
+            """
+            Endpoint for getting an entry.
+            :param id: Instance ID.
             :return: Response.
             """
             return {target: controller.get_object_by_id(target, id)}
@@ -98,9 +98,9 @@ def register_endpoints(backend: FastAPI,
         @backend.delete(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
         async def delete(id: int) -> dict:
-            f"""
+            """
             Endpoint for deleting entries.
-            :param id: {target_classes[target].__name__} ID.
+            :param id: Instance ID.
             :return: Response.
             """
             return {target: controller.delete_object(target, id)}
