@@ -116,9 +116,9 @@ class ConversationHandler(object):
         self.queues = {f"worker_in": TQueue(), "worker_out": TQueue() }
 
         self.threads = {
-            "input": Thread(target=self.handle_input, kwargs={"loop": True}),
-            "worker": Thread(target=self.handle_work, kwargs={"timeout": self.loop_pause, "loop": True}),
-            "output": Thread(target=self.handle_output, kwargs={"timeout": self.loop_pause, "loop": True})
+            "input": Thread(target=self.loop, kwargs={"task": "input"}),
+            "worker": Thread(target=self.loop, kwargs={"task": "worker"}),
+            "output": Thread(target=self.loop, kwargs={"task": "output"})
         }
         for thread in self.threads:
             self.threads[thread].daemon = True
@@ -133,10 +133,10 @@ class ConversationHandler(object):
         self._setup_components()
         cfg.LOGGER.info("Setup is done.")
 
-    def handle_input(self, loop: bool = False) -> None:
+    def handle_input(self, timeout: float = None) -> None:
         """
         Acquires and forwards user input.
-        :param loop: Loops method until self.interrupt is set.
+        :param timeout: Timeout for blocking methods.
         """
         if not self.pause_input.is_set():
             recorder_data, recorder_metadata = self.speech_recorder.record_single_input()
@@ -145,15 +145,11 @@ class ConversationHandler(object):
             input_data, transcriber_metadata = self.transcriber.transcribe(recorder_data)
             cfg.LOGGER.info(f"Forwarding {input_data} to worker...")
             self.queues["worker_in"].put(input_data)
-        if loop and not self.interrupt.is_set():
-            time.sleep(self.loop_pause)
-            self.handle_input(loop=loop)
 
-    def handle_work(self, timeout: float = None, loop: bool = False, streamed: bool = False) -> None:
+    def handle_work(self, timeout: float = None, streamed: bool = False) -> None:
         """
         Acquires input, computes and reroutes worker output.
         :param timeout: Timeout for blocking methods.
-        :param loop: Flag for declaring whether method shell be looped until self.interrupt is set.
         :param streamed: Flag for declaring whether worker function return should be handled as a generator.
         """  
         if not self.pause_worker.is_set():
@@ -165,18 +161,16 @@ class ConversationHandler(object):
                     self.queues["worker_out"].put(self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)))
             except Empty:
                 pass
-        if loop and not self.interrupt.is_set():
-            self.handle_input(timeout=timeout, loop=loop, streamed=streamed)
 
-    def handle_output(self, timeout: float = None, loop: bool = False) -> None:
+    def handle_output(self, timeout: float = None) -> None:
         """
         Acquires and reroutes generated output based.
         :param timeout: Timeout for blocking methods.
-        :param loop: Loops method until self.interrupt is set.
         """  
         if not self.pause_output.is_set():
             try:
                 worker_output, worker_metadata = self.queues["worker_out"].get(block=True, timeout=timeout)
+                self.pause_output.set()
                 cfg.LOGGER.info(f"Fetched worker output {worker_output}.")
                 cfg.LOGGER.info(f"Synthesizing output...")
                 synthesizer_output, synthesizer_metadata = self.synthesizer.synthesize(worker_output)
@@ -186,8 +180,21 @@ class ConversationHandler(object):
                 self.pause_output.clear()
             except Empty:
                 pass
-        if loop and not self.interrupt.is_set():
-            self.handle_input(timeout=timeout, loop=loop)
+
+    def loop(self, task: str = "output", timeout: float = None) -> None:
+        """
+        Method for looping task.
+        :param task: Task out of "input", "worker" and "output".
+        :param timeout: Timeout for blocking methods.
+        """
+        method = {
+            "input": self.handle_input,
+            "worker": self.handle_work,
+            "output": self.handle_output
+        }[task]
+        while not self.interrupt.is_set():
+            method(timeout=timeout)
+
 
     def pipeline_is_busy(self) -> bool:
         """
@@ -220,18 +227,23 @@ class ConversationHandler(object):
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
             self._stop()
 
-    def run_terminal_based_conversation(self) -> None:
+    def run_terminal_based_conversation(self, streaming: bool = False) -> None:
         """
         Runs conversation loop with terminal input.
+        :param streaming: Stream responses for faster interaction.
+            Defaults to False
         """
         cfg.LOGGER.info(f"Starting conversation loop...")
+        if streaming:
+            self.threads["output"].start()
         self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
         self.handle_output()
         try:
             while not self.interrupt.is_set():
                 self.queues["worker_in"].put(input("User: "))
-                self.handle_work()
-                self.handle_output()
+                self.handle_work(streamed=streaming)
+                if not streaming:
+                    self.handle_output()
         except KeyboardInterrupt:
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
             self._stop()
