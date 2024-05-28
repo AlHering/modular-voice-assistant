@@ -99,7 +99,7 @@ def register_endpoints(backend: FastAPI,
         @interaction_decorator()
         async def delete(id: int) -> dict:
             f"""
-            Endpoint for deleting {target} entries.
+            Endpoint for deleting entries.
             :param id: {target_classes[target].__name__} ID.
             :return: Response.
             """
@@ -108,9 +108,9 @@ def register_endpoints(backend: FastAPI,
         @backend.patch(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
         async def patch(id: int, patch: dict) -> dict:
-            f"""
-            Endpoint for patching {target} entries.
-            :param id: {target_classes[target].__name__} ID.
+            """
+            Endpoint for patching entries.
+            :param id: Instance ID.
             :param patch: Patch payload.
             :return: Response.
             """
@@ -119,9 +119,9 @@ def register_endpoints(backend: FastAPI,
         @backend.put(f"{constructed_endpoint}")
         @interaction_decorator()
         async def put(data: Union[Transcriber, Synthesizer, SpeechRecorder]) -> dict:
-            f"""
+            """
             Endpoint for posting or updating an transcriber entry.
-            :param {target}: {target_classes[target].__name__} data.
+            :param data: Instance data.
             :return: Response.
             """
             return {target: controller.put_object(target, **dict(data))}
@@ -134,6 +134,6 @@ def register_endpoints(backend: FastAPI,
                 # 'requestBody': {'content': {'application/json': {'schema': {'$ref': '#/components/schemas/Transcriber'}}}, 'required': True}
                 if "requestBody" in scheme["paths"][path].get(method, {}):
                     scheme["paths"][path][method]["requestBody"]["content"]["application/json"]["schema"] = {"$ref": f"#/components/schemas/{target_classes[target].__name__}"}
-                    scheme["paths"][path][method]["summary"] = + f" {target_classes[target].__name__}"
+                    scheme["paths"][path][method]["summary"] += f" {target_classes[target].__name__}"
     backend.openapi_schema = scheme
 
