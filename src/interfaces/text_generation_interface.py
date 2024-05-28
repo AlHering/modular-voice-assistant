@@ -16,10 +16,7 @@ from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
 from functools import wraps
 from src.configuration import configuration as cfg
-from src.interfaces.endpoints.lm_instances import register_endpoints as register_lm_instance_endpoints
-from src.interfaces.endpoints.tooling import register_endpoints as register_tooling_endpoints
-from src.interfaces.endpoints.agent_memory import register_endpoints as register_agent_memory_endpoints
-from src.interfaces.endpoints.agent import register_endpoints as register_agent_endpoints
+from src.interfaces.endpoints.text_generation_endpoints import register_endpoints
 from src.control.backend_controller import BackendController
 from src.utility.silver.file_system_utility import safely_create_path
 
@@ -122,14 +119,10 @@ async def upload_file(file_name: str, file_data: UploadFile = File(...)) -> dict
     return {"file_path": upload_path}
 
 
-for registering_function in [register_lm_instance_endpoints,
-                             register_tooling_endpoints,
-                             register_agent_memory_endpoints,
-                             register_agent_endpoints]:
-    registering_function(backend=BACKEND,
-                         interaction_decorator=interface_function,
-                         controller=CONTROLLER,
-                         endpoint_base=cfg.TEXT_GENERATION_BACKEND_ENDPOINT_BASE)
+register_endpoints(backend=BACKEND,
+                   interaction_decorator=interface_function,
+                   controller=CONTROLLER,
+                   endpoint_base=cfg.TEXT_GENERATION_BACKEND_ENDPOINT_BASE)
 
 
 """
