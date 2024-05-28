@@ -129,27 +129,33 @@ def register_endpoints(backend: FastAPI,
         
 
     @backend.get(f"{endpoint_base}/transcriber/{{id}}/transcribe")
-    async def transcribe(id: int, audio_input: np.ndarray) -> dict:
+    async def transcribe(id: int, audio_input: np.ndarray, transcription_parameters: dict = None) -> dict:
         """
         Endpoint for transcribing.
         :param id: Transcriber ID.
         :param audio_input: Audio data to transcribe.
+        :param transcription_parameters: Transcription parameters as dictionary.
+            Defaults to None.
         :return: Response.
         """
         transcript, metadata = controller.transcribe(transcriber_id=id,
-                                               audio_input=audio_input)
+                                                     audio_input=audio_input,
+                                                     transcription_parameters=transcription_parameters)
         return {"transcript": transcript, "metadata": metadata}
     
     @backend.get(f"{endpoint_base}/synthesizer/{{id}}/synthesize")
-    async def synthesize(id: int, text: str) -> dict:
+    async def synthesize(id: int, text: str, synthesis_parameters: dict = None) -> dict:
         """
         Endpoint for synthesis.
         :param id: Synthesizer ID.
         :param text: Text to synthesize audio for.
+        :param synthesis_parameters: Synthesis parameters as dictionary.
+            Defaults to None.
         :return: Response.
         """
         synthesis, metadata = controller.synthesize(synthesizer_id=id,
-                                                    text=text)
+                                                    text=text,
+                                                    synthesis_parameters=synthesis_parameters)
         return {"synthesis": synthesis.tolist(), "metadata": metadata}
         
     descriptions = {
