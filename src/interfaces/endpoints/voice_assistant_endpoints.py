@@ -8,7 +8,7 @@
 from typing import Callable, Optional, Union
 from fastapi import FastAPI
 from pydantic import BaseModel
-from src.control.backend_controller import BackendController
+from src.control.voice_assistant_controller import VoiceAssistantController
 
 
 class Transcriber(BaseModel):
@@ -45,7 +45,7 @@ class SpeechRecorder(BaseModel):
 
 def register_endpoints(backend: FastAPI,
                        interaction_decorator: Callable,
-                       controller: BackendController,
+                       controller: VoiceAssistantController,
                        endpoint_base: str) -> None:
     """
     Function for registering endpoints to given FastAPI based backend.
