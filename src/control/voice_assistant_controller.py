@@ -65,12 +65,12 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
     """
     Base interaction
     """
-    def log(self, log_data: dict) -> None:
+    def log(self, data: dict) -> None:
         """
         Method for adding a log entry.
-        :param log_data: Log entry data.
+        :param data: Log entry data.
         """
-        self.post_object("log", **log_data)
+        self.post_object("log", **data)
 
     """
     Orchestration interaction
