@@ -93,8 +93,6 @@ def interface_function() -> Optional[Any]:
 """
 Endpoints
 """
-
-
 @BACKEND.get("/", include_in_schema=False)
 async def root() -> dict:
     """
@@ -122,13 +120,6 @@ async def upload_file(file_name: str, file_data: UploadFile = File(...)) -> dict
     return {"file_path": upload_path}
 
 
-"""for registering_function in [register_transcriber_endpoints,
-                             register_synthesizer_endpoints,
-                             register_speech_recorder_endpoints]:
-    registering_function(backend=BACKEND,
-                         interaction_decorator=interface_function,
-                         controller=CONTROLLER,
-                         endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)"""
 register_endpoints(backend=BACKEND,
                    interaction_decorator=interface_function,
                    controller=CONTROLLER,
