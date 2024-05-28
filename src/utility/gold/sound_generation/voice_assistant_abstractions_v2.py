@@ -13,6 +13,13 @@ import gc
 import time
 import numpy as np
 import pyaudio
+from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.key_binding.key_bindings import KeyBindings
+from rich import print as rich_print
+from rich.style import Style as RichStyle
+from prompt_toolkit.key_binding.key_processor import KeyPressEvent
+from prompt_toolkit.styles import Style as PTStyle
 import speech_recognition
 from datetime import datetime as dt
 from src.configuration import configuration as cfg
@@ -26,6 +33,26 @@ from ...silver.file_system_utility import safely_create_path
 from ...bronze.pyaudio_utility import play_wave
 from . import speech_to_text_utility, text_to_speech_utility
 from .sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
+
+
+def setup_prompt_session(bindings: KeyBindings = None) -> PromptSession:
+    """
+    Function for setting up prompt session.
+    :param bindings: Key bindings.
+        Defaults to None.
+    :return: Prompt session.
+    """
+    return PromptSession(
+        bottom_toolbar=[
+        ("class:bottom-toolbar",
+         "ctl-c to exit, ctl-d to save cache and exit",)
+    ],
+        style=PTStyle.from_dict({
+        "bottom-toolbar": "#333333 bg:#ffcc00"
+    }),
+        auto_suggest=AutoSuggestFromHistory(),
+        key_bindings=bindings
+    )
 
 
 class ConversationHandler(object):
@@ -233,21 +260,35 @@ class ConversationHandler(object):
         :param streaming: Stream responses for faster interaction.
             Defaults to False
         """
+        bindings = KeyBindings()
+
+        @bindings.add("c-c")
+        @bindings.add("c-d")
+        def exit_session(event: KeyPressEvent) -> None:
+            """
+            Function for exiting session.
+            :param event: Event that resulted in entering the function.
+            """
+            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
+            self._stop()
+            rich_print("[bold]\nBye [white]...")
+            event.app.exit()
+
+        session = setup_prompt_session(bindings)
         cfg.LOGGER.info(f"Starting conversation loop...")
         if streaming:
             self.threads["output"].start()
         self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
         self.handle_output()
-        try:
-            while not self.interrupt.is_set():
-                self.queues["worker_in"].put(input("User: "))
+        
+        while not self.interrupt.is_set():
+            user_input = session.prompt(
+                "User: ")
+            if user_input is not None:
+                self.queues["worker_in"].put(user_input)
                 self.handle_work(streamed=streaming)
                 if not streaming:
                     self.handle_output()
-        except KeyboardInterrupt:
-            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-            self._stop()
-
 
 class ConversationHandlerSession(object):
     """
