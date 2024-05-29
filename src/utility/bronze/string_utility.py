@@ -13,6 +13,7 @@ from typing import Optional, List
 SYMBOLS = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~'"
 REGULAR_SYMBOLS = "!$()*+-.?[]^{|}"
 FOLDER_RESERVED = "<>:/\\|?*"
+SENTENCE_CHUNK_STOPS = "!.,?:;"
 HTML_CODEC_DICT = {}
 
 
