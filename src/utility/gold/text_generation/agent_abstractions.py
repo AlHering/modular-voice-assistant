@@ -88,11 +88,31 @@ class AgentTool(object):
     def get_guide(self) -> str:
         """
         Method for acquiring the tool guide.
-        :return tool guide as string.
+        :return: Tool guide as string.
         """
         arguments = ", ".join(
             f"{arg.name}: {arg.type}" for arg in self.arguments)
         return f"{self.name}: {self.func.__name__}({arguments}) -> {self.return_type} - {self.description}"
+
+    def get_openai_function_representation(self) -> dict:
+        """
+        Method for acquiring openai function representation.
+        :return: Tool as openai function dictionary.
+        """
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    argument.name: {
+                        "type": str(argument.type).lower(),
+                        "description": argument.description
+                    } for argument in self.arguments
+                }
+            }
+        }
+
 
     def __call__(self) -> Any:
         """
