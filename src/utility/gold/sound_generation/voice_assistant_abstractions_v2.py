@@ -459,28 +459,33 @@ class BasicVoiceAssistant(object):
         """
         self.handler.stop()
 
-    def run_conversation(self, blocking: bool = True) -> None:
+    def run_conversation(self, blocking: bool = True, stream: bool = False) -> None:
         """
         Method for running a looping conversation.
         :param blocking: Flag which declares whether or not to wait for each conversation step.
             Defaults to True.
+        :param stream: Declares, whether worker function streams response.
+            Defaults to False.
         """
-        self.handler.run_conversation(blocking=blocking)
+        self.handler.run_conversation(blocking=blocking, stream=stream)
 
-    def run_interaction(self, blocking: bool = True) -> None:
+    def run_interaction(self, blocking: bool = True, stream: bool = False) -> None:
         """
         Method for running an conversational interaction.
         :param blocking: Flag which declares whether or not to wait for each conversation step.
             Defaults to True.
+        :param stream: Declares, whether worker function streams response.
+            Defaults to False.
         """
-        self.handler.run(blocking=blocking, loop=False)
+        self.handler.run_conversation(blocking=blocking, loop=False, stream=stream)
 
-    def run_terminal_based_conversation(self, streaming: bool = False) -> None:
+    def run_terminal_conversation(self, stream: bool = False) -> None:
         """
         Runs conversation loop with terminal input.
-        :param streaming: Stream responses for faster interaction.
-            Defaults to False
+        :param stream: Declares, whether worker function streams response.
+            Defaults to False.
         """
+        stop = TEvent()
         bindings = KeyBindings()
 
         @bindings.add("c-c")
@@ -494,19 +499,15 @@ class BasicVoiceAssistant(object):
             self.handler.reset()
             rich_print("[bold]\nBye [white]...")
             event.app.exit()
+            stop.set()
 
         session = setup_prompt_session(bindings)
         cfg.LOGGER.info(f"Starting conversation loop...")
-        if streaming:
-            self.threads["output"].start()
-        self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
-        self.handle_output()
+        self.handler.pause_input.set()
+        self.handler.run_conversation(blocking=False, loop=True, stream=stream)
         
-        while not self.interrupt.is_set():
+        while not stop.is_set():
             user_input = session.prompt(
                 "User: ")
             if user_input is not None:
                 self.queues["worker_in"].put(user_input)
-                self.handle_work(streamed=streaming)
-                if not streaming:
-                    self.handle_output()
