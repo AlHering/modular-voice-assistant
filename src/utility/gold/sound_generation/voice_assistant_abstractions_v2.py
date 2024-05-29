@@ -31,6 +31,7 @@ from ..text_generation.agent_abstractions import ToolArgument, AgentTool
 from ..text_generation.agent_abstractions import Agent
 from ...bronze.concurrency_utility import PipelineComponentThread, timeout
 from ...bronze.time_utility import get_timestamp
+from ...bronze.json_utility import load as load_json
 from ...silver.file_system_utility import safely_create_path
 from ...bronze.pyaudio_utility import play_wave
 from . import speech_to_text_utility, text_to_speech_utility
@@ -371,9 +372,19 @@ class ConversationHandlerSession(object):
     def from_dict(cls, parameters: dict) -> Any:
         """
         Returns session instance from dict.
+        :param parameters: Session parameters dictionary.
         :returns: VoiceAssistantSession instance.
         """
         return cls(**parameters)
+    
+    @classmethod
+    def from_file(cls, file_path: str) -> Any:
+        """
+        Returns session instance from a json file.
+        :param file_path: Path to json file.
+        :returns: VoiceAssistantSession instance.
+        """
+        return cls(**load_json(file_path))
     
     def to_dict(self) -> dict:
         """
