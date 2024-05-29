@@ -86,7 +86,7 @@ class ConversationHandler(object):
         self.loop_pause = loop_pause
         self._setup_components()
 
-    def _stop(self) -> None:
+    def stop(self) -> None:
         """
         Stops processes.
         """
@@ -128,7 +128,7 @@ class ConversationHandler(object):
         Sets up and resets handler. 
         """
         cfg.LOGGER.info("(Re)setting Conversation Handler...")
-        self._stop()
+        self.stop()
         gc.collect()
         self._setup_components()
         cfg.LOGGER.info("Setup is done.")
@@ -225,7 +225,7 @@ class ConversationHandler(object):
                     self.handle_output()
         except KeyboardInterrupt:
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-            self._stop()
+            self.stop()
 
     def run_terminal_based_conversation(self, streaming: bool = False) -> None:
         """
@@ -246,7 +246,7 @@ class ConversationHandler(object):
                     self.handle_output()
         except KeyboardInterrupt:
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-            self._stop()
+            self.stop()
 
 
 class ConversationHandlerSession(object):
