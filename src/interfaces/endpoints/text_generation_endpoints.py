@@ -5,7 +5,7 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from typing import Callable, Optional, Union, List
+from typing import Callable, Optional, Union, List, Dict
 from fastapi import FastAPI
 from pydantic import BaseModel
 from src.control.backend_controller import BackendController
@@ -30,6 +30,18 @@ class LMInstance(BaseModel):
     decoding_parameters: Optional[dict] = None
 
     resource_requirements: Optional[dict] = None
+
+
+class ChatInstance(BaseModel):
+    """
+    ChatInstance dataclass.
+    """
+    language_model_instance: Union[LMInstance, int]
+    chat_parameters: Optional[dict] = None
+    default_system_prompt: Optional[dict] = None
+    prompt_maker: Optional[str] = None
+    use_history: bool = True
+    history: Optional[List[Dict[str, Union[str, dict]]]] = None
 
 
 class KBInstance(BaseModel):
@@ -69,7 +81,7 @@ class AgentTool(BaseModel):
     description: str
     function: str = None
     return_type: str = None
-    tool_arguments: Optional[List[ToolArgument]] = None
+    tool_arguments: Optional[List[Union[ToolArgument, int]]] = None
 
 
 class AgentMemory(BaseModel):
@@ -89,12 +101,12 @@ class Agent(BaseModel):
     name: str
     description: str
 
-    memory: Optional[AgentMemory] = None
+    memory: Optional[Union[AgentMemory, int]] = None
 
-    general_lm: LMInstance
-    dedicated_planner_lm: Optional[LMInstance] = None
-    dedicated_actor_lm: Optional[LMInstance] = None
-    dedicated_oberserver_lm: Optional[LMInstance] = None
+    general_lm: Union[LMInstance, int]
+    dedicated_planner_lm: Optional[Union[LMInstance, int]] = None
+    dedicated_actor_lm: Optional[Union[LMInstance, int]] = None
+    dedicated_oberserver_lm: Optional[Union[LMInstance, int]] = None
 
 
 def register_endpoints(backend: FastAPI,
