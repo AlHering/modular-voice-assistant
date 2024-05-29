@@ -418,9 +418,9 @@ class ConversationHandlerSession(object):
         )
 
 
-class VoiceAssistant(object):
+class BasicVoiceAssistant(object):
     """
-    Represents a voice assistant.
+    Represents a basic voice assistant.
     """
 
     def __init__(self,
