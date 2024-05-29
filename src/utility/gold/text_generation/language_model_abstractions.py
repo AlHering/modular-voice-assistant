@@ -8,8 +8,9 @@
 """
 import traceback
 import copy
-from typing import List, Tuple, Any, Callable, Optional, Union, Dict
+from typing import List, Tuple, Any, Callable, Optional, Union, Dict, Generator
 from datetime import datetime as dt
+from ...bronze.string_utility import SENTENCE_CHUNK_STOPS
 from .language_model_instantiation import load_ctransformers_model, load_transformers_model, load_llamacpp_model, load_autogptq_model, load_exllamav2_model, load_langchain_llamacpp_model
 
 
@@ -185,7 +186,7 @@ class ChatModelInstance(object):
     def __init__(self,
                  language_model_instance: LanguageModelInstance,
                  chat_parameters: dict = None,
-                 default_system_prompt: str = None,
+                 system_prompt: str = None,
                  prompt_maker: Callable = None,
                  use_history: bool = True,
                  history: List[Dict[str, Union[str, dict]]] = None,
@@ -196,7 +197,7 @@ class ChatModelInstance(object):
         :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
             model backend.
-        :param default_system_prompt: Default system prompt.
+        :param system_prompt: Default system prompt.
             Defaults to a None in which case no system prompt is used.
         :param prompt_maker: Function which takes the prompt history as a list of {"role": <role>, "content": <message>, "metadata": <metadata>}-dictionaries 
             (already including the new user prompt) as argument and calculates the final prompt. Only necessary, if the backend does not support chat interaction.
@@ -207,7 +208,7 @@ class ChatModelInstance(object):
         """
         self.language_model_instance = language_model_instance
         self.chat_parameters = self.language_model_instance.generating_parameters if chat_parameters is None else chat_parameters
-        self.system_prompt = default_system_prompt
+        self.system_prompt = system_prompt
         if prompt_maker is None:
             def prompt_maker(history: List[Dict[str, Union[str, dict]]]) -> str:
                 """
@@ -218,10 +219,11 @@ class ChatModelInstance(object):
         self.prompt_maker = prompt_maker
 
         self.use_history = use_history
-        self.history = [] if history is None and default_system_prompt is None else [
-            ("system", self.system_prompt, {
-            "intitated": dt.now()})
-            ] if history is None else history
+        self.history = [{
+            "role": "system", 
+            "content": "You are a helpful AI assistant. Please help users with their tasks." if system_prompt is None else system_prompt, 
+            "metadata": {"intitated": dt.now()}
+        }] if history is None else history
 
     """
     Generation methods
@@ -229,7 +231,7 @@ class ChatModelInstance(object):
 
     def chat(self, prompt: str, chat_parameters: dict = None) -> Tuple[str, dict]:
         """
-        Method for chatting with language model isntance.
+        Method for chatting with language model instance.
         :param prompt: User input.
         :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
@@ -237,6 +239,8 @@ class ChatModelInstance(object):
         :return: Response and metadata.
         """
         chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
+        if not self.use_history:
+            self.history = self.history[0]
         self.history.append({"role": "user", "content": prompt})
         full_prompt = self.prompt_maker(self.history)
 
@@ -244,33 +248,107 @@ class ChatModelInstance(object):
         answer = ""
 
         if self.language_model_instance.backend == "ctransformers":
-            return self.language_model_instance.generate(full_prompt)
+            answer, metadata = self.language_model_instance.generate(full_prompt)
         elif self.language_model_instance.backend == "langchain_llamacpp":
-            return self.language_model_instance.generate(full_prompt)
+            answer, metadata = self.language_model_instance.generate(full_prompt)
         elif self.language_model_instance.backend == "transformers":
             chat_encoding_kwargs = copy.deepcopy(self.language_model_instance.encoding_parameters)
             chat_encoding_kwargs["add_generation_prompt"] = True
             input_tokens = self.language_model_instance.tokenizer.apply_chat_template(
                     self.history, 
                     **chat_encoding_kwargs).to(self.language_model_instance.model.device)
-
             output_tokens = self.language_model_instance.model.generate(
                 **input_tokens, **chat_parameters)[0]
             metadata = self.language_model_instance.tokenizer.decode(
                 output_tokens, 
                 **self.language_model_instance.decoding_parameters)
-            return answer, metadata
+            answer, metadata = answer, metadata
         elif self.language_model_instance.backend == "autogptq":
-            return self.language_model_instance.generate(full_prompt)
+            answer, metadata = self.language_model_instance.generate(full_prompt)
         elif self.language_model_instance.backend == "llamacpp":
             metadata = self.language_model_instance.model.create_chat_completion(
                 messages=self.history,
                 **chat_parameters
             )
             answer = metadata["choices"][0]["message"].get("content", "")
-            return answer, metadata
         elif self.language_model_instance.backend == "exllamav2":
-            return self.language_model_instance.generate(full_prompt)
+            answer, metadata = self.language_model_instance.generate(full_prompt)
+        
+        if self.use_history:
+            self.history.append({
+                "role": "assistant",
+                "content": answer,
+                "metadata": metadata
+            })
+        return answer, metadata
+    
+    def chat_stream(self, prompt: str, chat_parameters: dict = None) -> Generator[Tuple[str, dict], None, None]:
+        """
+        Method for chatting with language model instance via stream.
+        :param prompt: User input.
+        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
+            Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
+            model backend.
+        :return: Response and metadata stream.
+        """
+        chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
+        chat_parameters["stream"] = True
+        if not self.use_history:
+            self.history = self.history[0]
+        self.history.append({"role": "user", "content": prompt})
+        full_prompt = self.prompt_maker(self.history)
+
+        metadata = {}
+        answer = ""
+
+        if self.language_model_instance.backend == "ctransformers":
+            answer, metadata = self.language_model_instance.generate(full_prompt)
+        elif self.language_model_instance.backend == "langchain_llamacpp":
+            answer, metadata = self.language_model_instance.generate(full_prompt)
+        elif self.language_model_instance.backend == "transformers":
+            chat_encoding_kwargs = copy.deepcopy(self.language_model_instance.encoding_parameters)
+            chat_encoding_kwargs["add_generation_prompt"] = True
+            input_tokens = self.language_model_instance.tokenizer.apply_chat_template(
+                    self.history, 
+                    **chat_encoding_kwargs).to(self.language_model_instance.model.device)
+            output_tokens = self.language_model_instance.model.generate(
+                **input_tokens, **chat_parameters)[0]
+            metadata = self.language_model_instance.tokenizer.decode(
+                output_tokens, 
+                **self.language_model_instance.decoding_parameters)
+            answer, metadata = answer, metadata
+        elif self.language_model_instance.backend == "autogptq":
+            answer, metadata = self.language_model_instance.generate(full_prompt)
+        elif self.language_model_instance.backend == "llamacpp":
+            stream = self.language_model_instance.model.create_chat_completion(
+                messages=self.history,
+                **chat_parameters
+            )
+            chunks = []
+            sentence = ""
+            for chunk in stream:
+                chunks.append(chunk)
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    sentence += delta["content"]
+                    if delta["content"] in SENTENCE_CHUNK_STOPS:
+                        answer += sentence
+                        yield sentence, chunk
+                        sentence = ""
+                elif not delta:
+                    answer += sentence
+                    metadata = {"chunks": chunks}
+                    yield sentence, chunk
+        elif self.language_model_instance.backend == "exllamav2":
+            answer, metadata = self.language_model_instance.generate(full_prompt)
+        
+        if self.use_history:
+            self.history.append({
+                "role": "assistant",
+                "content": answer,
+                "metadata": metadata
+            })
+        return answer, metadata
 
 
 """
