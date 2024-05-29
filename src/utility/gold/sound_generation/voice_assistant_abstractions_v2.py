@@ -5,6 +5,7 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
+from abc import ABC, abstractmethod
 from enum import Enum
 from inspect import getfullargspec
 from typing import Any, Union, Tuple, List, Optional, Callable, Dict
@@ -25,7 +26,8 @@ from datetime import datetime as dt
 from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent, Lock
 from queue import Empty, Queue as TQueue
-from ..text_generation.language_model_abstractions import LanguageModelInstance
+from ..text_generation.language_model_abstractions import LanguageModelInstance, ChatModelInstance
+from ..text_generation.agent_abstractions import ToolArgument, AgentTool
 from ..text_generation.agent_abstractions import Agent
 from ...bronze.concurrency_utility import PipelineComponentThread, timeout
 from ...bronze.time_utility import get_timestamp
@@ -61,7 +63,7 @@ class ConversationHandler(object):
     A conversation handler manages the following components:
         - speech_recorder: A recorder for spoken input.
         - transcriber: A transcriber to transcribe spoken input into text.
-        - worker: A worker to compute an output for the given input.
+        - worker: A worker to compute an output for the given user input.
         - synthesizer: A synthesizer to convert output texts to sound.
     """
 
@@ -70,7 +72,7 @@ class ConversationHandler(object):
                  speech_recorder: SpeechRecorder,
                  transcriber: Transcriber,
                  synthesizer: Synthesizer,
-                 worker_function: Callable,
+                 worker_function: Callable = None,
                  loop_pause: float = 0.1) -> None:
         """
         Initiation method.
@@ -79,6 +81,7 @@ class ConversationHandler(object):
         :param transcriber: Transcriber for STT processes.
         :param synthesizer: Synthesizer for TTS processes.
         :param worker_function: Worker function for handling cleaned input.
+            Default to None.
         :param input_method: Input method.
             Defaults to SPEECH (STT).
         :param output_method: Output method.
@@ -98,6 +101,16 @@ class ConversationHandler(object):
         self.output_device_index = pya.get_default_output_device_info().get("index")
         pya.terminate()
 
+        if worker_function is None:
+            def worker_function(worker_input: Any) -> Any:
+                """
+                Dummy worker function, logging and forwarding input.
+                :param worker_input: Worker input.
+                :return: Worker input.
+                """
+                cfg.LOGGER.info(f"Worker recieved: {worker_input}")
+                return worker_input
+
         self.speech_recorder = speech_recorder
         self.transcriber = transcriber
         self.worker_function = worker_function
@@ -113,7 +126,7 @@ class ConversationHandler(object):
         self.loop_pause = loop_pause
         self._setup_components()
 
-    def _stop(self) -> None:
+    def stop(self) -> None:
         """
         Stops processes.
         """
@@ -155,7 +168,7 @@ class ConversationHandler(object):
         Sets up and resets handler. 
         """
         cfg.LOGGER.info("(Re)setting Conversation Handler...")
-        self._stop()
+        self.stop()
         gc.collect()
         self._setup_components()
         cfg.LOGGER.info("Setup is done.")
@@ -252,7 +265,7 @@ class ConversationHandler(object):
                     self.handle_output()
         except KeyboardInterrupt:
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-            self._stop()
+            self.stop()
 
     def run_terminal_based_conversation(self, streaming: bool = False) -> None:
         """
@@ -270,7 +283,7 @@ class ConversationHandler(object):
             :param event: Event that resulted in entering the function.
             """
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-            self._stop()
+            self.stop()
             rich_print("[bold]\nBye [white]...")
             event.app.exit()
 
@@ -403,3 +416,36 @@ class ConversationHandlerSession(object):
             worker_function=worker_function,
             loop_pause=self.loop_pause
         )
+
+
+class VoiceAssistant(object):
+    """
+    Represents a voice assistant.
+    """
+
+    def __init__(self,
+                 handler_session: ConversationHandlerSession,
+                 chat_model: ChatModelInstance) -> None:
+        """
+        Initiation method.
+        :param handler_session: Conversation handler session.
+        :param chat_model: Chat model to handle interaction.
+        """
+        self.session = handler_session
+        self.chat_model = chat_model
+        self.handler = None
+
+    def setup(self) -> None:
+        """
+        Method for setting up conversation handler.
+        """
+        if self.handler is None:
+            self.handler = self.session.spawn_conversation_handler(worker_function=self.chat_model.chat)
+        else:
+            self.handler.reset()
+
+    def stop(self) -> None:
+        """
+        Method for setting up conversation handler.
+        """
+        self.handler.stop()
