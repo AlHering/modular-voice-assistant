@@ -157,8 +157,8 @@ class ConversationHandler(object):
 
         self.threads = {
             "input": Thread(target=self.loop, kwargs={"task": "input"}),
-            "worker": Thread(target=self.loop, kwargs={"task": "worker", "timeout": self.loop_pause/2}),
-            "output": Thread(target=self.loop, kwargs={"task": "output", "timeout": self.loop_pause/2})
+            "worker": Thread(target=self.loop, kwargs={"task": "worker", "parameters": {"timeout": self.loop_pause/2}}),
+            "output": Thread(target=self.loop, kwargs={"task": "output", "parameters": {"timeout": self.loop_pause/2}})
         }
         for thread in self.threads:
             self.threads[thread].daemon = True
@@ -173,10 +173,9 @@ class ConversationHandler(object):
         self._setup_components()
         cfg.LOGGER.info("Setup is done.")
 
-    def handle_input(self, timeout: float = None) -> None:
+    def handle_input(self) -> None:
         """
         Acquires and forwards user input.
-        :param timeout: Timeout for blocking methods.
         """
         if not self.pause_input.is_set():
             recorder_data, recorder_metadata = self.speech_recorder.record_single_input()
@@ -186,15 +185,15 @@ class ConversationHandler(object):
             cfg.LOGGER.info(f"Forwarding {input_data} to worker...")
             self.queues["worker_in"].put(input_data)
 
-    def handle_work(self, timeout: float = None, streamed: bool = False) -> None:
+    def handle_work(self, timeout: float = None, stream: bool = False) -> None:
         """
         Acquires input, computes and reroutes worker output.
         :param timeout: Timeout for blocking methods.
-        :param streamed: Flag for declaring whether worker function return should be handled as a generator.
+        :param stream: Declares, whether worker function return should be handled as a generator.
         """  
         if not self.pause_worker.is_set():
             try:
-                if streamed:
+                if stream:
                     for elem in self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)):
                         self.queues["worker_out"].put(elem)
                 else:
@@ -221,19 +220,21 @@ class ConversationHandler(object):
             except Empty:
                 pass
 
-    def loop(self, task: str = "output", timeout: float = None) -> None:
+    def loop(self, task: str = "output", parameters: dict = None) -> None:
         """
         Method for looping task.
         :param task: Task out of "input", "worker" and "output".
-        :param timeout: Timeout for blocking methods.
+        :param parameters: Parameters for the method call.
+            Defaults to None.
         """
+        parameters = {} if parameters is None else parameters
         method = {
             "input": self.handle_input,
             "worker": self.handle_work,
             "output": self.handle_output
         }[task]
         while not self.interrupt.is_set():
-            method(timeout=timeout)
+            method(**parameters)
 
     def queues_are_busy(self) -> bool:
         """
@@ -250,80 +251,68 @@ class ConversationHandler(object):
         return (self.queues_are_busy or
                 any(self.threads[thread].is_alive() for thread in self.threads))
 
-    def run_conversation(self, blocking: bool = True, loop: bool = True) -> None:
+    def _run_nonblocking_conversation(self, loop: bool, stream: bool = False) -> None:
+        """
+        Internal method for running non-blocking conversation.
+        :param loop: Delcares, whether to loop conversation or stop after a single interaction.
+            Defaults to True.
+        :param stream: Declares, whether worker function streams response.
+            Defaults to False.
+        """
+        if stream:
+            self.threads["worker"]._kwargs["parameters"]["stream"] = True
+        self.threads["input"].start()
+        self.threads["worker"].start()
+        self.threads["output"].start()
+        if not loop:
+            while not self.queues["worker_in"].qsize() > 0:
+                time.sleep(self.loop_pause/16)
+            while self.queues["worker_in"].qsize() > 0:
+                time.sleep(self.loop_pause/16)
+            self.pause_input.set()
+            while not self.queues["worker_out"].qsize() > 0:
+                time.sleep(self.loop_pause/16)
+            while self.queues["worker_out"].qsize() > 0:
+                time.sleep(self.loop_pause/16)
+            self.reset()
+    
+    def _run_blocking_conversation(self, loop: bool, stream: bool = False) -> None:
+        """
+        Internal method for running blocking conversation.
+        :param loop: Delcares, whether to loop conversation or stop after a single interaction.
+            Defaults to True.
+        :param stream: Declares, whether worker function streams response.
+            Defaults to False.
+        """
+        while not self.interrupt.is_set():
+            self.handle_input()
+            self.handle_work(stream=stream)
+            self.handle_output()
+            if not loop:
+                self.interrupt.set()
+        self.reset()
+
+    def run_conversation(self, blocking: bool = True, loop: bool = True, stream: bool = False) -> None:
         """
         Runs conversation.
-        :param blocking: Flag which declares whether or not to wait for each step.
+        :param blocking: Declares, whether or not to wait for each step.
             Defaults to True.
         :param loop: Delcares, whether to loop conversation or stop after a single interaction.
             Defaults to True.
+        :param stream: Declares, whether worker function streams response.
+            Defaults to False.
         """
         cfg.LOGGER.info(f"Starting conversation loop...")
         self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
         self.handle_output()
         try:
             if not blocking:
-                self.threads["input"].start()
-                self.threads["worker"].start()
-                self.threads["output"].start()
-                if not loop:
-                    while not self.queues["worker_in"].qsize() > 0:
-                        time.sleep(self.loop_pause/16)
-                    while self.queues["worker_in"].qsize() > 0:
-                        time.sleep(self.loop_pause/16)
-                    self.pause_input.set()
-                    while not self.queues["worker_out"].qsize() > 0:
-                        time.sleep(self.loop_pause/16)
-                    while self.queues["worker_out"].qsize() > 0:
-                        time.sleep(self.loop_pause/16)
-                    self.reset()
+                self._run_nonblocking_conversation(loop=loop, stream=stream)
             else:
-                while not self.interrupt.is_set():
-                    self.handle_input()
-                    self.handle_work()
-                    self.handle_output()
-                    if not loop:
-                        self.interrupt.set()
-                self.reset()
+                self._run_blocking_conversation(loop=loop, stream=stream)
         except KeyboardInterrupt:
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
             self.stop()
-
-    def run_terminal_based_conversation(self, streaming: bool = False) -> None:
-        """
-        Runs conversation loop with terminal input.
-        :param streaming: Stream responses for faster interaction.
-            Defaults to False
-        """
-        bindings = KeyBindings()
-
-        @bindings.add("c-c")
-        @bindings.add("c-d")
-        def exit_session(event: KeyPressEvent) -> None:
-            """
-            Function for exiting session.
-            :param event: Event that resulted in entering the function.
-            """
-            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-            self.stop()
-            rich_print("[bold]\nBye [white]...")
-            event.app.exit()
-
-        session = setup_prompt_session(bindings)
-        cfg.LOGGER.info(f"Starting conversation loop...")
-        if streaming:
-            self.threads["output"].start()
-        self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
-        self.handle_output()
-        
-        while not self.interrupt.is_set():
-            user_input = session.prompt(
-                "User: ")
-            if user_input is not None:
-                self.queues["worker_in"].put(user_input)
-                self.handle_work(streamed=streaming)
-                if not streaming:
-                    self.handle_output()
 
 class ConversationHandlerSession(object):
     """
@@ -487,3 +476,39 @@ class BasicVoiceAssistant(object):
             Defaults to True.
         """
         self.handler.run(blocking=blocking, loop=False)
+
+    def run_terminal_based_conversation(self, streaming: bool = False) -> None:
+        """
+        Runs conversation loop with terminal input.
+        :param streaming: Stream responses for faster interaction.
+            Defaults to False
+        """
+        bindings = KeyBindings()
+
+        @bindings.add("c-c")
+        @bindings.add("c-d")
+        def exit_session(event: KeyPressEvent) -> None:
+            """
+            Function for exiting session.
+            :param event: Event that resulted in entering the function.
+            """
+            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
+            self.handler.reset()
+            rich_print("[bold]\nBye [white]...")
+            event.app.exit()
+
+        session = setup_prompt_session(bindings)
+        cfg.LOGGER.info(f"Starting conversation loop...")
+        if streaming:
+            self.threads["output"].start()
+        self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
+        self.handle_output()
+        
+        while not self.interrupt.is_set():
+            user_input = session.prompt(
+                "User: ")
+            if user_input is not None:
+                self.queues["worker_in"].put(user_input)
+                self.handle_work(streamed=streaming)
+                if not streaming:
+                    self.handle_output()
