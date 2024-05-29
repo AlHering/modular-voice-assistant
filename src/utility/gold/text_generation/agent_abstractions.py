@@ -52,12 +52,12 @@ class ToolArgument(object):
         except TypeError:
             return False
 
-    def __call__(self) -> str:
+    def __call__(self) -> Any:
         """
-        Call method for returning value as string.
-        :return: Stored value as string.
+        Call method for returning value.
+        :return: Stored value.
         """
-        return str(self.value)
+        return self.value
 
 
 class AgentTool(object):
