@@ -157,8 +157,8 @@ class ConversationHandler(object):
 
         self.threads = {
             "input": Thread(target=self.loop, kwargs={"task": "input"}),
-            "worker": Thread(target=self.loop, kwargs={"task": "worker"}),
-            "output": Thread(target=self.loop, kwargs={"task": "output"})
+            "worker": Thread(target=self.loop, kwargs={"task": "worker", "timeout": self.loop_pause/2}),
+            "output": Thread(target=self.loop, kwargs={"task": "output", "timeout": self.loop_pause/2})
         }
         for thread in self.threads:
             self.threads[thread].daemon = True
@@ -235,19 +235,27 @@ class ConversationHandler(object):
         while not self.interrupt.is_set():
             method(timeout=timeout)
 
+    def queues_are_busy(self) -> bool:
+        """
+        Returns queue status:
+        :return: True, if any queue contains elements, else False.
+        """
+        return any(self.queues[queue].qsize() > 0 for queue in self.queues)
 
     def pipeline_is_busy(self) -> bool:
         """
         Returns pipeline status:
         :return: True, if pipeline is busy, else False.
         """
-        return (any(self.queues[queue].qsize() > 0 for queue in self.queues) or
+        return (self.queues_are_busy or
                 any(self.threads[thread].is_alive() for thread in self.threads))
 
-    def run_conversation(self, blocking: bool = True) -> None:
+    def run_conversation(self, blocking: bool = True, loop: bool = True) -> None:
         """
-        Runs conversation loop.
+        Runs conversation.
         :param blocking: Flag which declares whether or not to wait for each step.
+            Defaults to True.
+        :param loop: Delcares, whether to loop conversation or stop after a single interaction.
             Defaults to True.
         """
         cfg.LOGGER.info(f"Starting conversation loop...")
@@ -258,11 +266,25 @@ class ConversationHandler(object):
                 self.threads["input"].start()
                 self.threads["worker"].start()
                 self.threads["output"].start()
+                if not loop:
+                    while not self.queues["worker_in"].qsize() > 0:
+                        time.sleep(self.loop_pause/16)
+                    while self.queues["worker_in"].qsize() > 0:
+                        time.sleep(self.loop_pause/16)
+                    self.pause_input.set()
+                    while not self.queues["worker_out"].qsize() > 0:
+                        time.sleep(self.loop_pause/16)
+                    while self.queues["worker_out"].qsize() > 0:
+                        time.sleep(self.loop_pause/16)
+                    self.reset()
             else:
                 while not self.interrupt.is_set():
                     self.handle_input()
                     self.handle_work()
                     self.handle_output()
+                    if not loop:
+                        self.interrupt.set()
+                self.reset()
         except KeyboardInterrupt:
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
             self.stop()
@@ -449,3 +471,19 @@ class BasicVoiceAssistant(object):
         Method for setting up conversation handler.
         """
         self.handler.stop()
+
+    def run_conversation(self, blocking: bool = True) -> None:
+        """
+        Method for running a looping conversation.
+        :param blocking: Flag which declares whether or not to wait for each conversation step.
+            Defaults to True.
+        """
+        self.handler.run_conversation(blocking=blocking)
+
+    def run_interaction(self, blocking: bool = True) -> None:
+        """
+        Method for running an conversational interaction.
+        :param blocking: Flag which declares whether or not to wait for each conversation step.
+            Defaults to True.
+        """
+        self.handler.run(blocking=blocking, loop=False)
