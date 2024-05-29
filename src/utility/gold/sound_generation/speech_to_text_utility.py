@@ -169,7 +169,7 @@ def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], m
     fulltext, segment_metadatas
 
 
-def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], model: whisper.Whisper = None, transcription_kwargs: dict = None) -> Tuple[str, List[dict]]:
+def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], model: WhisperModel = None, transcription_kwargs: dict = None) -> Tuple[str, List[dict]]:
     """
     Transcribes wave file or waveform with faster whisper.
     :param audio_input: Wave file path or waveform.
