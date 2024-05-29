@@ -6,10 +6,11 @@
 *            (c) 2023 Alexander Hering             *
 ****************************************************
 """
-from typing import List, Any, Callable, Optional, Type, Union
+import traceback
+from typing import List, Any, Callable, Optional, Type, Union, Tuple
 from uuid import uuid4
 from datetime import datetime as dt
-from .language_model_abstractions import LanguageModelInstance
+from .language_model_abstractions import LanguageModelInstance, ChatModelInstance
 from ..filter_mask import FilterMask
 
 
@@ -254,156 +255,145 @@ class Agent(object):
     """
 
     def __init__(self,
-                 general_llm: LanguageModelInstance,
+                 llm: ChatModelInstance,
                  tools: List[AgentTool] = None,
-                 memory: AgentMemory = None,
-                 dedicated_planner_llm: LanguageModelInstance = None,
-                 dedicated_actor_llm: LanguageModelInstance = None,
-                 dedicated_oberserver_llm: LanguageModelInstance = None) -> None:
+                 memory: AgentMemory = None) -> None:
         """
         Initiation method.
-        :param general_llm: LanguageModelInstance for general tasks.
+        :param llm: ChatModelInstance for handling text generation tasks.
         :param tools: List of tools to be used by the agent.
             Defaults to None in which case no tools are used.
         :param memory: Memory to use.
             Defaults to None.
-        :param dedicated_planner_llm: LanguageModelInstance for planning.
-            Defaults to None in which case the general LLM is used for this task.
-        :param dedicated_actor_llm: LanguageModelInstance for acting.
-            Defaults to None in which case the general LLM is used for this task.
-        :param dedicated_oberserver_llm: LanguageModelInstance for observing.
-            Defaults to None in which case the general LLM is used for this task.
         """
-        self.general_llm = general_llm
+        self.llm = llm
         self.tools = tools
-        self.tool_guide = self._create_tool_guide()
-        self.cache = None
+        self.tool_guide = self.create_tool_guide()
         self.memory = memory
-        self.planner_llm = self.general_llm if dedicated_planner_llm is None else dedicated_planner_llm
-        self.actor_llm = self.general_llm if dedicated_actor_llm is None else dedicated_actor_llm
-        self.observer_llm = self.general_llm if dedicated_oberserver_llm is None else dedicated_oberserver_llm
+        self.cache = []
 
-        self.system_prompt = f"""You are a helpful assistant. You have access to the following tools: {self.tool_guide} Your goal is to help the user as best as you can."""
-
-        self.general_llm.use_history = False
-        self.general_llm.system_prompt = self.system_prompt
-
-        self.planner_answer_format = f"""Answer in the following format:
-            THOUGHT: Formulate precisely what you want to do.
+        self.planner_format = f"""Task: {{prompt}} 
+            
+            Create a plan for solving the task. Respond in the following format:
+            THOUGHT: Formulate precisely, what you want to do.
             TOOL: The name of the tool to use. Should be one of [{', '.join(tool.name for tool in self.tools)}]. Only add this line if you want to use a tool in this step.
-            INPUTS: The inputs for the tool, separated by a comma. Only add arguments if the tool needs them. Only add the arguments appropriate for the tool. Only add this line if you want to use a tool in this step."""
+            INPUTS: The inputs for the tool, separated by a comma. Only add arguments, if the tool needs them. Only add the arguments appropriate for the tool. Only add this line if you want to use a tool in this step."""
 
-    def _create_tool_guide(self) -> Optional[str]:
+    def create_tool_guide(self) -> Optional[str]:
         """
         Method for creating a tool guide.
         """
         if self.tools is None:
             return None
         return "\n\n" + "\n\n".join(tool.get_guide() for tool in self.tools) + "\n\n"
+    
+    def parse_tool_call(self, content: str, metdata: dict) -> Optional[Any]:
+        """
+        Method for parsing a tool call.
+        :param content: The generated text content.
+        :param metadata: Planning step metadata.
+        :return: Return value of a tool, if a tool call was detected.
+        """
+        pass
 
-    def loop(self, start_prompt: str) -> Any:
+    def interact(self, prompt: str) -> Optional[List[dict]]:
+        """
+        Method for a single interaction.
+        :param prompt: User prompt.
+        :return: Agent history.
+        """
+        current_history = []
+        try:
+            self.plan(prompt)
+            current_history.append(self.cache[-1])
+            self.act()
+            current_history.append(self.cache[-1])
+            self.observe()
+            current_history.append(self.cache[-1])
+        except Exception as ex:
+            current_history.append[{
+                "exception": str(ex),
+                "trace": traceback.format_exc()
+            }]
+
+    def loop(self, start_prompt: str, stop_on_error: bool = True) -> Any:
         """
         Method for starting handler loop.
         :param start_prompt: Start prompt.
+        :param stop_on_error: Whether to stop when encountering exceptions. 
+            Defaults to True.
         :return: Answer.
         """
-        self.cache.add(("user", start_prompt, {"timestamp": dt.now()}))
-        kickoff_prompt = self.base_prompt + """Which steps need to be taken?
-        Answer in the following format:
+        current_history = []
+        while not current_history or "FINISHED" in current_history[-1].get("content"):
+            try:
+                if current_history and "ITERATE" in current_history[-1].get("content"):
+                    if "traceback" in current_history[-1]:
+                        self.plan(prompt=f"The task is not solved. An error appeared:\n```{current_history[-1]['traceback']}```\nRework your initial plan accordingly.")
+                    else:
+                        self.plan(prompt=f"The task is not solved. Rework your initial plan accordingly.")
+                else:
+                    self.plan(prompt=start_prompt)
+                current_history.append(self.cache[-1])
+                self.act()
+                current_history.append(self.cache[-1])
+                self.observe()
+                current_history.append(self.cache[-1])
+            except Exception as ex:
+                current_history.append[{
+                    "exception": str(ex),
+                    "traceback": traceback.format_exc(),
+                    "content": "FINISHED" if stop_on_error else "ITERATE"
+                }]
+        
 
-        STEP 1: Describe the first step. If you want to use a tools, describe how to use it. Use only one tool per step.
-        STEP 2: ...
-        """
-        self.cache.add(("system", kickoff_prompt, {"timestamp": dt.now()}))
-        self.cache.add(
-            ("general", *self.general_llm.generate(kickoff_prompt)))
-
-        self.system_prompt += f"\n\n The plan is as follows:\n{self.cache.get(-1)[1]}"
-        for llm in [self.planner_llm, self.observer_llm]:
-            llm.use_history = False
-            llm.system_prompt = self.system_prompt
-        while not self.cache.get(-1)[1] == "FINISHED":
-            for step in [self.plan, self.act, self.observe]:
-                step()
-                self.report()
-
-    def plan(self) -> Any:
+    def plan(self, prompt: str, wrap: bool = True) -> None:
         """
         Method for handling an planning step.
-        :return: Answer.
+        :param prompt: Prompt to wrap into planning prompt.
+        :param wrap: Wrap prompt into planning prompt before forwarding.
+            Defaults to True.
         """
-        if self.cache.get(-1)[0] == "general":
-            answer, metadata = self.planner_llm.generate(
-                f"Plan out STEP 1. {self.planner_answer_format}"
-            )
-        else:
-            answer, metadata = self.planner_llm.generate(
-                f"""The current step is {self.cache.get(-1)[1]}
-                Plan out this step. {self.planner_answer_format}
-                """
-            )
-        # TODO: Add validation
-        self.cache.add("planner", answer, metadata)
+        answer, metadata = self.llm.chat(
+            self.planner_format.format(prompt=prompt) if wrap else prompt
+        )
+        self.cache.append({
+            "step": "plan",
+            "content": answer,
+            "metadata": metadata
+        }) 
 
-    def act(self) -> Any:
+    def act(self) -> None:
         """
         Method for handling an acting step.
-        :return: Answer.
         """
-        thought = self.cache.get(-1)[1].split("THOUGHT: ")[1].split("\n")[0]
-        if "TOOL: " in self.cache.get(-1)[1] and "INPUTS: " in self.cache.get(-1)[1]:
-            tool = self.cache.get(-1)[1].split("TOOL: ")[1].split("\n")[0]
-            inputs = self.cache.get(-1)[1].split(
-                "TOOL: ")[1].split("\n")[0].strip()
-            for part in [tool, inputs]:
-                if part.endswith("."):
-                    part = part[:-1]
-                part = part.strip()
-            inputs = [inp.strip() for inp in inputs.split(",")]
-            # TODO: Catch tool and input failures and repeat previous step.
-            tool_to_use = [
-                tool_option for tool_option in self.tools if tool.name == tool][0]
-            result = tool_to_use.func(
-                *[arg.type(inputs[index]) for index, arg in enumerate(tool_to_use.arguments)]
-            )
-            self.cache.add("actor", f"THOUGHT: {thought}\nRESULT:{result}", {
-                "timestamp": dt.now(), "tool_used": tool.name, "arguments_used": inputs})
-        else:
-            self.cache.add("actor", *self.actor_llm.generate(
-                f"Solve the following task: {thought}.\n Answer in following format:\nTHOUGHT: Describe your thoughts on the task.\nRESULT: State your result for the task."
-            ))
+        entry = self.cache[-1]
+        if entry["step"] == "plan":
+            tool_response = self.parse_tool_call(entry["content"], entry["metadata"])
+            if tool_response is not None:
+                self.cache.append({
+                    "step": "act",
+                    "content": tool_response,
+                    "metadata": {
+                        "type": "tool_response"
+                    }
+                })
+            else:
+                answer, metadata = self.llm.chat("Solve the task, that is described in your previous THOUGHT.")
+                self.cache.append({
+                    "step": "act",
+                    "content": answer,
+                    "metadata": metadata
+                }) 
 
-    def observe(self) -> Any:
+    def observe(self) -> None:
         """
-        Method for handling an oberservation step.
-        :return: Answer.
+        Method for handling an observation step.
         """
-        current_step = "STEP 1" if self.cache.get(
-            -3)[0] == "general" else self.cache.get(-3)[1]
-        planner_answer = self.cache.get(-2)[1]
-        actor_answer = self.cache.get(-1)[1]
-        self.cache.add("observer", *self.observer_llm.generate(
-            f"""The current step is {current_step}.
-            
-            An assistant created the following plan:
-            {planner_answer}
+        answer, metadata = self.llm.chat("Did your last response solve the task? If yes, please answer with 'FINISHED' if not, answer with 'ITERATE'.")
+        self.cache.append({
+            "step": "act",
+            "content": answer,
+            "metadata": metadata
+        }) 
 
-            Another assistant implemented this plan as follows:
-            {actor_answer}
-
-            Validate, wether the current step is solved. Answer in only one word:
-            If the solution is correct and this was the last step, answer 'FINISHED'.
-            If the solution is correct but there are more steps, answer 'NEXT'.
-            If the solution is not correct, answer the current step in the format 'CURRENT'.
-            Your answer should be one of ['FINISHED', 'NEXT', 'CURRENT']
-            """
-        ))
-        # TODO: Add validation and error handling.
-        self.cache.add("system", {"FINISHED": "FINISHED", "NEXT": "NEXT", "CURRENT": "CURRENT"}[
-            self.cache.get(-1)[1].replace("'", "")], {"timestamp": dt.now()})
-
-    def report(self) -> None:
-        """
-        Method for printing an report.
-        """
-        pass
