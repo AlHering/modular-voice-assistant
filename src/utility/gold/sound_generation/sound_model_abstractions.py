@@ -9,7 +9,7 @@ import os
 import traceback
 from queue import Queue
 import speech_recognition
-from typing import List, Tuple, Any, Callable, Optional, Union
+from typing import List, Tuple, Any, Callable, Optional, Union, Dict
 from datetime import datetime as dt
 from enum import Enum
 import pyaudio
@@ -28,10 +28,14 @@ class Transcriber(object):
     """
 
     supported_backends: List[str] = ["faster-whisper", "whisper"]
+    default_models: Dict[str, List[str]] = {
+        "faster-whisper": ["large-v3"], 
+        "whisper": ["large-v3"]
+    }
 
     def __init__(self,
                  backend: str,
-                 model_path: str,
+                 model_path: str = None,
                  model_parameters: dict = None,
                  transcription_parameters: dict = None) -> None:
         """
@@ -39,6 +43,8 @@ class Transcriber(object):
         :param backend: Backend for model loading.
             Check Transcriber.supported_backends for supported backends.
         :param model_path: Path to model files.
+            Defaults to None in which case a default model is used.
+            The latter will most likely result in it beeing downloaded.
         :param model_parameters: Model loading parameters as dictionary.
             Defaults to None.
         :param transcription_parameters: Transcription parameters as dictionary.
@@ -46,6 +52,7 @@ class Transcriber(object):
         """
         self.backend = backend
 
+        self.model_path = self.default_models[self.backend][0] if model_path is None else model_path
         self.model_parameters = {} if model_parameters is None else model_parameters
         self.transcription_parameters = {} if transcription_parameters is None else transcription_parameters
 
@@ -53,8 +60,8 @@ class Transcriber(object):
             "faster-whisper": load_faster_whisper_model,
             "whisper": load_whisper_model
         }[self.backend](
-            model_path=model_path,
-            model_parameters=model_parameters
+            model_path=self.model_path,
+            model_parameters=self.model_parameters
         )
 
         self.transcription_function = {
@@ -82,10 +89,13 @@ class Synthesizer(object):
     """
 
     supported_backends: List[str] = ["coqui-tts"]
+    default_models: Dict[str, List[str]] = {
+        "coqui-tts": ["tts_models/multilingual/multi-dataset/xtts_v2"]
+    }
 
     def __init__(self,
                  backend: str,
-                 model_path: str,
+                 model_path: str = None,
                  model_parameters: dict = None,
                  synthesis_parameters: dict = None) -> None:
         """
@@ -93,6 +103,8 @@ class Synthesizer(object):
         :param backend: Backend for model loading.
             Check Transcriber.supported_backends for supported backends.
         :param model_path: Path to model files.
+            Defaults to None in which case a default model is used.
+            The latter will most likely result in it beeing downloaded.
         :param model_parameters: Model loading parameters as dictionary.
             Defaults to None.
         :param synthesis_parameters: Synthesis parameters as dictionary.
@@ -100,14 +112,15 @@ class Synthesizer(object):
         """
         self.backend = backend
 
+        self.model_path = self.default_models[self.backend][0] if model_path is None else model_path
         self.model_parameters = {} if model_parameters is None else model_parameters
         self.synthesis_parameters = {} if synthesis_parameters is None else synthesis_parameters
 
         self.model = {
             "coqui-tts": load_coqui_tts_model,
         }[self.backend](
-            model_path=model_path,
-            model_parameters=model_parameters
+            model_path=self.model_path,
+            model_parameters=self.model_parameters
         )
 
         self.sound_out_snythesis_functions = {
