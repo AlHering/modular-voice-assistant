@@ -265,14 +265,12 @@ class ConversationHandler(object):
         self.threads["worker"].start()
         self.threads["output"].start()
         if not loop:
-            while not self.queues["worker_in"].qsize() > 0:
-                time.sleep(self.loop_pause/16)
-            while self.queues["worker_in"].qsize() > 0:
+            while self.queues["worker_in"].qsize() == 0:
                 time.sleep(self.loop_pause/16)
             self.pause_input.set()
-            while not self.queues["worker_out"].qsize() > 0:
+            while self.queues["worker_out"].qsize() == 0:
                 time.sleep(self.loop_pause/16)
-            while self.queues["worker_out"].qsize() > 0:
+            while self.queues["worker_out"].qsize() > 0 or self.pause_output.is_set():
                 time.sleep(self.loop_pause/16)
             self.reset()
     
