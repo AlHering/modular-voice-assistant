@@ -31,8 +31,8 @@ def synthesize_with_coqui_tts(text: str,
     model = load_coqui_tts_model(TTS().list_models()[0]) if model is None else model
     synthesis_parameters = {} if synthesis_parameters is None else synthesis_parameters
     snythesized = model.tts(
-        text=text,
-        **synthesis_parameters)
+            text=text,
+            **synthesis_parameters)
     
     # Conversion taken from 
     # https://github.com/coqui-ai/TTS/blob/dev/TTS/utils/synthesizer.py and
@@ -41,9 +41,10 @@ def synthesize_with_coqui_tts(text: str,
         snythesized = snythesized.cpu().numpy()
     if isinstance(snythesized, list):
         snythesized = np.array(snythesized)
-
+        
     snythesized = snythesized * (32767 / max(0.01, np.max(np.abs(snythesized))))
     snythesized = snythesized.astype(np.int16)
+    
     return snythesized, {
         "rate": model.synthesizer.output_sample_rate,
         "format": pyaudio.paInt16,
