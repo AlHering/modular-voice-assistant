@@ -5,27 +5,59 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
+from abc import ABC, abstractmethod
 from enum import Enum
 from inspect import getfullargspec
+from uuid import uuid4
 from typing import Any, Union, Tuple, List, Optional, Callable, Dict
 import os
 import gc
 import time
 import numpy as np
 import pyaudio
+from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.key_binding.key_bindings import KeyBindings
+from rich import print as rich_print
+from rich.style import Style as RichStyle
+from prompt_toolkit.key_binding.key_processor import KeyPressEvent
+from prompt_toolkit.patch_stdout import patch_stdout
+from prompt_toolkit.styles import Style as PTStyle
 import speech_recognition
 from datetime import datetime as dt
 from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent, Lock
 from queue import Empty, Queue as TQueue
-from ..text_generation.language_model_abstractions import LanguageModelInstance
+from ..text_generation.language_model_abstractions import LanguageModelInstance, ChatModelInstance
+from ..text_generation.agent_abstractions import ToolArgument, AgentTool
 from ..text_generation.agent_abstractions import Agent
 from ...bronze.concurrency_utility import PipelineComponentThread, timeout
 from ...bronze.time_utility import get_timestamp
+from ...bronze.json_utility import load as load_json
 from ...silver.file_system_utility import safely_create_path
 from ...bronze.pyaudio_utility import play_wave
 from . import speech_to_text_utility, text_to_speech_utility
 from .sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
+
+
+def setup_prompt_session(bindings: KeyBindings = None) -> PromptSession:
+    """
+    Function for setting up prompt session.
+    :param bindings: Key bindings.
+        Defaults to None.
+    :return: Prompt session.
+    """
+    return PromptSession(
+        bottom_toolbar=[
+        ("class:bottom-toolbar",
+         "ctl-c to exit, ctl-d to save cache and exit",)
+    ],
+        style=PTStyle.from_dict({
+        "bottom-toolbar": "#333333 bg:#ffcc00"
+    }),
+        auto_suggest=AutoSuggestFromHistory(),
+        key_bindings=bindings
+    )
 
 
 class ConversationHandler(object):
@@ -34,7 +66,7 @@ class ConversationHandler(object):
     A conversation handler manages the following components:
         - speech_recorder: A recorder for spoken input.
         - transcriber: A transcriber to transcribe spoken input into text.
-        - worker: A worker to compute an output for the given input.
+        - worker: A worker to compute an output for the given user input.
         - synthesizer: A synthesizer to convert output texts to sound.
     """
 
@@ -43,7 +75,7 @@ class ConversationHandler(object):
                  speech_recorder: SpeechRecorder,
                  transcriber: Transcriber,
                  synthesizer: Synthesizer,
-                 worker_function: Callable,
+                 worker_function: Callable = None,
                  loop_pause: float = 0.1) -> None:
         """
         Initiation method.
@@ -52,6 +84,7 @@ class ConversationHandler(object):
         :param transcriber: Transcriber for STT processes.
         :param synthesizer: Synthesizer for TTS processes.
         :param worker_function: Worker function for handling cleaned input.
+            Default to None.
         :param input_method: Input method.
             Defaults to SPEECH (STT).
         :param output_method: Output method.
@@ -60,8 +93,7 @@ class ConversationHandler(object):
             Defaults to 0.1.
         """
         cfg.LOGGER.info("Initiating Conversation Handler...")
-        if not os.path.exists(working_directory):
-            os.makedirs(working_directory)
+        safely_create_path(working_directory)
         self.working_directory = working_directory
         self.input_path = os.path.join(self.working_directory, "input.wav") 
         self.output_path = os.path.join(self.working_directory, "output.wav") 
@@ -70,6 +102,16 @@ class ConversationHandler(object):
         self.input_device_index = pya.get_default_input_device_info().get("index")
         self.output_device_index = pya.get_default_output_device_info().get("index")
         pya.terminate()
+
+        if worker_function is None:
+            def worker_function(worker_input: Any) -> Any:
+                """
+                Dummy worker function, logging and forwarding input.
+                :param worker_input: Worker input.
+                :return: Worker input.
+                """
+                cfg.LOGGER.info(f"Worker recieved: {worker_input}")
+                return worker_input
 
         self.speech_recorder = speech_recorder
         self.transcriber = transcriber
@@ -117,8 +159,8 @@ class ConversationHandler(object):
 
         self.threads = {
             "input": Thread(target=self.loop, kwargs={"task": "input"}),
-            "worker": Thread(target=self.loop, kwargs={"task": "worker"}),
-            "output": Thread(target=self.loop, kwargs={"task": "output"})
+            "worker": Thread(target=self.loop, kwargs={"task": "worker", "parameters": {"timeout": self.loop_pause/2}}),
+            "output": Thread(target=self.loop, kwargs={"task": "output", "parameters": {"timeout": self.loop_pause/2}})
         }
         for thread in self.threads:
             self.threads[thread].daemon = True
@@ -133,10 +175,9 @@ class ConversationHandler(object):
         self._setup_components()
         cfg.LOGGER.info("Setup is done.")
 
-    def handle_input(self, timeout: float = None) -> None:
+    def handle_input(self) -> None:
         """
         Acquires and forwards user input.
-        :param timeout: Timeout for blocking methods.
         """
         if not self.pause_input.is_set():
             recorder_data, recorder_metadata = self.speech_recorder.record_single_input()
@@ -145,22 +186,27 @@ class ConversationHandler(object):
             input_data, transcriber_metadata = self.transcriber.transcribe(recorder_data)
             cfg.LOGGER.info(f"Forwarding {input_data} to worker...")
             self.queues["worker_in"].put(input_data)
+        else:
+            time.sleep(self.loop_pause)
 
-    def handle_work(self, timeout: float = None, streamed: bool = False) -> None:
+    def handle_work(self, timeout: float = None, stream: bool = False) -> None:
         """
         Acquires input, computes and reroutes worker output.
         :param timeout: Timeout for blocking methods.
-        :param streamed: Flag for declaring whether worker function return should be handled as a generator.
+        :param stream: Declares, whether worker function return should be handled as a generator.
         """  
         if not self.pause_worker.is_set():
             try:
-                if streamed:
+                if stream:
                     for elem in self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)):
-                        self.queues["worker_out"].put(elem)
+                        if elem and elem[0]:
+                            self.queues["worker_out"].put(elem)
                 else:
                     self.queues["worker_out"].put(self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)))
             except Empty:
                 pass
+        else:
+            time.sleep(self.loop_pause)
 
     def handle_output(self, timeout: float = None) -> None:
         """
@@ -174,79 +220,131 @@ class ConversationHandler(object):
                 cfg.LOGGER.info(f"Fetched worker output {worker_output}.")
                 cfg.LOGGER.info(f"Synthesizing output...")
                 synthesizer_output, synthesizer_metadata = self.synthesizer.synthesize(worker_output)
-                cfg.LOGGER.info(f"Ouputting synthesized response...")
-                self.pause_output.set()
+                cfg.LOGGER.info(f"Outputting synthesized response...")
                 play_wave(synthesizer_output, synthesizer_metadata)
                 self.pause_output.clear()
             except Empty:
                 pass
+        else:
+            time.sleep(self.loop_pause)
 
-    def loop(self, task: str = "output", timeout: float = None) -> None:
+    def loop(self, task: str = "output", parameters: dict = None) -> None:
         """
         Method for looping task.
         :param task: Task out of "input", "worker" and "output".
-        :param timeout: Timeout for blocking methods.
+        :param parameters: Parameters for the method call.
+            Defaults to None.
         """
+        parameters = {} if parameters is None else parameters
         method = {
             "input": self.handle_input,
             "worker": self.handle_work,
             "output": self.handle_output
         }[task]
         while not self.interrupt.is_set():
-            method(timeout=timeout)
+            method(**parameters)
 
+    def queues_are_busy(self) -> bool:
+        """
+        Returns queue status:
+        :return: True, if any queue contains elements, else False.
+        """
+        return any(self.queues[queue].qsize() > 0 for queue in self.queues)
 
     def pipeline_is_busy(self) -> bool:
         """
         Returns pipeline status:
         :return: True, if pipeline is busy, else False.
         """
-        return (any(self.queues[queue].qsize() > 0 for queue in self.queues) or
+        return (self.queues_are_busy or
                 any(self.threads[thread].is_alive() for thread in self.threads))
 
-    def run_conversation(self, blocking: bool = True) -> None:
+    def _run_nonblocking_conversation(self, loop: bool, stream: bool = False) -> None:
         """
-        Runs conversation loop.
-        :param blocking: Flag which declares whether or not to wait for each step.
+        Internal method for running non-blocking conversation.
+        :param loop: Delcares, whether to loop conversation or stop after a single interaction.
             Defaults to True.
+        :param stream: Declares, whether worker function streams response.
+            Defaults to False.
+        """
+        if stream:
+            self.threads["worker"]._kwargs["parameters"]["stream"] = True
+        self.threads["input"].start()
+        self.threads["worker"].start()
+        self.threads["output"].start()
+        if not loop:
+            while self.queues["worker_in"].qsize() == 0:
+                time.sleep(self.loop_pause/16)
+            self.pause_input.set()
+            while self.queues["worker_out"].qsize() == 0:
+                time.sleep(self.loop_pause/16)
+            while self.queues["worker_out"].qsize() > 0 or self.pause_output.is_set():
+                time.sleep(self.loop_pause/16)
+            self.reset()
+    
+    def _run_blocking_conversation(self, loop: bool, stream: bool = False) -> None:
+        """
+        Internal method for running blocking conversation.
+        :param loop: Delcares, whether to loop conversation or stop after a single interaction.
+            Defaults to True.
+        :param stream: Declares, whether worker function streams response.
+            Defaults to False.
+        """
+        while not self.interrupt.is_set():
+            self.handle_input()
+            self.handle_work(stream=stream)
+            self.handle_output()
+            if not loop:
+                self.interrupt.set()
+        self.reset()
+
+    def run_conversation(self, blocking: bool = True, loop: bool = True, stream: bool = False) -> None:
+        """
+        Runs conversation.
+        :param blocking: Declares, whether or not to wait for each step.
+            Defaults to True.
+        :param loop: Delcares, whether to loop conversation or stop after a single interaction.
+            Defaults to True.
+        :param stream: Declares, whether worker function streams response.
+            Defaults to False.
         """
         cfg.LOGGER.info(f"Starting conversation loop...")
         self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
         self.handle_output()
         try:
             if not blocking:
-                self.threads["input"].start()
-                self.threads["worker"].start()
-                self.threads["output"].start()
+                self._run_nonblocking_conversation(loop=loop, stream=stream)
             else:
-                while not self.interrupt.is_set():
-                    self.handle_input()
-                    self.handle_work()
-                    self.handle_output()
+                self._run_blocking_conversation(loop=loop, stream=stream)
         except KeyboardInterrupt:
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
             self.stop()
 
-    def run_terminal_based_conversation(self, streaming: bool = False) -> None:
+    def report(self) -> str:
         """
-        Runs conversation loop with terminal input.
-        :param streaming: Stream responses for faster interaction.
-            Defaults to False
+        Return a report, formatted as string.
+        :return: Report string.
         """
-        cfg.LOGGER.info(f"Starting conversation loop...")
-        if streaming:
-            self.threads["output"].start()
-        self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
-        self.handle_output()
-        try:
-            while not self.interrupt.is_set():
-                self.queues["worker_in"].put(input("User: "))
-                self.handle_work(streamed=streaming)
-                if not streaming:
-                    self.handle_output()
-        except KeyboardInterrupt:
-            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-            self.stop()
+        thread_info = "        \n".join(f"Thread '{thread}: {self.threads[thread].is_alive()}'" for thread in self.threads)
+        queue_info = "        \n".join(f"Queue '{queue}: {self.queues[queue].qsize()}'" for queue in self.queues)
+        events = {
+            "interrupt": self.interrupt,
+            "pause_input": self.pause_input,
+            "pause_worker": self.pause_worker,
+            "pause_output": self.pause_output
+        }
+        event_info = "        \n".join(f"Event '{event}: {events[event].is_set()}'" for event in events)
+        return f"""
+        ==========================================================
+        #                    {get_timestamp()}                   #
+        ==========================================================
+        {thread_info} 
+        ----------------------------------------------------------
+        {queue_info} 
+        ----------------------------------------------------------
+        {event_info} 
+        ----------------------------------------------------------
+        """
 
 
 class ConversationHandlerSession(object):
@@ -289,9 +387,12 @@ class ConversationHandlerSession(object):
         :param speechrecorder_microphone_parameters: Speech Recorder microphone parameters.
         :param speechrecorder_loop_pause: Speech Recorder loop pause.
         """
-        self.working_directory = working_directory
-        self.loop_pause = loop_pause
-        self.transcriber_backend = transcriber_backend
+        self.working_directory = os.path.join(
+            cfg.PATHS.DATA_PATH, uuid4()
+        ) if working_directory is None else working_directory
+        self.loop_pause = 0.1 if loop_pause is None else loop_pause
+        self.transcriber_backend = Transcriber.supported_backends[
+            0] if transcriber_backend is None else transcriber_backend
         self.transcriber_model_path = transcriber_model_path
         self.transcriber_model_parameters = transcriber_model_parameters
         self.transcriber_transcription_parameters = transcriber_transcription_parameters
@@ -308,9 +409,19 @@ class ConversationHandlerSession(object):
     def from_dict(cls, parameters: dict) -> Any:
         """
         Returns session instance from dict.
+        :param parameters: Session parameters dictionary.
         :returns: VoiceAssistantSession instance.
         """
         return cls(**parameters)
+    
+    @classmethod
+    def from_file(cls, file_path: str) -> Any:
+        """
+        Returns session instance from a json file.
+        :param file_path: Path to json file.
+        :returns: VoiceAssistantSession instance.
+        """
+        return cls(**load_json(file_path))
     
     def to_dict(self) -> dict:
         """
@@ -340,7 +451,7 @@ class ConversationHandlerSession(object):
         :param worker_function: Worker function.
         """
         return ConversationHandler(
-            working_directory=safely_create_path(self.working_directory),
+            working_directory=self.working_directory,
             speech_recorder=SpeechRecorder(
                 input_device_index=self.speechrecorder_input_device_index,
                 recognizer_parameters=self.speechrecorder_recognizer_parameters,
@@ -362,3 +473,93 @@ class ConversationHandlerSession(object):
             worker_function=worker_function,
             loop_pause=self.loop_pause
         )
+
+
+class BasicVoiceAssistant(object):
+    """
+    Represents a basic voice assistant.
+    """
+
+    def __init__(self,
+                 handler_session: ConversationHandlerSession,
+                 chat_model: ChatModelInstance,
+                 stream: bool = False) -> None:
+        """
+        Initiation method.
+        :param handler_session: Conversation handler session.
+        :param chat_model: Chat model to handle interaction.
+        :param stream: Declares, whether chat model should stream its response.
+            Defaults to False.
+        """
+        self.session = handler_session
+        self.chat_model = chat_model
+        self.stream = stream
+        self.handler = None
+
+    def setup(self) -> None:
+        """
+        Method for setting up conversation handler.
+        """
+        if self.handler is None:
+            self.handler = self.session.spawn_conversation_handler(worker_function=self.chat_model.chat_stream if self.stream else self.chat_model.chat)
+        else:
+            self.handler.reset()
+
+    def stop(self) -> None:
+        """
+        Method for setting up conversation handler.
+        """
+        self.handler.stop()
+
+    def run_conversation(self, blocking: bool = True) -> None:
+        """
+        Method for running a looping conversation.
+        :param blocking: Flag which declares whether or not to wait for each conversation step.
+            Defaults to True.
+        """
+        self.handler.run_conversation(blocking=blocking, stream=self.stream)
+
+    def run_interaction(self, blocking: bool = True) -> None:
+        """
+        Method for running an conversational interaction.
+        :param blocking: Flag which declares whether or not to wait for each conversation step.
+            Defaults to True.
+        """
+        self.handler.run_conversation(blocking=blocking, loop=False, stream=self.stream)
+
+    def run_terminal_conversation(self) -> None:
+        """
+        Runs conversation loop with terminal input.
+        """
+        stop = TEvent()
+        bindings = KeyBindings()
+
+        @bindings.add("c-c")
+        @bindings.add("c-d")
+        def exit_session(event: KeyPressEvent) -> None:
+            """
+            Function for exiting session.
+            :param event: Event that resulted in entering the function.
+            """
+            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
+            self.handler.reset()
+            rich_print("[bold]\nBye [white]...")
+            event.app.exit()
+            stop.set()
+
+        session = setup_prompt_session(bindings)
+        cfg.LOGGER.info(f"Starting conversation loop...")
+        self.handler.pause_input.set()
+        self.handler.run_conversation(blocking=False, loop=True, stream=self.stream)
+        
+        while not stop.is_set():
+            with patch_stdout():
+                user_input = session.prompt(
+                    "User: ")
+                if user_input is not None:
+                    self.handler.queues["worker_in"].put(user_input)
+                    """while True:
+                        print(self.handler.report())
+                        time.sleep(3)"""
+
+
