@@ -1,5 +1,6 @@
 openai==0.27.7
 llama-cpp-python==0.2.74
+llama-cpp-python[server]==0.2.74
 auto-gptq==0.4.2
 exllamav2==0.0.20
 ctransformers==0.2.27
