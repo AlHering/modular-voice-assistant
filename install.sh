@@ -22,6 +22,7 @@ printf "\n%s\n" "${delimiter}"
 if [[ $CUDA_SUPPORT == "True" ]]
 then
     source "${SCRIPT_DIR}/venv/bin/activate" && CMAKE_ARGS="-DLLAMA_CUDA=on" pip install --no-cache-dir -r ${SCRIPT_DIR}/requirements_gpu.txt
+    source "${SCRIPT_DIR}/venv/bin/activate" && CMAKE_ARGS="-DLLAMA_CUDA=on" pip install --no-cache-dir --force-reinstall llama-cpp-python==0.2.74 llama-cpp-python[server]==0.2.74
 else
     source "${SCRIPT_DIR}/venv/bin/activate" && pip install --no-cache-dir -r ${SCRIPT_DIR}/requirements_cpu.txt
 fi 
