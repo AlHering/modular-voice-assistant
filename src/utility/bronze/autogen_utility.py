@@ -9,6 +9,7 @@ import os
 import sys
 import time
 import traceback
+from autogen.agentchat import AssistantAgent, UserProxyAgent
 from typing import Any, Tuple, Union
 from .llama_cpp_python_utility import load_llamacpp_server_subprocess
 
@@ -31,25 +32,15 @@ def initiate_llama_cpp_server_based_chat(server_config: Union[str, dict],
         wait_for_startup=True
     )
     try:
-        config_list = [{
-            "model": "llama-3",
-            "base_url": "http://localhost:8080/v1", 
-            "api_key": "NULL"}]
-        llm_config = {"timeout": 800, "config_list": config_list}
-
-        from autogen.agentchat import AssistantAgent, UserProxyAgent
-
         assistant = AssistantAgent(
             "assistant",
             llm_config=assistant_llm_config
         )
         user_proxy = UserProxyAgent(
             "user_proxy",
-            is_termination_msg=lambda x: x.get("content", "") and x.get("content", "").rstrip().endswith("TERMINATE"),
-    human_input_mode="NEVER",
-            code_execution_config={
-                "work_dir": "sandbox"
-                "use_docker": False,
+            is_termination_msg=lambda x: x.get("content", "") and x.get("content", "").rstrip().endswith("TERMINATE"),            code_execution_config={
+                "work_dir": "sandbox",
+                "use_docker": False
             },
             llm_config=user_proxy_llm_config
         )
