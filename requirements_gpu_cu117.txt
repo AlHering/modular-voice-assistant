@@ -1,5 +1,4 @@
 xformers==0.0.24
-openai==0.27.7
 llama-cpp-python==0.2.74
 llama-cpp-python[server]==0.2.74
 https://github.com/PanQiWei/AutoGPTQ/releases/download/v0.4.2/auto_gptq-0.4.2+cu117-cp310-cp310-linux_x86_64.whl; platform_system == "Linux" and platform_machine == "x86_64"
