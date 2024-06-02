@@ -6,7 +6,9 @@
 ****************************************************
 """
 import os
+import signal
 import sys
+import psutil
 import time
 import traceback
 from autogen.agentchat import AssistantAgent, UserProxyAgent
@@ -49,6 +51,15 @@ def initiate_llama_cpp_server_based_chat(server_config: Union[str, dict],
             recipient=assistant,
             message=initiation_message
         )
-    except Exception as ex:
+    except Exception:
         traceback.print_exc()
+        
+    process_query = str(process.args).split(" &")[0]
+    for p in psutil.process_iter():
+        try:
+            if process_query in " ".join(p.cmdline()):
+                os.kill(p.pid, signal.SIGTERM)
+        except psutil.ZombieProcess:
+            pass
     process.terminate()
+    process.wait()
