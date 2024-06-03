@@ -13,7 +13,7 @@ import time
 import traceback
 from autogen.agentchat import AssistantAgent, UserProxyAgent
 from typing import Any, Tuple, Union
-from .llama_cpp_python_utility import load_llamacpp_server_subprocess
+from .llama_cpp_python_utility import load_llamacpp_server_subprocess, terminate_llamacpp_server_subprocess
 
 
 def initiate_llama_cpp_server_based_chat(server_config: Union[str, dict],
@@ -54,12 +54,4 @@ def initiate_llama_cpp_server_based_chat(server_config: Union[str, dict],
     except Exception:
         traceback.print_exc()
         
-    process_query = str(process.args).split(" &")[0]
-    for p in psutil.process_iter():
-        try:
-            if process_query in " ".join(p.cmdline()):
-                os.kill(p.pid, signal.SIGTERM)
-        except psutil.ZombieProcess:
-            pass
-    process.terminate()
-    process.wait()
+    terminate_llamacpp_server_subprocess(process=process)
