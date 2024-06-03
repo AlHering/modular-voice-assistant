@@ -7,6 +7,8 @@
 """
 import os
 import sys
+import psutil
+import signal
 import subprocess
 import requests
 import time
@@ -68,4 +70,20 @@ def load_llamacpp_server_subprocess(config: Union[dict, str], wait_for_startup: 
             except requests.ConnectionError:
                 time.sleep(1)
     return process
+
+
+def terminate_llamacpp_server_subprocess(process: subprocess.Popen) -> None:
+    """
+    Function for terminating llamacpp-based server subprocess.
+    :param process: Server subprocess.
+    """
+    process_query = str(process.args).split(" &")[0]
+    for p in psutil.process_iter():
+        try:
+            if process_query in " ".join(p.cmdline()):
+                os.kill(p.pid, signal.SIGTERM)
+        except psutil.ZombieProcess:
+            pass
+    process.terminate()
+    process.wait()
     
