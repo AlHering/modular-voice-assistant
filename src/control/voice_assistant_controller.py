@@ -59,7 +59,7 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
     Controller class for handling voice assistant interface requests.
     """
     
-    def __init__(self, working_directory: str = None, database_uri: str = None) -> None:
+    def __init__(self, working_directory: Optional[str] = None, database_uri: Optional[str] = None) -> None:
         """
         Initiation method.
         :param working_directory: Working directory.
@@ -195,7 +195,7 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
     Extended interaction
     """
     @update_cached_workers("transcriber")
-    def transcribe(self, transcriber_id: int, audio_input: np.ndarray, transcription_parameters: dict = None) -> Tuple[str, dict]:
+    def transcribe(self, transcriber_id: int, audio_input: np.ndarray, transcription_parameters: Optional[dict] = None) -> Tuple[str, dict]:
         """
         Method for transcribing audio data with specific transriber.
         :param transcriber_id: Transcriber ID.
@@ -208,7 +208,7 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
                                                                             transcription_parameters=transcription_parameters)
 
     @update_cached_workers("synthesizer")
-    def synthesize(self, synthesizer_id: int, text: str, synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
+    def synthesize(self, synthesizer_id: int, text: str, synthesis_parameters: Optional[dict] = None) -> Tuple[np.ndarray, dict]:
         """
         Method for synthesizing audio data from text.
         :param synthesizer_id: Synthesizer ID.
@@ -221,7 +221,7 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
                                                                             synthesis_parameters=synthesis_parameters)
     
     @update_cached_workers("speech_recorder")
-    def record(self, speech_recorder_id: int, recognizer_parameters: dict = None, microphone_parameters: dict = None) -> Tuple[np.ndarray, dict]:
+    def record(self, speech_recorder_id: int, recognizer_parameters: Optional[dict] = None, microphone_parameters: Optional[dict] = None) -> Tuple[np.ndarray, dict]:
         """
         Method for recording audio.
         :param speech_recorder_id: SpeechRecorder ID.
