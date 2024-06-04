@@ -69,7 +69,7 @@ class Transcriber(object):
             "whisper": transcribe_with_whisper
         }[self.backend]
 
-    def transcribe(self, audio_input: str, transcription_parameters: dict = None) -> Tuple[str, dict]:
+    def transcribe(self, audio_input: Union[str, list], transcription_parameters: dict = None) -> Tuple[str, dict]:
         """
         Transcribes audio to text.
         :param audio_input: Wave file path or waveform.
