@@ -6,7 +6,6 @@
 ****************************************************
 """
 import os
-import inspect
 from .filter_mask import FilterMask
 from ..bronze import sqlalchemy_utility
 from ..bronze import time_utility
@@ -113,7 +112,7 @@ class BasicSQLAlchemyInterface(object):
         :return: Object entry as dictionary.
         """
         data = {
-            col.key: getattr(obj, col.key) for col in inspect(obj).mapper.column_attrs
+            col.key: getattr(obj, col.key) for col in sqlalchemy_utility.inspect(obj).mapper.column_attrs
         }
         if convert_timestamps:
             for key in data:
