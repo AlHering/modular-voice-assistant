@@ -14,7 +14,6 @@ from functools import wraps
 from typing import Optional, Any, List, Dict, Union, Tuple
 from src.configuration import configuration as cfg
 from src.utility.gold.basic_sqlalchemy_interface import BasicSQLAlchemyInterface
-from src.control.text_generation_controller import TextGenerationController
 from src.model.voice_assistant_control.data_model import populate_data_instrastructure
 from src.utility.gold.sound_generation.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
