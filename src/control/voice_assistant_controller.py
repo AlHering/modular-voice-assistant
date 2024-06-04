@@ -7,14 +7,52 @@
 """
 import os
 from time import sleep
+import gc
 from datetime import datetime as dt
 import numpy as np
+from functools import wraps
 from typing import Optional, Any, List, Dict, Union, Tuple
 from src.configuration import configuration as cfg
 from src.utility.gold.basic_sqlalchemy_interface import BasicSQLAlchemyInterface
 from src.control.text_generation_controller import TextGenerationController
 from src.model.voice_assistant_control.data_model import populate_data_instrastructure
 from src.utility.gold.sound_generation.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
+
+
+def update_cached_workers(object_type: str) -> Optional[Any]:
+    """
+    Cached workers updating decorator.
+    :return: Decorator wrapper.
+    """
+
+    def wrapper(func: Any) -> Optional[Any]:
+        """
+        Function wrapper.
+        :param func: Wrapped function.
+        :return: Process data, containing error message if process failed, else function return.
+        """
+        @wraps(func)
+        async def inner(*args: Optional[Any], **kwargs: Optional[Any]):
+            """
+            Inner function wrapper.
+            :param args: Arguments.
+            :param kwargs: Keyword arguments.
+            """
+            controller: VoiceAssistantController = args[0]
+            id_keyword = f"{object_type}_id"
+            if kwargs and id_keyword in kwargs:
+                target_id = kwargs[id_keyword]
+            else:
+                target_id = args[1]
+
+            if str(target_id) not in controller.workers[object_type]:
+                entry = controller.get_object_by_id(object_type, target_id)
+                controller.workers[object_type][str(target_id)] = controller.entry_to_obj(object_type, entry)
+            
+            return func(*args, **kwargs)
+        return inner
+    return wrapper
+
 
 
 class VoiceAssistantController(BasicSQLAlchemyInterface):
@@ -56,14 +94,59 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
         """
         Method for running setup process.
         """
-        pass
-
+        for object_type in ["transcriber", "synthesizer", "speech_recorder"]:
+            if self.get_object_count_by_type(object_type) == 0:
+                self._create_base_configs(object_type)
 
     def shutdown(self) -> None:
         """
         Method for running shutdown process.
         """
-        pass
+        self.workers = {
+            "transcribers": {},
+            "synthesizers": {},
+            "speech_recorders": {}
+        }
+        gc.collect()
+
+    def _create_base_configs(self, object_type: str) -> None:
+        """
+        Internal method for creating basic configurations.
+        :param object_type: Target object type.
+        """
+        obj_kwargs = {
+            "transcriber": {
+                "backend": "faster-whisper",
+                "model_path": f"{cfg.PATHS.SOUND_GENERATION_MODEL_PATH}/speech_to_text/faster_whisper_models/Systran_faster-whisper-tiny",
+                "model_parameters": {
+                    "device": "cuda",
+                    "compute_type": "float32",
+                    "local_files_only": True
+                }
+            },
+            "synthesizer": {
+                "backend": "coqui-tts",
+                "model_path": f"{cfg.PATHS.SOUND_GENERATION_MODEL_PATH}/text_to_speech/coqui_models/tts_models--multilingual--multi-dataset--xtts_v2",
+                "model_parameters": {
+                    "config_path": f"{cfg.PATHS.SOUND_GENERATION_MODEL_PATH}/text_to_speech/coqui_models/tts_models--multilingual--multi-dataset--xtts_v2/config.json",
+                    "gpu": True
+                }
+            },
+            "speech_recorder": {
+                "input_device_index": None,
+                "recognizer_parameters": {
+                    "energy_threshold": 1000,
+                    "dynamic_energy_threshold": False,
+                    "pause_threshold": 0.8
+                },
+                "microphone_parameters": {
+                    "sample_rate": 16000,
+                    "chunk_size": 1024
+                },
+                "loop_pause": 0.1
+            }
+        }[object_type]
+        self.post_object(object_type, **obj_kwargs)
 
 
     """
@@ -76,9 +159,39 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
         """
         self.post_object("log", **data)
 
+    def entry_to_obj(self, object_type: str, entry: Any) -> Optional[Any]:
+        """
+        Transform a database entry to an object.
+        :param object_type: Object type.
+        :param entry: Database entry.
+        :return: Object if initiation was successful.
+        """
+        if object_type == "transcriber":
+            return Transcriber(
+                backend=entry.backend,
+                model_path=entry.model_path,
+                model_parameters=entry.model_paramters,
+                transcription_parameters=entry.transcription_parameters
+            )
+        elif object_type == "synthesizer":
+            return Synthesizer(
+                backend=entry.backend,
+                model_path=entry.model_path,
+                model_parameters=entry.model_paramters,
+                synthesis_parameters=entry.synthesis_parameters
+            )
+        elif object_type == "speech_recorders":
+            return SpeechRecorder(
+                input_device_index=entry.input_device_index,
+                recognizer_parameters=entry.recognizer_parameters,
+                microphone_parameters=entry.microphone_parameters,
+                loop_pause=entry.loop_pause
+            )
+    
     """
-    Orchestration interaction
+    Extended interaction
     """
+    @update_cached_workers("transcriber")
     def transcribe(self, transcriber_id: int, audio_input: np.ndarray, transcription_parameters: dict = None) -> Tuple[str, dict]:
         """
         Method for transcribing audio data with specific transriber.
@@ -88,17 +201,10 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
             Defaults to None.
         :return: Tuple of transcription and metadata.
         """
-        if str(transcriber_id) not in self.workers["transcibers"]:
-            entry = self.get_object_by_id("transcriber", transcriber_id)
-            self.workers["transcribers"][str(transcriber_id)] = Transcriber(
-                backend=entry.backend,
-                model_path=entry.model_path,
-                model_parameters=entry.model_paramters,
-                transcription_parameters=entry.transcription_parameters
-            )
         return self.workers["transcribers"][str(transcriber_id)].transcribe(audio_input=audio_input,
                                                                             transcription_parameters=transcription_parameters)
 
+    @update_cached_workers("synthesizer")
     def synthesize(self, synthesizer_id: int, text: str, synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
         """
         Method for synthesizing audio data from text.
@@ -108,17 +214,10 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
             Defaults to None.
         :return: Tuple of synthesis and metadata.
         """
-        if str(synthesizer_id) not in self.workers["synthesizers"]:
-            entry = self.get_object_by_id("synthesizers", synthesizer_id)
-            self.workers["synthesizers"][str(synthesizer_id)] = Synthesizer(
-                backend=entry.backend,
-                model_path=entry.model_path,
-                model_parameters=entry.model_paramters,
-                synthesis_parameters=entry.synthesis_parameters
-            )
         return self.workers["synthesizers"][str(synthesizer_id)].synthesize(text=text,
                                                                             synthesis_parameters=synthesis_parameters)
     
+    @update_cached_workers("speech_recorder")
     def record(self, speech_recorder_id: int, recognizer_parameters: dict = None, microphone_parameters: dict = None) -> Tuple[np.ndarray, dict]:
         """
         Method for recording audio.
@@ -129,14 +228,6 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
             Defaults to None in which case default values are used.
         :return: Tuple of recorded audio and metadata.
         """
-        if str(speech_recorder_id) not in self.workers["speech_recorders"]:
-            entry = self.get_object_by_id("speech_recorders", speech_recorder_id)
-            self.workers["speech_recorders"][str(speech_recorder_id)] = SpeechRecorder(
-                input_device_index=entry.input_device_index,
-                recognizer_parameters=entry.recognizer_parameters,
-                microphone_parameters=entry.microphone_parameters,
-                loop_pause=entry.loop_pause
-            )
         return self.workers["speech_recorders"][str(speech_recorder_id)].record_single_input(recognizer_parameters=recognizer_parameters,
                                                                                              microphone_parameters=microphone_parameters)
 
