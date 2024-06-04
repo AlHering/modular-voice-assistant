@@ -49,7 +49,7 @@ def run_llama_cpp_server_based_crew(server_config: Union[str, dict],
             task: Task(**task_configs[task]) for task in task_configs
         }
         crew_config["agents"] = [agents[agent] for agent in crew_config["agents"]]
-        crew_config["tasks"] = [tasks[task] for task in task_configs["tasks"]]
+        crew_config["tasks"] = [tasks[task] for task in crew_config["tasks"]]
 
         crew = Crew(**crew_config)
 
