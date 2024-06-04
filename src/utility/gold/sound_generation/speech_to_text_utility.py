@@ -145,9 +145,9 @@ def record_audio_with_pyaudio_to_numpy_array(interrupt_method: InterruptMethod =
     }[stream_kwargs.get("format", pyaudio.paInt16)])
 
 
-def normalize_audio_data(audio_input: Union[str, np.ndarray, torch.Tensor]) -> Union[str, np.ndarray, torch.Tensor]:
+def normalize_audio_for_whisper(audio_input: Union[str, np.ndarray, torch.Tensor]) -> Union[str, np.ndarray, torch.Tensor]:
     """
-    Function for normalizing audio data before transcription.
+    Function for normalizing audio data before transcribing with whisper or faster-whisper.
     :param audio_input: Wave file path or waveform.
     :param return: Normalized audio data.
     """
@@ -174,7 +174,7 @@ def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], m
     :returns: Tuple of transcribed text and a list of metadata entries for the transcribed segments.
     """
     model = load_whisper_model(model_name_or_path="large-v3") if model is None else model
-    audio_input = normalize_audio_data(audio_input)
+    audio_input = normalize_audio_for_whisper(audio_input)
     transcription_parameters = {} if transcription_parameters is None else transcription_parameters
     
     transcription = model.transcribe(
@@ -198,7 +198,7 @@ def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Ten
     :returns: Tuple of transcribed text and a list of metadata entries for the transcribed segments.
     """
     model = load_faster_whisper_model(model_name_or_path="large-v3") if model is None else model
-    audio_input = normalize_audio_data(audio_input)
+    audio_input = normalize_audio_for_whisper(audio_input)
     transcription_parameters = {} if transcription_parameters is None else transcription_parameters
     
     transcription, metadata = model.transcribe(
