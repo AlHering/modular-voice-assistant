@@ -24,8 +24,6 @@ def initiate_llama_cpp_server_based_chat(server_config: Union[str, dict],
     Function for initiating a llama cpp server based chat.
     :param server_config: Path to llama cpp server config file or config dictionary.
     :param initiation_message: Chat initiation message.
-    :param start_up_time: Startup time to wait before connecting to server.
-        Defaults to 5 seconds.
     :param assistant_llm_config: LLM config for assistant.
     :param user_proxy_llm_config: LLM config for user proxy.
     """
