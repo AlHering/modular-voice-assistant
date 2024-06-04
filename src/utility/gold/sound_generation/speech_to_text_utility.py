@@ -145,48 +145,48 @@ def record_audio_with_pyaudio_to_numpy_array(interrupt_method: InterruptMethod =
     }[stream_kwargs.get("format", pyaudio.paInt16)])
 
 
-def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], model: whisper.Whisper = None, transcription_kwargs: dict = None) -> Tuple[str, List[dict]]:
+def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], model: whisper.Whisper = None, transcription_parameters: dict = None) -> Tuple[str, List[dict]]:
     """
     Transcribes wave file or waveform with whisper.
     :param audio_input: Wave file path or waveform.
     :param model: Whisper model. 
         Defaults to None in which case a default model is instantiated and used.
         Not providing a model therefore increases processing time tremendously!
-    :param transcription_kwargs: Transcription keyword arguments. 
+    :param transcription_parameters: Transcription keyword arguments. 
         Defaults to None in which case default values are used.
     :returns: Tuple of transcribed text and a list of metadata entries for the transcribed segments.
     """
     model = load_whisper_model(model_name_or_path="large-v3") if model is None else model
     audio_input = audio_input
-    transcription_kwargs = {} if transcription_kwargs is None else transcription_kwargs
+    transcription_parameters = {} if transcription_parameters is None else transcription_parameters
     
     transcription = model.transcribe(
         audio=audio_input,
-        **transcription_kwargs
+        **transcription_parameters
     )
     segment_metadatas = transcription["segments"]
     fulltext = transcription["text"]
     fulltext, segment_metadatas
 
 
-def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], model: WhisperModel = None, transcription_kwargs: dict = None) -> Tuple[str, List[dict]]:
+def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], model: WhisperModel = None, transcription_parameters: dict = None) -> Tuple[str, List[dict]]:
     """
     Transcribes wave file or waveform with faster whisper.
     :param audio_input: Wave file path or waveform.
     :param model: Faster whisper model. 
         Defaults to None in which case a default model is instantiated and used.
         Not providing a model therefore increases processing time tremendously!
-    :param transcription_kwargs: Transcription keyword arguments. 
+    :param transcription_parameters: Transcription keyword arguments. 
         Defaults to None in which case default values are used.
     :returns: Tuple of transcribed text and a list of metadata entries for the transcribed segments.
     """
     model = load_faster_whisper_model(model_name_or_path="large-v3") if model is None else model
     audio_input = audio_input
-    transcription_kwargs = {} if transcription_kwargs is None else transcription_kwargs
+    transcription_parameters = {} if transcription_parameters is None else transcription_parameters
     
     transcription, metadata = model.transcribe(
         audio=audio_input,
-        **transcription_kwargs
+        **transcription_parameters
     )
     metadata = metadata._asdict()
     segment_metadatas = [segment._asdict() for segment in transcription]
@@ -285,7 +285,7 @@ def record_and_transcribe_speech_with_speech_recognition(transcription_callback:
                 fulltext, segment_metadatas = transcription_callback(
                     audio_input=audio_as_numpy_array,
                     model=transcription_model,
-                    transcription_kwargs=None
+                    transcription_parameters=None
                 )
                 transcriptions.append((fulltext, segment_metadatas))
                 if logger is not None:
