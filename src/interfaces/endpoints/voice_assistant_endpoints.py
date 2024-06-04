@@ -138,18 +138,22 @@ def register_endpoints(backend: FastAPI,
     Extended interaction
     """
     @backend.post(f"{endpoint_base}/transcriber/{{id}}/transcribe")
-    async def transcribe(id: int, audio_input: list, transcription_parameters: Optional[dict] = None) -> dict:
+    async def transcribe(id: int, 
+                         audio_data: list, 
+                         audio_dtype: str,
+                         transcription_parameters: Optional[dict] = None) -> dict:
         """
         Endpoint for transcribing.
         :param id: Transcriber ID.
-        :param audio_input: Numpy compatible audio data to transcribe.
+        :param audio_data: Numpy compatible audio data to transcribe.
+        :param audio_dtype: Audio data numpy dtype.
         :param transcription_parameters: Transcription parameters as dictionary.
             Defaults to None.
         :return: Response.
         """
         transcription_parameters = transcription_parameters if transcription_parameters else None
         transcript, metadata = controller.transcribe(transcriber_id=id,
-                                                     audio_input=np.ndarray(audio_input),
+                                                     audio_input=np.asarray(audio_data, dtype=audio_dtype),
                                                      transcription_parameters=transcription_parameters)
         return {"transcript": transcript, "metadata": metadata}
     
@@ -164,11 +168,10 @@ def register_endpoints(backend: FastAPI,
         :return: Response.
         """
         synthesis_parameters = synthesis_parameters if synthesis_parameters else None
-        result = await controller.synthesize(synthesizer_id=id,
+        audio, metadata = await controller.synthesize(synthesizer_id=id,
                                        text=text,
                                        synthesis_parameters=synthesis_parameters)
-        result[1]["dtype"] = str(result[0].dtype)
-        return {"synthesis": result[0].tolist(), "metadata": result[1]}
+        return {"synthesis": audio.tolist(), "dtype": str(audio.dtype), "metadata": metadata}
     
     @backend.post(f"{endpoint_base}/speech_recorder/{{id}}/record")
     async def record(id: int, recognizer_parameters: Optional[dict] = None, microphone_parameters: Optional[dict] = None) -> dict:
@@ -186,7 +189,7 @@ def register_endpoints(backend: FastAPI,
         audio, metadata = controller.record(speech_recorder_id=id,
                                             recognizer_parameters=recognizer_parameters,
                                             microphone_parameters=microphone_parameters)
-        return {"audio": audio.tolist(), "metadata": metadata}
+        return {"audio": audio.tolist(), "dtype": str(audio.dtype), "metadata": metadata}
         
     descriptions = {
         "get": "Endpoint for getting entries.",
