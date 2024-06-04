@@ -6,15 +6,17 @@
 ****************************************************
 """
 import os
+import inspect
 from .filter_mask import FilterMask
 from ..bronze import sqlalchemy_utility
+from ..bronze import time_utility
 from datetime import datetime as dt
 from typing import Optional, Any, List
 
 
 class BasicSQLAlchemyInterface(object):
     """
-    Class, representing a basic SQL Alchemy interface.
+    Class, representing a basic SQLAlchemy interface.
     """
 
     def __init__(self, working_directory: str, database_uri: str, population_function: Any = None, schema: str = "", logger: Any = None) -> None:
@@ -101,6 +103,24 @@ class BasicSQLAlchemyInterface(object):
                 sqlalchemy_utility.SQLALCHEMY_FILTER_CONVERTER[exp[1]](getattr(self.model[entity_type], exp[0]),
                                                                        exp[2]) for exp in filtermask.expressions])
         return filter_expressions
+    
+    def return_obj_as_dict(self, obj: Any, convert_timestamps: bool = False) -> dict:
+        """
+        Method for converting SQLAlchemy ORM object to a dictionary.
+        :param obj: Object.
+        :param convert_timestamps: Flag for declaring, whether to convert timestamps to string.
+            Defaults to False.
+        :return: Object entry as dictionary.
+        """
+        data = {
+            col.key: getattr(obj, col.key) for col in inspect(obj).mapper.column_attrs
+        }
+        if convert_timestamps:
+            for key in data:
+                if isinstance(data[key], dt):
+                    data[key] = data[key].strftime(
+                        time_utility.DEFAULTS_TS_FORMAT)
+        return data
 
     """
     Default object interaction.
