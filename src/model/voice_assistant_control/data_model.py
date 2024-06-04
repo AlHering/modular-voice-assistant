@@ -83,7 +83,7 @@ def populate_data_instrastructure(engine: Engine, schema: str, model: dict) -> N
                             comment="Path of the model folder.")
         model_parameters = Column(JSON,
                                   comment="Parameters for the model instantiation.")
-        synthesis_parameters = Column(String,
+        synthesis_parameters = Column(JSON,
                                 comment="Parameters for synthesizing.")
 
         created = Column(DateTime, server_default=func.now(),
