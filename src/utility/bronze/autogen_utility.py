@@ -16,12 +16,12 @@ from typing import Any, Tuple, Union
 from .llama_cpp_python_utility import load_llamacpp_server_subprocess, terminate_llamacpp_server_subprocess
 
 
-def initiate_llama_cpp_server_based_chat(server_config: Union[str, dict],
+def run_llama_cpp_server_based_chat(server_config: Union[str, dict],
                                          initiation_message: str,
                                          assistant_llm_config: dict = None,
                                          user_proxy_llm_config: dict = None) -> None:
     """
-    Function for initiating a llama cpp server based chat.
+    Function for running a llama cpp server based chat.
     :param server_config: Path to llama cpp server config file or config dictionary.
     :param initiation_message: Chat initiation message.
     :param assistant_llm_config: LLM config for assistant.

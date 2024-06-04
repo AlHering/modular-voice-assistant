@@ -17,12 +17,12 @@ from typing import Any, Tuple, Union, List, Dict, Optional
 from .llama_cpp_python_utility import load_llamacpp_server_subprocess, terminate_llamacpp_server_subprocess
 
 
-def initiate_llama_cpp_server_based_crew(server_config: Union[str, dict],
+def run_llama_cpp_server_based_crew(server_config: Union[str, dict],
                                          anget_configs: Dict[str, dict],
                                          task_configs: Dict[str, dict],
                                          crew_config: dict) -> Optional[str]:
     """
-    Function for initiating a llama cpp server based crew.
+    Function for running a llama cpp server based crew.
     :param server_config: Path to llama cpp server config file or config dictionary.
     :param anget_configs: Agent configs under the appropriate agent name as dictionary.
     :param task_configs: Task configs under the appropriate task name as dictionary.
