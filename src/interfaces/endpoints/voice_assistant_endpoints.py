@@ -25,6 +25,15 @@ class Transcriber(BaseModel):
     transcription_parameters: Optional[dict] = None
 
 
+class TranscriberRequest(BaseModel):
+    """
+    Transcriber request dataclass.
+    """
+    audio_data: list
+    audio_dtype: str
+    transcription_parameters: Optional[dict] = None
+
+
 class Synthesizer(BaseModel):
     """
     Synthesizer dataclass.
@@ -33,6 +42,14 @@ class Synthesizer(BaseModel):
     model_path: str
     model_path: Optional[str] = None
     model_parameters: Optional[dict] = None
+    synthesis_parameters: Optional[dict] = None
+
+
+class SynthesizerRequest(BaseModel):
+    """
+    Synthesizer request dataclass.
+    """
+    text: str
     synthesis_parameters: Optional[dict] = None
 
 
@@ -45,6 +62,13 @@ class SpeechRecorder(BaseModel):
     microphone_parameters: Optional[dict] = None
     loop_pause: Optional[float] = 0.1
 
+
+class SpeechRecorderRequest(BaseModel):
+    """
+    SpeechRecorder request dataclass.
+    """
+    recognizer_parameters: Optional[dict] = None
+    microphone_parameters: Optional[dict] = None
 
 def register_endpoints(backend: FastAPI,
                        interaction_decorator: Callable,
@@ -138,55 +162,44 @@ def register_endpoints(backend: FastAPI,
     Extended interaction
     """
     @backend.post(f"{endpoint_base}/transcriber/{{id}}/transcribe")
-    async def transcribe(id: int, 
-                         audio_data: list, 
-                         audio_dtype: str,
-                         transcription_parameters: Optional[dict] = None) -> dict:
+    async def transcribe(id: int, data: TranscriberRequest) -> dict:
         """
         Endpoint for transcribing.
         :param id: Transcriber ID.
-        :param audio_data: Numpy compatible audio data to transcribe.
-        :param audio_dtype: Audio data numpy dtype.
-        :param transcription_parameters: Transcription parameters as dictionary.
-            Defaults to None.
+        :param data: A transcriber request.
         :return: Response.
         """
-        transcription_parameters = transcription_parameters if transcription_parameters else None
-        transcript, metadata = controller.transcribe(transcriber_id=id,
-                                                     audio_input=np.asarray(audio_data, dtype=audio_dtype),
-                                                     transcription_parameters=transcription_parameters)
+        transcription_parameters = data.transcription_parameters if data.transcription_parameters else None
+        transcript, metadata = await controller.transcribe(transcriber_id=id,
+                                                           audio_input=np.asarray(data.audio_data, dtype=data.audio_dtype),
+                                                           transcription_parameters=transcription_parameters)
         return {"transcript": transcript, "metadata": metadata}
     
     @backend.post(f"{endpoint_base}/synthesizer/{{id}}/synthesize")
-    async def synthesize(id: int, text: str, synthesis_parameters: Optional[dict] = None) -> dict:
+    async def synthesize(id: int, data: SynthesizerRequest) -> dict:
         """
         Endpoint for synthesis.
         :param id: Synthesizer ID.
-        :param text: Text to synthesize audio for.
-        :param synthesis_parameters: Synthesis parameters as dictionary.
-            Defaults to None.
+        :param data: A synthesizer request.
         :return: Response.
         """
-        synthesis_parameters = synthesis_parameters if synthesis_parameters else None
+        synthesis_parameters = data.synthesis_parameters if data.synthesis_parameters else None
         audio, metadata = await controller.synthesize(synthesizer_id=id,
-                                       text=text,
-                                       synthesis_parameters=synthesis_parameters)
+                                                      text=data.text,
+                                                      synthesis_parameters=synthesis_parameters)
         return {"synthesis": audio.tolist(), "dtype": str(audio.dtype), "metadata": metadata}
     
     @backend.post(f"{endpoint_base}/speech_recorder/{{id}}/record")
-    async def record(id: int, recognizer_parameters: Optional[dict] = None, microphone_parameters: Optional[dict] = None) -> dict:
+    async def record(id: int, data: SpeechRecorderRequest) -> dict:
         """
         Endpoint for recording.
         :param id: SpeechRecorder ID.
-        :param recognizer_parameters: Keyword arguments for setting up recognizer instances.
-            Defaults to None in which case default values are used.
-        :param microphone_parameters: Keyword arguments for setting up microphone instances.
-            Defaults to None in which case default values are used.
+        :param data: A SpeechRecorder request.
         :return: Response.
         """
-        recognizer_parameters = recognizer_parameters if recognizer_parameters else None
-        microphone_parameters = microphone_parameters if microphone_parameters else None
-        audio, metadata = controller.record(speech_recorder_id=id,
+        recognizer_parameters = data.recognizer_parameters if data.recognizer_parameters else None
+        microphone_parameters = data.microphone_parameters if data.microphone_parameters else None
+        audio, metadata = await controller.record(speech_recorder_id=id,
                                             recognizer_parameters=recognizer_parameters,
                                             microphone_parameters=microphone_parameters)
         return {"audio": audio.tolist(), "dtype": str(audio.dtype), "metadata": metadata}
