@@ -18,13 +18,13 @@ from .llama_cpp_python_utility import load_llamacpp_server_subprocess, terminate
 
 
 def run_llama_cpp_server_based_crew(server_config: Union[str, dict],
-                                         anget_configs: Dict[str, dict],
+                                         agent_configs: Dict[str, dict],
                                          task_configs: Dict[str, dict],
                                          crew_config: dict) -> Optional[str]:
     """
     Function for running a llama cpp server based crew.
     :param server_config: Path to llama cpp server config file or config dictionary.
-    :param anget_configs: Agent configs under the appropriate agent name as dictionary.
+    :param agent_configs: Agent configs under the appropriate agent name as dictionary.
     :param task_configs: Task configs under the appropriate task name as dictionary.
     :param crew_config: Crew config.
     :return: Crew response.
@@ -36,19 +36,12 @@ def run_llama_cpp_server_based_crew(server_config: Union[str, dict],
     )
 
     try:
-        agent_kwargs = {
-            "role": "Agent",
-            "goal": "Help user witht asks.",
-            "backstory": "A helpful AI agent, assisting a user with various tasks.",
-            "verbose": True,
-            "allow_delegation": False
-        }
         os.environ["OPENAI_API_BASE"] = f"http://{server_config['host']}:{server_config['port']}/v1"
         os.environ["OPENAI_MODEL_NAME"] = server_config["models"][0].get("model_alias", server_config["models"][0]["model"])
         os.environ["OPENAI_API_KEY"] = "NA"
 
         agents = {
-            agent: Agent(**anget_configs[agent]) for agent in anget_configs
+            agent: Agent(**agent_configs[agent]) for agent in agent_configs
         }
         for task in [task for task in task_configs if "agent" in task_configs[task]]:
             task_configs[task]["agent"] = agents[task_configs[task]["agent"]]
