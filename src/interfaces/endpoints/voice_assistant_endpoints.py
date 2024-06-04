@@ -74,7 +74,7 @@ def register_endpoints(backend: FastAPI,
             Endpoint for getting all entries.
             :return: Response.
             """
-            return {f"{target}s": controller.get_objects_by_type(target)}
+            return {f"{target}s": [controller.return_obj_as_dict(obj) for obj in controller.get_objects_by_type(target)]}
 
         @backend.post(f"{constructed_endpoint}")
         @interaction_decorator()
@@ -84,7 +84,7 @@ def register_endpoints(backend: FastAPI,
             :param data: Instance data.
             :return: Response.
             """
-            return {target: controller.post_object(target, **dict(data))}
+            return {target: controller.return_obj_as_dict(controller.post_object(target, **dict(data)))}
 
         @backend.get(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
@@ -94,7 +94,7 @@ def register_endpoints(backend: FastAPI,
             :param id: Instance ID.
             :return: Response.
             """
-            return {target: controller.get_object_by_id(target, id)}
+            return {target: controller.return_obj_as_dict(controller.get_object_by_id(target, id))}
 
         @backend.delete(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
@@ -104,7 +104,7 @@ def register_endpoints(backend: FastAPI,
             :param id: Instance ID.
             :return: Response.
             """
-            return {target: controller.delete_object(target, id)}
+            return {target: controller.return_obj_as_dict(controller.delete_object(target, id))}
 
         @backend.patch(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
@@ -115,7 +115,7 @@ def register_endpoints(backend: FastAPI,
             :param patch: Patch payload.
             :return: Response.
             """
-            return {target: controller.patch_object(target, id, **patch)}
+            return {target: controller.return_obj_as_dict(controller.patch_object(target, id, **patch))}
 
         @backend.put(f"{constructed_endpoint}")
         @interaction_decorator()
@@ -129,17 +129,17 @@ def register_endpoints(backend: FastAPI,
         
 
     @backend.get(f"{endpoint_base}/transcriber/{{id}}/transcribe")
-    async def transcribe(id: int, audio_input: np.ndarray, transcription_parameters: dict = None) -> dict:
+    async def transcribe(id: int, audio_input: list, transcription_parameters: dict = None) -> dict:
         """
         Endpoint for transcribing.
         :param id: Transcriber ID.
-        :param audio_input: Audio data to transcribe.
+        :param audio_input: Numpy compatible audio data to transcribe.
         :param transcription_parameters: Transcription parameters as dictionary.
             Defaults to None.
         :return: Response.
         """
         transcript, metadata = controller.transcribe(transcriber_id=id,
-                                                     audio_input=audio_input,
+                                                     audio_input=np.ndarray(audio_input),
                                                      transcription_parameters=transcription_parameters)
         return {"transcript": transcript, "metadata": metadata}
     
