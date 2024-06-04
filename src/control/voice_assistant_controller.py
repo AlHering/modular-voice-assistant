@@ -80,9 +80,9 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
         
         # Orchestrated workers
         self.workers = {
-            "transcribers": {},
-            "synthesizers": {},
-            "speech_recorders": {}
+            "transcriber": {},
+            "synthesizer": {},
+            "speech_recorder": {}
         }
 
         
@@ -129,6 +129,10 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
                 "model_parameters": {
                     "config_path": f"{cfg.PATHS.SOUND_GENERATION_MODEL_PATH}/text_to_speech/coqui_models/tts_models--multilingual--multi-dataset--xtts_v2/config.json",
                     "gpu": True
+                },
+                "synthesis_parameters": {
+                    "speaker_wav": f"{cfg.PATHS.SOUND_GENERATION_MODEL_PATH}/text_to_speech/coqui_xtts/examples/female.wav",
+                    "language": "en"
                 }
             },
             "speech_recorder": {
@@ -169,14 +173,14 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
             return Transcriber(
                 backend=entry.backend,
                 model_path=entry.model_path,
-                model_parameters=entry.model_paramters,
+                model_parameters=entry.model_parameters,
                 transcription_parameters=entry.transcription_parameters
             )
         elif object_type == "synthesizer":
             return Synthesizer(
                 backend=entry.backend,
                 model_path=entry.model_path,
-                model_parameters=entry.model_paramters,
+                model_parameters=entry.model_parameters,
                 synthesis_parameters=entry.synthesis_parameters
             )
         elif object_type == "speech_recorders":
@@ -200,7 +204,7 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
             Defaults to None.
         :return: Tuple of transcription and metadata.
         """
-        return self.workers["transcribers"][str(transcriber_id)].transcribe(audio_input=audio_input,
+        return self.workers["transcriber"][str(transcriber_id)].transcribe(audio_input=audio_input,
                                                                             transcription_parameters=transcription_parameters)
 
     @update_cached_workers("synthesizer")
@@ -213,7 +217,7 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
             Defaults to None.
         :return: Tuple of synthesis and metadata.
         """
-        return self.workers["synthesizers"][str(synthesizer_id)].synthesize(text=text,
+        return self.workers["synthesizer"][str(synthesizer_id)].synthesize(text=text,
                                                                             synthesis_parameters=synthesis_parameters)
     
     @update_cached_workers("speech_recorder")
@@ -227,6 +231,6 @@ class VoiceAssistantController(BasicSQLAlchemyInterface):
             Defaults to None in which case default values are used.
         :return: Tuple of recorded audio and metadata.
         """
-        return self.workers["speech_recorders"][str(speech_recorder_id)].record_single_input(recognizer_parameters=recognizer_parameters,
+        return self.workers["speech_recorder"][str(speech_recorder_id)].record_single_input(recognizer_parameters=recognizer_parameters,
                                                                                              microphone_parameters=microphone_parameters)
 
