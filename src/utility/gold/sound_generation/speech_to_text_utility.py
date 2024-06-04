@@ -145,6 +145,23 @@ def record_audio_with_pyaudio_to_numpy_array(interrupt_method: InterruptMethod =
     }[stream_kwargs.get("format", pyaudio.paInt16)])
 
 
+def normalize_audio_data(audio_input: Union[str, np.ndarray, torch.Tensor]) -> Union[str, np.ndarray, torch.Tensor]:
+    """
+    Function for normalizing audio data before transcription.
+    :param audio_input: Wave file path or waveform.
+    :param return: Normalized audio data.
+    """
+    if isinstance(audio_input, np.ndarray) and str(audio_input.dtype) not in ["float16", "float32"]:
+        return np.frombuffer(audio_input, audio_input.dtype).flatten().astype(np.float32) / {
+                    "int8": 128.0,
+                    "int16": 32768.0,
+                    "int32": 2147483648.0,
+                    "int64": 9223372036854775808.0
+                    }[str(audio_input.dtype)] 
+    else:
+        return audio_input
+
+
 def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], model: whisper.Whisper = None, transcription_parameters: dict = None) -> Tuple[str, List[dict]]:
     """
     Transcribes wave file or waveform with whisper.
@@ -157,8 +174,7 @@ def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], m
     :returns: Tuple of transcribed text and a list of metadata entries for the transcribed segments.
     """
     model = load_whisper_model(model_name_or_path="large-v3") if model is None else model
-    if isinstance(audio_input, np.ndarray) and str(audio_input.dtype) not in ["float16", "float32"]:
-        audio_input = np.frombuffer(audio_input, audio_input.dtype).flatten().astype(np.float32) / 32768.0 
+    audio_input = normalize_audio_data(audio_input)
     transcription_parameters = {} if transcription_parameters is None else transcription_parameters
     
     transcription = model.transcribe(
@@ -182,8 +198,7 @@ def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Ten
     :returns: Tuple of transcribed text and a list of metadata entries for the transcribed segments.
     """
     model = load_faster_whisper_model(model_name_or_path="large-v3") if model is None else model
-    if isinstance(audio_input, np.ndarray) and str(audio_input.dtype) not in ["float16", "float32"]:
-        audio_input = np.frombuffer(audio_input, audio_input.dtype).flatten().astype(np.float32) / 32768.0 
+    audio_input = normalize_audio_data(audio_input)
     transcription_parameters = {} if transcription_parameters is None else transcription_parameters
     
     transcription, metadata = model.transcribe(
