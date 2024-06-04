@@ -157,7 +157,8 @@ def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], m
     :returns: Tuple of transcribed text and a list of metadata entries for the transcribed segments.
     """
     model = load_whisper_model(model_name_or_path="large-v3") if model is None else model
-    audio_input = audio_input
+    if isinstance(audio_input, np.ndarray) and str(audio_input.dtype) not in ["float16", "float32"]:
+        audio_input = np.frombuffer(audio_input, audio_input.dtype).flatten().astype(np.float32) / 32768.0 
     transcription_parameters = {} if transcription_parameters is None else transcription_parameters
     
     transcription = model.transcribe(
@@ -181,7 +182,8 @@ def transcribe_with_faster_whisper(audio_input: Union[str, np.ndarray, torch.Ten
     :returns: Tuple of transcribed text and a list of metadata entries for the transcribed segments.
     """
     model = load_faster_whisper_model(model_name_or_path="large-v3") if model is None else model
-    audio_input = audio_input
+    if isinstance(audio_input, np.ndarray) and str(audio_input.dtype) not in ["float16", "float32"]:
+        audio_input = np.frombuffer(audio_input, audio_input.dtype).flatten().astype(np.float32) / 32768.0 
     transcription_parameters = {} if transcription_parameters is None else transcription_parameters
     
     transcription, metadata = model.transcribe(
