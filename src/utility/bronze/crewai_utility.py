@@ -71,10 +71,11 @@ def run_llama_cpp_server_research_task(server_config: Union[str, dict],
     """
     from langchain_community.tools import DuckDuckGoSearchRun
     search_tool = DuckDuckGoSearchRun()
+    search_tool.config_schema
 
     return run_llama_cpp_server_based_crew(
         server_config=server_config,
-        agents={
+        agent_configs={
             "researcher": {
                 "role": "Researcher",
                 "goal": goal,
@@ -91,7 +92,7 @@ def run_llama_cpp_server_research_task(server_config: Union[str, dict],
                 "allow_delegation": True
             }
         },
-        tasks={
+        task_configs={
             "task_a": {
                 "description": "Collect and condense information on the given topic.",
                 "expected_output": "Full research report in bullet points.",
