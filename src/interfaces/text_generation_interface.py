@@ -35,8 +35,7 @@ for path in [cfg.PATHS.FILE_PATH]:
 def interface_function() -> Optional[Any]:
     """
     Validation decorator.
-    :param func: Decorated function.
-    :return: Error message if status is incorrect, else function return.
+    :return: Decorator wrapper.
     """
     global CONTROLLER
 
