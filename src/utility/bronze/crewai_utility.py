@@ -18,9 +18,9 @@ from .llama_cpp_python_utility import load_llamacpp_server_subprocess, terminate
 
 
 def run_llama_cpp_server_based_crew(server_config: Union[str, dict],
-                                         agent_configs: Dict[str, dict],
-                                         task_configs: Dict[str, dict],
-                                         crew_config: dict) -> Optional[str]:
+                                    agent_configs: Dict[str, dict],
+                                    task_configs: Dict[str, dict],
+                                    crew_config: dict) -> Optional[str]:
     """
     Function for running a llama cpp server based crew.
     :param server_config: Path to llama cpp server config file or config dictionary.
@@ -59,3 +59,53 @@ def run_llama_cpp_server_based_crew(server_config: Union[str, dict],
     terminate_llamacpp_server_subprocess(process=process)
 
     return response
+
+
+def run_llama_cpp_server_research_task(server_config: Union[str, dict],
+                                       goal: str) -> Optional[str]:
+    """
+    Function for running a llama cpp server based crew.
+    :param server_config: Path to llama cpp server config file or config dictionary.
+    :param goal: Goal of the researcher.
+    :return: Crew response.
+    """
+    from langchain_community.tools import DuckDuckGoSearchRun
+    search_tool = DuckDuckGoSearchRun()
+
+    return run_llama_cpp_server_based_crew(
+        server_config=server_config,
+        agents={
+            "researcher": {
+                "role": "Researcher",
+                "goal": goal,
+                "backstory": "Your specialty is finding and condensing large amounts of information.",
+                "verbose": True,
+                "allow_delegation": False,
+                "tools": [search_tool]
+            },
+            "advisor": {
+                "role": "Advisor",
+                "goal": "Create advice from given information.",
+                "backstory": "You take information and transfer it into easy to understand advice.",
+                "verbose": True,
+                "allow_delegation": True
+            }
+        },
+        tasks={
+            "task_a": {
+                "description": "Collect and condense information on the given topic.",
+                "expected_output": "Full research report in bullet points.",
+                "agent": "researcher"
+            },
+            "task_b": {
+                "description": "Take the provided information and create advice from it.",
+                "expected_output": "Advice in bullet points.",
+                "agent": "advisor"
+            }
+        },
+        crew_config={
+            "agents": ["researcher", "advisor"],
+            "tasks": ["task_a", "task_b"],
+            "verbose": 2,
+        }
+    )
