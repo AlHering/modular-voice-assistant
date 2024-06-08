@@ -1,0 +1,8 @@
+https://github.com/oobabooga/llama-cpp-python-cuBLAS-wheels/releases/download/textgen-webui/llama_cpp_python_cuda-0.2.74+cu121-cp310-cp310-linux_x86_64.whl
+llama-cpp-python[server]==0.2.74
+
+-f https://download.pytorch.org/whl/cu121
+torch==2.2.0
+torchaudio==2.2.0
+torchvision==0.17.0
+xformers
