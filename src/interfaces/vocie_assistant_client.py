@@ -91,28 +91,6 @@ class Client(object):
 
     """
     Voice Assistant
-
-    def synthesize(text):
-        resp = requests.post(f"http://127.0.0.1:7862/api/v1/synthesizer/1/synthesize",
-                             json={
-                                "text": text
-                             })
-
-        data = resp.json()
-        
-        audio = np.asanyarray(data["synthesis"], dtype=data["dtype"])
-        play_wave(audio, data["metadata"])
-        return audio, data["metadata"]
-
-    def transcribe(audio):
-        resp = requests.post("http://127.0.0.1:7862/api/v1/transcriber/1/transcribe",
-                             json={
-                                 "audio_data": audio.tolist(), 
-                                 "audio_dtype": str(audio.dtype)
-                             })
-        data = resp.json()
-        
-        print(data)
     """
     async def transcribe(self, audio: np.ndarray, transcriber_id: Optional[int] = None) -> Tuple[str, dict]:
         """
@@ -150,6 +128,21 @@ class Client(object):
             }
         ).json()
         return np.asanyarray(response["synthesis"], dtype=response["dtype"]), response["metadata"]
+    
+    async def record(self, speech_recorder_id: Optional[int] = None) -> Tuple[np.ndarray, dict]:
+        """
+        Method for recording audio input.
+        :param text: Text data.
+        :param speech_recorder_id: Optional SpeechRecorder ID.
+            Defaults to client synthesizer or 1 if none is set.
+        :return: Recorded audio and metadata.
+        """
+        speech_recorder_id = self.kwargs["speech_recorder"] if speech_recorder_id is None else speech_recorder_id
+        response = httpx.post(
+            f"{Endpoints.synthesizer}/{1 if speech_recorder_id is None 
+                                       else speech_recorder_id}/{Endpoints.synthesize_appendix}"
+        ).json()
+        return np.asanyarray(response["audio"], dtype=response["dtype"]), response["metadata"]
 
 
 
