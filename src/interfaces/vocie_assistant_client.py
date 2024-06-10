@@ -9,6 +9,7 @@ import os
 from enum import Enum
 import httpx
 import asyncio
+import numpy as np
 from requests import session
 from typing import Optional, Any, Union, List, Tuple
 from src.configuration import configuration as cfg
@@ -57,21 +58,17 @@ class Client(object):
                 speech_recorder: Optional[Union[int, dict]] = None
         """
         self.kwargs = kwargs
-        to_gather = {
-            key: self.kwargs[key] for key in self.kwargs if isinstance(self.kwargs[key], dict)
-        }
-        
-        resps = self.process_objects(
-            "put",
-            to_gather
-        )
-        for index, key in enumerate(list(to_gather.keys())):
-            self.kwargs[key] = resps[index][key]
-
+        for config in ["lm_instance", "kb_instance", "tool_argument", "agent_tool", "agent_memory",
+                       "agent", "transcriber", "synthesizer", "speech_recorder"]:
+            self.kwargs = self.kwargs.get(config)
+        to_gather = [
+            (key, self.kwargs[key]) for key in self.kwargs if isinstance(self.kwargs[key], dict)
+        ]
+        self.set_configurations(to_gather)
 
     async def process_objects(self, method: str, object_list: List[Tuple[str, dict]]) -> List[dict]:
         """
-        Method for processing a list of objects ().
+        Method for processing a list of objects.
         :param method: Target method.
         :param object_list: Objects as list of tuples of object type and object data.
         :return: List of responses.
@@ -80,6 +77,79 @@ class Client(object):
             tasks = [await getattr(client, method)(getattr(Endpoints, obj[0], json=obj[1])) for obj in object_list]
             results = await asyncio.gather(*tasks)
         return [res.json() for res in results]
+    
+    async def set_configurations(self, object_list: List[Tuple[str, dict]]) -> List[dict]:
+        """
+        Method for setting configurations for objects.
+        :param object_list: Objects as list of tuples of object type and object data.
+        :return: List of responses.
+        """
+        results = await self.process_objects("put", object_list)
+        for index, value in enumerate("to_gather"):
+            self.kwargs[value[0]] = [res[value[0]].get("id") for res in results if value[0] in res][0]
+
+
+    """
+    Voice Assistant
+
+    def synthesize(text):
+        resp = requests.post(f"http://127.0.0.1:7862/api/v1/synthesizer/1/synthesize",
+                             json={
+                                "text": text
+                             })
+
+        data = resp.json()
+        
+        audio = np.asanyarray(data["synthesis"], dtype=data["dtype"])
+        play_wave(audio, data["metadata"])
+        return audio, data["metadata"]
+
+    def transcribe(audio):
+        resp = requests.post("http://127.0.0.1:7862/api/v1/transcriber/1/transcribe",
+                             json={
+                                 "audio_data": audio.tolist(), 
+                                 "audio_dtype": str(audio.dtype)
+                             })
+        data = resp.json()
+        
+        print(data)
+    """
+    async def transcribe(self, audio: np.ndarray, transcriber_id: Optional[int] = None) -> Tuple[str, dict]:
+        """
+        Method for transcribing audio data to text.
+        :param audio: Audio data.
+        :param transcriber_id: Optional transcriber ID.
+            Defaults to client transcriber or 1 if none is set.
+        :return: Transcript and metadata.
+        """
+        transcriber_id = self.kwargs["transcriber"] if transcriber_id is None else transcriber_id
+        response = httpx.post(
+            f"{Endpoints.transcriber}/{1 if transcriber_id is None 
+                                       else transcriber_id}/{Endpoints.transcribe_appendix}",
+            json={
+                "audio_data": audio.tolist(), 
+                "audio_dtype": str(audio.dtype)
+            }
+        ).json()
+        return response["transcript"], response["metadata"]
+
+    async def synthesize(self, text: str, synthesizer_id: Optional[int] = None) -> Tuple[np.ndarray, dict]:
+        """
+        Method for synthesizing text to audio data.
+        :param text: Text data.
+        :param synthesizer_id: Optional synthesizer ID.
+            Defaults to client synthesizer or 1 if none is set.
+        :return: Synthesis and metadata.
+        """
+        synthesizer_id = self.kwargs["synthesizer"] if synthesizer_id is None else synthesizer_id
+        response = httpx.post(
+            f"{Endpoints.synthesizer}/{1 if synthesizer_id is None 
+                                       else synthesizer_id}/{Endpoints.synthesize_appendix}",
+            json={
+                "text": text
+            }
+        ).json()
+        return np.asanyarray(response["synthesis"], dtype=response["dtype"]), response["metadata"]
 
 
 
