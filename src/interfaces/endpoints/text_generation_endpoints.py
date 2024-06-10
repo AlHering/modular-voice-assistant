@@ -6,7 +6,7 @@
 ****************************************************
 """
 from typing import Callable, Optional, Union, List, Dict
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from pydantic import BaseModel
 from src.control.backend_controller import BackendController
 
@@ -137,63 +137,68 @@ def register_endpoints(backend: FastAPI,
 
         @backend.get(f"{constructed_endpoint}")
         @interaction_decorator()
-        async def get_all() -> dict:
+        async def get_all(object_type: str = Header(target, include_in_schema=False)) -> dict:
             """
             Endpoint for getting all entries.
             :return: Response.
             """
-            return {f"{target}s": controller.get_objects_by_type(target)}
+            return {object_type: [controller.return_obj_as_dict(obj) for obj in controller.get_objects_by_type(object_type)]}
 
         @backend.post(f"{constructed_endpoint}")
         @interaction_decorator()
-        async def post(data: Union[LMInstance, ToolArgument, AgentTool, AgentMemory, Agent]) -> dict:
+        async def post(data: Union[LMInstance, KBInstance, ToolArgument, AgentTool, AgentMemory, Agent],
+                       object_type: str = Header(target, include_in_schema=False)) -> dict:
             """
             Endpoint for posting entries.
             :param data: Instance data.
             :return: Response.
             """
-            return {target: controller.post_object(target, **dict(data))}
+            return {object_type: controller.return_obj_as_dict(controller.post_object(object_type, **dict(data)))}
 
         @backend.get(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
-        async def get(id: int) -> dict:
+        async def get(id: int,
+                      object_type: str = Header(target, include_in_schema=False)) -> dict:
             """
             Endpoint for getting entries.
             :param id: Instance ID.
             :return: Response.
             """
-            return {target: controller.get_object_by_id(target, id)}
+            return {object_type: controller.return_obj_as_dict(controller.get_object_by_id(object_type, id))}
 
         @backend.delete(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
-        async def delete(id: int) -> dict:
+        async def delete(id: int,
+                         object_type: str = Header(target, include_in_schema=False)) -> dict:
             """
             Endpoint for deleting entries.
             :param id: Instance ID.
             :return: Response.
             """
-            return {target: controller.delete_object(target, id)}
+            return {object_type: controller.return_obj_as_dict(controller.delete_object(object_type, id))}
 
         @backend.patch(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
-        async def patch(id: int, patch: dict) -> dict:
+        async def patch(id: int, patch: dict,
+                        object_type: str = Header(target, include_in_schema=False)) -> dict:
             """
             Endpoint for patching entries.
             :param id: Instance ID.
             :param patch: Patch payload.
             :return: Response.
             """
-            return {target: controller.patch_object(target, id, **patch)}
+            return {object_type: controller.return_obj_as_dict(controller.patch_object(object_type, id, **patch))}
 
         @backend.put(f"{constructed_endpoint}")
         @interaction_decorator()
-        async def put(data: Union[LMInstance, ToolArgument, AgentTool, AgentMemory, Agent]) -> dict:
+        async def put(data: Union[LMInstance, KBInstance, ToolArgument, AgentTool, AgentMemory, Agent],
+                      object_type: str = Header(target, include_in_schema=False)) -> dict:
             """
             Endpoint for posting or updating entries.
             :param data: Instance data.
             :return: Response.
             """
-            return {target: controller.put_object(target, **dict(data))}
+            return {object_type: controller.put_object(object_type, **dict(data))}
         
     descriptions = {
         "get": "Endpoint for getting entries.",
