@@ -423,6 +423,30 @@ class ConversationHandlerSession(object):
         """
         return cls(**load_json(file_path))
     
+    @classmethod
+    def from_handler(cls, handler: ConversationHandler) -> Any:
+        """
+        Returns session instance from a json file.
+        :param file_path: Path to json file.
+        :returns: VoiceAssistantSession instance.
+        """
+        return cls(**{
+            "working_directory": handler.working_directory,
+            "loop_pause": handler.loop_pause,
+            "transcriber_backend": handler.transcriber.backend,
+            "transcriber_model_path": handler.transcriber.model_path,
+            "transcriber_model_parameters": handler.transcriber.model_parameters,
+            "transcriber_transcription_parameters": handler.transcriber.transcription_parameters,
+            "synthesizer_backend": handler.synthesizer.backend,
+            "synthesizer_model_path": handler.synthesizer.model_path,
+            "synthesizer_model_parameters": handler.synthesizer.model_parameters,
+            "synthesizer_synthesis_parameters": handler.synthesizer.synthesis_parameters,
+            "speechrecorder_input_device_index": handler.speech_recorder.input_device_index,
+            "speechrecorder_recognizer_parameters": handler.speech_recorder.recognizer_parameters,
+            "speechrecorder_microphone_parameters": handler.speech_recorder.microphone_parameters,
+            "speechrecorder_loop_pause": handler.speech_recorder.loop_pause,
+        })
+    
     def to_dict(self) -> dict:
         """
         Returns a parameter dictionary for later instantiation.
@@ -481,20 +505,24 @@ class BasicVoiceAssistant(object):
     """
 
     def __init__(self,
-                 handler_session: ConversationHandlerSession,
+                 handler: Union[ConversationHandlerSession, ConversationHandler],
                  chat_model: ChatModelInstance,
                  stream: bool = False) -> None:
         """
         Initiation method.
-        :param handler_session: Conversation handler session.
+        :param handler: Conversation handler or session.
         :param chat_model: Chat model to handle interaction.
         :param stream: Declares, whether chat model should stream its response.
             Defaults to False.
         """
-        self.session = handler_session
+        if isinstance(handler, ConversationHandlerSession):
+            self.session = handler
+            self.handler = None
+        elif isinstance(handler, ConversationHandler):
+            self.session = ConversationHandlerSession.from_handler(handler=handler)
+            self.handler = handler
         self.chat_model = chat_model
         self.stream = stream
-        self.handler = None
 
     def setup(self) -> None:
         """
