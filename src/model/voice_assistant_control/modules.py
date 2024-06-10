@@ -137,3 +137,67 @@ class FileInputModule(VoiceAssistantModule):
                 }
             } if self.metadatas is None else self.metadatas[self.index])
     
+
+class PromptInputModule(VoiceAssistantModule):
+    """
+    Prompt input module.
+    """
+
+    def __init__(self, prompt_message: str = "User :") -> None:
+        """
+        Initiation method.
+        :param prompt_message: Prompt message to ask user for input.
+            Defaults to "User: ".
+        """
+        super().__init__(
+            name="PromptInputModule",
+            description="A module that prompts the user for the next textual input.",
+            skip_validation=True
+        )
+        self.prompt_query = prompt_message
+        self.bindings = KeyBindings()
+
+        @self.bindings.add("c-c")
+        @self.bindings.add("c-d")
+        def exit_session(event: KeyPressEvent) -> None:
+            """
+            Function for exiting session.
+            :param event: Event that resulted in entering the function.
+            """
+            rich_print("[bold]\nBye [white]...")
+            event.app.exit()
+
+        self.session = self._setup_prompt_session()
+
+    def _setup_prompt_session(self) -> PromptSession:
+        """
+        Function for setting up prompt session.
+        :return: Prompt session.
+        """
+        return PromptSession(
+            bottom_toolbar=[
+            ("class:bottom-toolbar",
+                "ctl-c to exit, ctl-d to save cache and exit",)
+        ],
+            style=PTStyle.from_dict({
+            "bottom-toolbar": "#333333 bg:#ffcc00"
+        }),
+            auto_suggest=AutoSuggestFromHistory(),
+            key_bindings=self.bindings
+        )
+    
+    def _validate(self) -> Tuple[bool, Dict]:
+        """
+        Method for validating module functionality.
+        """
+        pass
+        
+    def run(self) -> Tuple[str, dict]:
+        """
+        Method for validating module functionality.
+        """
+        user_input = ""
+        with patch_stdout():
+            user_input = self.session.prompt(self.prompt_query)
+        return user_input, {self.name: {"timestamp": time_utility.get_timestamp()}}
+    
