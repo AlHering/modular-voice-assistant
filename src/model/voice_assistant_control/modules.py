@@ -11,12 +11,21 @@ from abc import ABC, abstractmethod
 from queue import Queue
 import speech_recognition
 from src.utility.bronze import json_utility
+from src.utility.bronze import time_utility
 from typing import List, Tuple, Any, Callable, Optional, Union, Dict, Generator
 from datetime import datetime as dt
 from enum import Enum
 import pyaudio
 import numpy as np
 import time
+from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.key_binding.key_bindings import KeyBindings
+from rich import print as rich_print
+from rich.style import Style as RichStyle
+from prompt_toolkit.key_binding.key_processor import KeyPressEvent
+from prompt_toolkit.patch_stdout import patch_stdout
+from prompt_toolkit.styles import Style as PTStyle
 
 
 class VoiceAssistantModule(ABC):
@@ -120,5 +129,11 @@ class FileInputModule(VoiceAssistantModule):
         Method for validating module functionality.
         """
         self.index += 1
-        return (self.lines[self.index], {"file_path": self.file_path, "index": self.index}
-                if self.metadatas is None else self.metadatas[self.index])
+        return (self.lines[self.index], {
+                self.name: {
+                    "file_path": self.file_path, 
+                    "index": self.index,
+                    "timestamp": time_utility.get_timestamp()
+                }
+            } if self.metadatas is None else self.metadatas[self.index])
+    
