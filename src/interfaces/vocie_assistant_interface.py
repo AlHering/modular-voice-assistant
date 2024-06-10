@@ -24,12 +24,8 @@ from src.interfaces.endpoints.voice_assistant_endpoints import register_endpoint
 """
 Backend control
 """
-BACKEND = FastAPI(title=cfg.VOICE_ASSISTANT_BACKEND_TITLE, version=cfg.VOICE_ASSISTANT_BACKEND_VERSION,
-                  description=cfg.VOICE_ASSISTANT_BACKEND_DESCRIPTION)
-CONTROLLER: VoiceAssistantController = VoiceAssistantController()
-CONTROLLER.setup()
-for path in [cfg.PATHS.FILE_PATH]:
-    safely_create_path(path)
+BACKEND: FastAPI = None
+CONTROLLER: VoiceAssistantController = None
 
 
 def interface_function() -> Optional[Any]:
@@ -133,10 +129,19 @@ def run_backend(host: str = None, port: int = None, reload: bool = True) -> None
     :param port: Server port. Defaults to None in which case either environment variable "BACKEND_PORT" is set or 7861.
     :param reload: Reload flag for server. Defaults to True.
     """
+    global BACKEND, CONTROLLER
     if host is not None:
         cfg.VOICE_ASSISTANT_BACKEND_HOST = host
     if port is not None:
         cfg.VOICE_ASSISTANT_BACKEND_PORT = port
+        
+    BACKEND: FastAPI = FastAPI(title=cfg.VOICE_ASSISTANT_BACKEND_TITLE, version=cfg.VOICE_ASSISTANT_BACKEND_VERSION,
+                  description=cfg.VOICE_ASSISTANT_BACKEND_DESCRIPTION)
+    CONTROLLER: VoiceAssistantController = VoiceAssistantController()
+    CONTROLLER.setup()
+    for path in [cfg.PATHS.FILE_PATH]:
+        safely_create_path(path)
+
     uvicorn.run("src.interfaces.vocie_assistant_interface:BACKEND",
                 host=cfg.VOICE_ASSISTANT_BACKEND_HOST,
                 port=int(cfg.VOICE_ASSISTANT_BACKEND_PORT),
