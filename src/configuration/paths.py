@@ -20,6 +20,7 @@ FILE_PATH = os.path.join(DATA_PATH, "files")
 TEST_PATH = os.path.join(DATA_PATH, "testing")
 PLUGIN_PATH = os.path.join(SOURCE_PATH, "plugins")
 DUMP_PATH = os.path.join(DATA_PATH, "dumps")
+ENVS_PATH = os.path.join(PACKAGE_PATH, "envs")
 
 
 """
