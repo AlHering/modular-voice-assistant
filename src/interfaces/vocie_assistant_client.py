@@ -88,6 +88,14 @@ class Client(object):
         for index, value in enumerate("to_gather"):
             self.kwargs[value[0]] = [res[value[0]].get("id") for res in results if value[0] in res][0]
 
+    async def get_configurations(self, object_type: str) -> List[dict]:
+        """
+        Method for setting configurations for objects.
+        :param object_type: Target object type.
+        :return: List of object configs.
+        """
+        results = await httpx.AsyncClient().get(getattr(Endpoints, object_type))
+        return results.json().get(object_type, [])
 
     """
     Voice Assistant
