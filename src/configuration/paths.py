@@ -50,5 +50,5 @@ FRONTEND_ASSETS = os.path.join(
     FRONTEND_PATH, "assets")
 FRONTEND_CACHE= os.path.join(
     FRONTEND_PATH, "cache.json")
-FRONTEND__DEFAULT_CACHE= os.path.join(
+FRONTEND_DEFAULT_CACHE= os.path.join(
     FRONTEND_PATH, "default_cache.json")
