@@ -9,8 +9,7 @@ import streamlit as st
 
 from requests.exceptions import ConnectionError
 from time import sleep
-from .utility.frontend_rendering import render_sidebar
-from .utility.state_cache_handling import populate_state_cache
+from ..utility.frontend_rendering import render_sidebar
 
 
 ###################
@@ -30,12 +29,7 @@ if __name__ == "__main__":
         page_icon=":ocean:",
         layout="wide"
     )
-
-    # Wait for backend and dependencies
-    with st.spinner("Waiting for backend to finish startup..."):#
-        populate_state_cache()
-                
         
     # Page content
-    st.title("Voice Assistant")
+    st.title("Configuration")
     render_sidebar()
