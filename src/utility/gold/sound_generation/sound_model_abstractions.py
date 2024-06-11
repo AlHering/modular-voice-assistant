@@ -136,7 +136,7 @@ class Synthesizer(object):
         :param text: Text to synthesize to audio.
         :param synthesis_parameters: Synthesis parameters as dictionary.
             Defaults to None.
-        :return: File path and metadata.
+        :return: Audio data and metadata.
         """
         return self.sound_out_snythesis_functions(
             text=text, 
