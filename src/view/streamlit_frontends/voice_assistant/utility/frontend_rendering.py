@@ -6,12 +6,13 @@
 ****************************************************
 """
 import os
-from typing import Any, List
+from typing import Any, List, Callable, Dict
 from uuid import uuid4
 import streamlit as st
 import random
 import tkinter as tk
 from tkinter import filedialog
+from src.utility.bronze import sqlalchemy_utility
 from src.configuration import configuration as cfg
 import streamlit.components.v1 as st_components
 from code_editor import code_editor
@@ -96,7 +97,24 @@ def render_json_input(parent_widget: Any, cache_field: str) -> None:
                     options={"wrap": True},
                     buttons=get_json_editor_buttons()
                     )
+        
 
+def get_object_form_from_model_class(parent_widget: Any, model_class: Callable, configurable_fields: Dict[str] = []) -> None:
+    """
+    Function for getting a configuration form from a model class.
+    :param parent_widget: Widget to render form under.
+    :param model_class: Model class.
+    :param configurable_fields: Configurable fields.
+        Defaults to None in which case all fields are configurable.
+    """
+    from sqlalchemy import Column
+    print(type(model_class))
+    print(model_class.__table__.columns.items())
+    for column_key, c in model_class.__table__.columns.items():
+        column : Column = c
+        column.description
+        if not configurable_fields or column_key in configurable_fields:
+            cast_type = sqlalchemy_utility.SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY.get(column.type, str)
 
 
 ###################
@@ -123,6 +141,8 @@ def render_object_config(object_type: str) -> None:
             label="Configuration",
             options=[entry.id for entry in available]
         )
+
+        get_object_form_from_model_class(st, st.session_state["CONTROLLER"].model["transcriber"])
 
         backends = st.session_state["CONTROLLER"].Transcriber.supported_backends
         default_models = st.session_state["CONTROLLER"].Transcriber.default_models
