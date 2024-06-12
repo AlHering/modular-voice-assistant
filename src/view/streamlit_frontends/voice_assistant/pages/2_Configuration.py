@@ -8,6 +8,7 @@
 import streamlit as st
 from typing import List
 from requests.exceptions import ConnectionError
+import json
 from time import sleep
 from src.view.streamlit_frontends.voice_assistant.utility.state_cache_handling import wait_for_setup, clear_tab_config
 from src.view.streamlit_frontends.voice_assistant.utility.frontend_rendering import render_sidebar, render_json_input
@@ -17,24 +18,42 @@ from src.view.streamlit_frontends.voice_assistant.utility.frontend_rendering imp
 ###################
 # Main page functionality
 ###################
+TRANSCRIBER_TAB_KEY = "new_transcriber"
+
+
+def gather_transcriber_config() -> dict:
+    """
+    Function for gathering transcriber config.
+    :return: Transcriber config.
+    """
+    data = {
+        key: st.session_state[f"{TRANSCRIBER_TAB_KEY}_{key}"] for key in [
+            "backend", "model_path"]
+    }
+    for key in ["model_parameters", "transcription_parameters"]:
+        widget = st.session_state[f"{TRANSCRIBER_TAB_KEY}_{key}"]
+        data[key] = json.loads(widget["text"] if widget is not None else "{}")
+    return data
 
 
 def render_transcriber_config() -> None:
     """
     Function for rendering transcriber configs.
     """
-    tab_key = "new_transcriber"
+    tab_key = TRANSCRIBER_TAB_KEY
     available = {entry.id: entry for entry in st.session_state["CONTROLLER"].get_objects_by_type("transcriber")}
     options = [">>New<<"] + list(available.keys())
+    default = st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state.get("transcriber_config_selectbox", ">>New<<"))
     
     header_columns = st.columns([.20, *[.10 for _ in range(8)]])
     header_columns[0].write("")
-    current_config_id = header_columns[0].selectbox(
+    header_columns[0].selectbox(
         key="transcriber_config_selectbox",
         label="Configuration",
         options=options,
         on_change=clear_tab_config,
-        kwargs={"tab_key": tab_key}
+        kwargs={"tab_key": tab_key},
+        index=options.index(default)
     )
     
     current_config = available.get(st.session_state["transcriber_config_selectbox"])
@@ -66,21 +85,33 @@ def render_transcriber_config() -> None:
                       default_data={} if current_config is None else current_config.transcription_parameters)
 
     header_columns[2].write("#####")
-    if header_columns[2].button("Overwrite", disabled=current_config is None, 
+    with header_columns[2].popover("Overwrite", disabled=current_config is None, 
                                 help="Overwrite the current configuration"):
-        print(st.session_state)
-        st.session_state["CONTROLLER"].patch_object(
-            "transcriber",
-            current_config_id,
-            ** {
-                key: st.session_state[f"{tab_key}_{key}"] for key in [
-                    "backend", "model_path", "model_parameters", "transcription_parameters"
-                ]
-            }
-        )
+            st.write(f"Transcriber configuration {st.session_state['transcriber_config_selectbox']} will be overwritten.")
+            popover_columns = st.columns([.30 for _ in range(3)])
+
+            if popover_columns[1].button("Approve"):
+                obj_id = st.session_state["CONTROLLER"].patch_object(
+                    "transcriber",
+                    st.session_state["transcriber_config_selectbox"],
+                    **gather_transcriber_config()
+                )
+                st.info(f"Updated Transcriber configuration {obj_id}.")
+
+            
     header_columns[3].write("#####")
     if header_columns[3].button("Add new", help="Add new entry with the below configuration if it does not exist yet."):
-        pass
+        obj_id = st.session_state["CONTROLLER"].put_object(
+            "transcriber",
+            **gather_transcriber_config()
+        )
+        if obj_id in available:
+            st.info(f"Configuration already found under ID {obj_id}.")
+        else:
+            st.info(f"Created new configuration with ID {obj_id}.")
+        st.session_state[f"{tab_key}_overwrite_config_id"] = obj_id
+    if st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state["transcriber_config_selectbox"]) != st.session_state["transcriber_config_selectbox"]:
+        st.rerun()
     
 
 ###################
