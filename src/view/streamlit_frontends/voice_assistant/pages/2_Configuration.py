@@ -10,7 +10,7 @@ from typing import List
 from requests.exceptions import ConnectionError
 from time import sleep
 from src.view.streamlit_frontends.voice_assistant.utility.state_cache_handling import wait_for_setup
-from src.view.streamlit_frontends.voice_assistant.utility.frontend_rendering import render_sidebar, render_object_config
+from src.view.streamlit_frontends.voice_assistant.utility.frontend_rendering import render_sidebar, render_transcriber_config
 
 
 ###################
@@ -53,12 +53,11 @@ if __name__ == "__main__":
         
     # Page content
     st.title("Configuration")
-    render_sidebar()
     
     transcriber_tab, synthesizer_tab, recorder_tab = st.tabs(["Transcribers", "Synthesizers", "Speech Recorders"])
 
     with transcriber_tab:
-        render_object_config("transcriber")
+        render_transcriber_config()
 
     with synthesizer_tab:
         st.header("A dog")
@@ -67,3 +66,4 @@ if __name__ == "__main__":
     with recorder_tab:
         st.header("An owl")
         st.image("https://static.streamlit.io/examples/owl.jpg", width=200)
+    render_sidebar()
