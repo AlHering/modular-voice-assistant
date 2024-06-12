@@ -163,7 +163,7 @@ class SpeechRecorder(object):
     """
     Represents a speech recorder.
     """
-    supported_input_devices = [entry["index"] for entry in get_input_devices(include_metadata=True)]
+    supported_input_devices = get_input_devices(include_metadata=True)
 
     def __init__(self,
                  input_device_index: int = None,
@@ -173,6 +173,7 @@ class SpeechRecorder(object):
         """
         Initiation method.
         :param input_device_index: Input device index.
+            Check SpeechRecorder.supported_input_devices for available input device profiles.
             Defaults to None in which case the default input device index is fetched.
         :param recognizer_parameters: Keyword arguments for setting up recognizer instances.
             Defaults to None in which case default values are used.
