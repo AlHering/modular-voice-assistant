@@ -57,7 +57,7 @@ def populate_data_instrastructure(engine: Engine, schema: str, model: dict) -> N
                             comment="Path of the model folder.")
         model_parameters = Column(JSON,
                                   comment="Parameters for the model instantiation.")
-        transcription_parameters = Column(String,
+        transcription_parameters = Column(JSON,
                                 comment="Parameters for transcribing.")
 
         created = Column(DateTime, server_default=func.now(),
