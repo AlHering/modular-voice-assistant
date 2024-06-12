@@ -16,9 +16,9 @@ def run_streamlit_frontend() -> None:
     """
     import streamlit.web.bootstrap as streamlit_bootstrap
     if not os.path.exists(cfg.PATHS.FRONTEND_PATH):
-            os.makedirs(cfg.PATHS.FRONTEND_PATH)
-        streamlit_bootstrap.run(os.path.join(cfg.PATHS.SOURCE_PATH, "view", "streamlit", "ModularVoiceAssistant.py"),
-                                "", [], [],)
+        os.makedirs(cfg.PATHS.FRONTEND_PATH)
+    streamlit_bootstrap.run(os.path.join(cfg.PATHS.SOURCE_PATH, "view", "streamlit_frontends", "voice_assistant", "Voice_Assistant.py"),
+                            is_hello=False, args=[], flag_options=[],)
 
 def run_commandline_frontend() -> None:
     """
