@@ -42,6 +42,18 @@ class Client(object):
     """
     Client class for easier interface interaction.
     """
+    object_types = {
+        "LM Instance": "lm_instance", 
+        "KB Instance": "kb_instance", 
+        "Tool Argument": "tool_argument", 
+        "Agent Tool": "agent_tool", 
+        "Agent Memory": "agent_memory",
+        "Agent": "agent", 
+        "Transcriber": "transcriber", 
+        "Synthesizer": "synthesizer", 
+        "Speech Recorder": "speech_recorder"
+    }
+
     def __init__(self, **kwargs) -> None:
         """
         Initiation method:
@@ -58,8 +70,7 @@ class Client(object):
                 speech_recorder: Optional[Union[int, dict]] = None
         """
         self.kwargs = kwargs
-        for config in ["lm_instance", "kb_instance", "tool_argument", "agent_tool", "agent_memory",
-                       "agent", "transcriber", "synthesizer", "speech_recorder"]:
+        for config in list(self.object_types.values()):
             self.kwargs = self.kwargs.get(config)
         to_gather = [
             (key, self.kwargs[key]) for key in self.kwargs if isinstance(self.kwargs[key], dict)
