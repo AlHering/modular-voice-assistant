@@ -7,6 +7,7 @@
 """
 import copy
 from enum import Enum
+from datetime import datetime as dt
 from sqlalchemy import Column, String, Boolean, Integer, JSON, Text, DateTime, CHAR, ForeignKey, Table, Float, BLOB, Uuid
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, relationship
@@ -79,6 +80,18 @@ SQLALCHEMY_TYPING_FROM_STRING_DICTIONARY = {
     "float": Float,
     "blob": BLOB,
     "uuid": Uuid
+}
+SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY = {
+    Integer: int,
+    JSON: dict,
+    DateTime: dt,
+    String: str,
+    Text: str,
+    Boolean: bool,
+    CHAR: chr,
+    Float: float,
+    BLOB: bytes,
+    Uuid: UUID
 }
 
 
