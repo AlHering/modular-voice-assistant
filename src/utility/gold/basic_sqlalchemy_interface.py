@@ -96,12 +96,12 @@ class BasicSQLAlchemyInterface(object):
         :param filters: A list of Filtermasks declaring constraints.
         :return: Filter expressions.
         """
-        filter_expressions = []
+        converted_filtermasks = []
         for filtermask in filters:
-            filter_expressions.extend([
+            converted_filtermasks.append(sqlalchemy_utility.SQLALCHEMY_FILTER_CONVERTER["and"](
                 sqlalchemy_utility.SQLALCHEMY_FILTER_CONVERTER[exp[1]](getattr(self.model[entity_type], exp[0]),
-                                                                       exp[2]) for exp in filtermask.expressions])
-        return filter_expressions
+                                                                       exp[2]) for exp in filtermask.expressions))
+        return converted_filtermasks
     
     def return_obj_as_dict(self, obj: Any, convert_timestamps: bool = False) -> dict:
         """
@@ -195,6 +195,7 @@ class BasicSQLAlchemyInterface(object):
             reference_attributes = list(object_attributes.keys())
         objs = self.get_objects_by_filtermasks(object_type,
                                                [FilterMask([[key, "==", object_attributes[key]] for key in reference_attributes])])
+        print(objs)
         if not objs:
             return self.post_object(object_type, **object_attributes)
         else:
