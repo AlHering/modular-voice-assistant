@@ -65,3 +65,12 @@ def remove_state_cache_element(field_path: List[Any]) -> None:
     for key in field_path:
         data = data[key]
     data.pop(target)
+
+
+def clear_tab_config(tab_key) -> None:
+    """
+    Function for clearing config session state key.
+    :param tab_key: Tab key.
+    """
+    for key in [key for key in st.session_state if key.startswith(tab_key)]:
+        st.session_state.pop(key)

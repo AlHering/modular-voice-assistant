@@ -13,6 +13,7 @@ import random
 import tkinter as tk
 from tkinter import filedialog
 from src.configuration import configuration as cfg
+from src.view.streamlit_frontends.voice_assistant.utility.state_cache_handling import clear_tab_config
 import streamlit.components.v1 as st_components
 from code_editor import code_editor
 import json
@@ -113,16 +114,6 @@ def render_json_input(parent_widget: Any, key: str, label: str = None, default_d
             buttons=get_json_editor_buttons(),
             response_mode="debounce"
         )
-    
-
-def clear_config(tab_key) -> None:
-    """
-    Function for clearing config session state key.
-    :param tab_key: Tab key.
-    """
-    for key in [key for key in st.session_state if key.startswith(tab_key)]:
-        st.session_state.pop(key)
-    
 
 
 ###################
@@ -138,66 +129,4 @@ def render_sidebar() -> None:
         st.sidebar.write(f"{key}: {value}")
 
 
-def render_transcriber_config() -> None:
-    """
-    Function for rendering transcriber configs.
-    """
-    tab_key = "new_transcriber"
-    available = {entry.id: entry for entry in st.session_state["CONTROLLER"].get_objects_by_type("transcriber")}
-    options = [">>New<<"] + list(available.keys())
-    
-    header_columns = st.columns([.20, *[.10 for _ in range(8)]])
-    header_columns[0].write("")
-    current_config_id = header_columns[0].selectbox(
-        key="transcriber_config_selectbox",
-        label="Configuration",
-        options=options,
-        on_change=clear_config,
-        kwargs={"tab_key": tab_key}
-    )
-    
-    current_config = available.get(st.session_state["transcriber_config_selectbox"])
-    backends = st.session_state["CLASSES"]["transcriber"].supported_backends
-    default_models = st.session_state["CLASSES"]["transcriber"].default_models
-
-    st.selectbox(
-        key=f"{tab_key}_backend", 
-        label="Backend", 
-        options=backends, 
-        index=0 if current_config is None else backends.index(current_config.backend))
-
-            
-    if f"{tab_key}_model_path" not in st.session_state:
-        st.session_state[f"{tab_key}_model_path"] = default_models[st.session_state[f"{tab_key}_backend"]][0] if (
-        current_config is None or current_config.model_path is None) else current_config.model_path
-    st.text_input(
-        key=f"{tab_key}_model_path", 
-        label="Model")
-
-    st.write("")
-    render_json_input(parent_widget=st, 
-                      key=f"{tab_key}_model_parameters", 
-                      label="Model parameters",
-                      default_data={} if current_config is None else current_config.model_parameters)
-    render_json_input(parent_widget=st, 
-                      key=f"{tab_key}_transcription_parameters", 
-                      label="Transcription parameters",
-                      default_data={} if current_config is None else current_config.transcription_parameters)
-
-    header_columns[2].write("#####")
-    if header_columns[2].button("Overwrite", disabled=current_config is None, 
-                                help="Overwrite the current configuration"):
-        print(st.session_state)
-        st.session_state["CONTROLLER"].patch_object(
-            "transcriber",
-            current_config_id,
-            ** {
-                key: st.session_state[f"{tab_key}_{key}"] for key in [
-                    "backend", "model_path", "model_parameters", "transcription_parameters"
-                ]
-            }
-        )
-    header_columns[3].write("#####")
-    if header_columns[3].button("Add new", help="Add new entry with the below configuration if it does not exist yet."):
-        pass
             
