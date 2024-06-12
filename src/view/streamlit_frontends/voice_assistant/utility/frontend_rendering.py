@@ -12,7 +12,6 @@ import streamlit as st
 import random
 import tkinter as tk
 from tkinter import filedialog
-from src.utility.bronze import sqlalchemy_utility
 from src.configuration import configuration as cfg
 import streamlit.components.v1 as st_components
 from code_editor import code_editor
@@ -28,7 +27,7 @@ from itertools import combinations
 def get_json_editor_buttons() -> List[dict]:
     """
     Function for acquiring json payload code editor buttons.
-    Taken from https://github.com/AlHering/scraping-database-generator/blob/development/src/view/streamlit_frontend/frontend_utility/frontend_rendering.py.
+    Commands can be found at https://github.com/ajaxorg/ace/blob/v1.2.6/lib/ace/commands/default_commands.js.
     :return: Buttons as list of dictionaries.
     """
     return [
@@ -60,7 +59,7 @@ def get_json_editor_buttons() -> List[dict]:
             "feather": "X",
             "hasText": True,
             "alwaysOn": True,
-            "commands": ["selectall", "del", ["insertstring", "{\n\n\n\n}"], "save-state",
+            "commands": ["selectall", "del", ["insertstring", "{\n\t\n}"], "save-state",
                          ["response", "saved"]],
             "style": {"top": "0rem", "right": "0.4rem"}
         },
@@ -80,41 +79,50 @@ def tkinter_folder_selector(start_folder: str = None) -> str:
    return folder_path
 
 
-def render_json_input(parent_widget: Any, cache_field: str) -> None:
+def test():
+    print("ASDisgmdfgisnigndfngsdifgnisfng")
+
+
+def render_json_input(parent_widget: Any, key: str, label: str = None, default_data: dict = None) -> None:
     """
     Function for rendering JSON input.
     :param parent_widget: Parent widget.
-    :param cache_field: State cache field.
+    :param key: Widget key.
+    :param label: Optional label.
+    :param default_data: Default data.
     """
-    parent_widget.text(
-        """(CTRL+ENTER or "save" to confirm)""")
+    if label is not None:
+        parent_widget.write(label)
     with parent_widget.empty():
-        content = st.session_state["CACHE"].get(cache_field)
-        code_editor(json.dumps({} if content is None else content).replace("{", "{\n\n").replace("}", "\n\n}"),
-                    key=f"{cache_field}_update",
-                    lang="json",
-                    allow_reset=True,
-                    options={"wrap": True},
-                    buttons=get_json_editor_buttons()
-                    )
-        
+        widget = content = st.session_state["CACHE"].get(key)
+        if widget is not None:
+            content = widget["text"]
+        else:
+            content = json.dumps(
+                default_data, 
+                indent=4, 
+                ensure_ascii=False
+            )
+        content = "{\n\t\n}" if content == "{}" else content
+        code_editor(
+            content,
+            key=key,
+            lang="json",
+            allow_reset=True,
+            options={"wrap": True},
+            buttons=get_json_editor_buttons(),
+            response_mode="debounce"
+        )
+    
 
-def get_object_form_from_model_class(parent_widget: Any, model_class: Callable, configurable_fields: Dict[str] = []) -> None:
+def clear_config(tab_key) -> None:
     """
-    Function for getting a configuration form from a model class.
-    :param parent_widget: Widget to render form under.
-    :param model_class: Model class.
-    :param configurable_fields: Configurable fields.
-        Defaults to None in which case all fields are configurable.
+    Function for clearing config session state key.
+    :param tab_key: Tab key.
     """
-    from sqlalchemy import Column
-    print(type(model_class))
-    print(model_class.__table__.columns.items())
-    for column_key, c in model_class.__table__.columns.items():
-        column : Column = c
-        column.description
-        if not configurable_fields or column_key in configurable_fields:
-            cast_type = sqlalchemy_utility.SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY.get(column.type, str)
+    for key in [key for key in st.session_state if key.startswith(tab_key)]:
+        st.session_state.pop(key)
+    
 
 
 ###################
@@ -126,39 +134,70 @@ def render_sidebar() -> None:
     """
     Function for rendering the sidebar.
     """
-    pass
+    for key, value in st.session_state.items():
+        st.sidebar.write(f"{key}: {value}")
 
 
-def render_object_config(object_type: str) -> None:
+def render_transcriber_config() -> None:
     """
-    Function for rendering object configs.
-    :param ob
+    Function for rendering transcriber configs.
     """
-    available = st.session_state["CONTROLLER"].get_objects_by_type(object_type)
-    if object_type == "transcriber":
-        current_config_id = st.selectbox(
-            key=f"{object_type}_config_selectbox",
-            label="Configuration",
-            options=[entry.id for entry in available]
+    tab_key = "new_transcriber"
+    available = {entry.id: entry for entry in st.session_state["CONTROLLER"].get_objects_by_type("transcriber")}
+    options = [">>New<<"] + list(available.keys())
+    
+    header_columns = st.columns([.20, *[.10 for _ in range(8)]])
+    header_columns[0].write("")
+    current_config_id = header_columns[0].selectbox(
+        key="transcriber_config_selectbox",
+        label="Configuration",
+        options=options,
+        on_change=clear_config,
+        kwargs={"tab_key": tab_key}
+    )
+    
+    current_config = available.get(st.session_state["transcriber_config_selectbox"])
+    backends = st.session_state["CLASSES"]["transcriber"].supported_backends
+    default_models = st.session_state["CLASSES"]["transcriber"].default_models
+
+    st.selectbox(
+        key=f"{tab_key}_backend", 
+        label="Backend", 
+        options=backends, 
+        index=0 if current_config is None else backends.index(current_config.backend))
+
+            
+    if f"{tab_key}_model_path" not in st.session_state:
+        st.session_state[f"{tab_key}_model_path"] = default_models[st.session_state[f"{tab_key}_backend"]][0] if (
+        current_config is None or current_config.model_path is None) else current_config.model_path
+    st.text_input(
+        key=f"{tab_key}_model_path", 
+        label="Model")
+
+    st.write("")
+    render_json_input(parent_widget=st, 
+                      key=f"{tab_key}_model_parameters", 
+                      label="Model parameters",
+                      default_data={} if current_config is None else current_config.model_parameters)
+    render_json_input(parent_widget=st, 
+                      key=f"{tab_key}_transcription_parameters", 
+                      label="Transcription parameters",
+                      default_data={} if current_config is None else current_config.transcription_parameters)
+
+    header_columns[2].write("")
+    if header_columns[2].button("Overwrite", disabled=current_config is None, 
+                                help="Overwrite the current configuration"):
+        print(st.session_state)
+        st.session_state["CONTROLLER"].patch_object(
+            "transcriber",
+            current_config_id,
+            ** {
+                key: st.session_state[f"{tab_key}_{key}"] for key in [
+                    "backend", "model_path", "model_parameters", "transcription_parameters"
+                ]
+            }
         )
-
-        get_object_form_from_model_class(st, st.session_state["CONTROLLER"].model["transcriber"])
-
-        backends = st.session_state["CONTROLLER"].Transcriber.supported_backends
-        default_models = st.session_state["CONTROLLER"].Transcriber.default_models
-
-        b_key = "new_transcriber"
-        form = st.form(
-            key=b_key
-        )
-        form.multiselect(key=f"{b_key}_backend", label="Backend", options=backends, default=backends[0])
-        
-        form.text_input(key=f"{b_key}_model", label="Model", value=default_models[st.session_state[f"{b_key}_backend"]])
-        select_folder = form.button("Select model folder...")
-        if select_folder:
-            folder = tkinter_folder_selector(cfg.PATHS.SOUND_GENERATION_MODEL_PATH)
-            if os.path.exists(folder):
-                st.session_state[f"{b_key}_model"] = folder 
-
-        render_json_input(form, f"{b_key}_model_parameters")
-        render_json_input(form, f"{b_key}_transcription_parameters")
+    header_columns[3].write("#####")
+    if header_columns[3].button("Add new", help="Add new entry with the below configuration if it does not exist yet."):
+        pass
+            
