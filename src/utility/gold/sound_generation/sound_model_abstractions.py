@@ -163,6 +163,7 @@ class SpeechRecorder(object):
     """
     Represents a speech recorder.
     """
+    supported_input_devices = [entry["index"] for entry in get_input_devices(include_metadata=True)]
 
     def __init__(self,
                  input_device_index: int = None,
