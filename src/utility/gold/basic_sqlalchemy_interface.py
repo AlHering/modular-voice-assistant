@@ -195,7 +195,6 @@ class BasicSQLAlchemyInterface(object):
             reference_attributes = list(object_attributes.keys())
         objs = self.get_objects_by_filtermasks(object_type,
                                                [FilterMask([[key, "==", object_attributes[key]] for key in reference_attributes])])
-        print(objs)
         if not objs:
             return self.post_object(object_type, **object_attributes)
         else:
