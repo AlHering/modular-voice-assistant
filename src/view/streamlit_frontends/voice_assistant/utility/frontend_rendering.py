@@ -5,11 +5,17 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
+import os
 from typing import Any, List
 from uuid import uuid4
 import streamlit as st
 import random
+import tkinter as tk
+from tkinter import filedialog
+from src.configuration import configuration as cfg
 import streamlit.components.v1 as st_components
+from code_editor import code_editor
+import json
 from itertools import combinations
 
 
@@ -60,6 +66,38 @@ def get_json_editor_buttons() -> List[dict]:
     ]
 
 
+def tkinter_folder_selector(start_folder: str = None) -> str:
+   """
+   Function for selecting local folder via tkinter.
+   :param start_folder: Folder to start browsing in.
+   """
+   start_folder = cfg.PATHS.MODEL_PATH if start_folder is None else start_folder
+   root = tk.Tk()
+   root.withdraw()
+   folder_path = filedialog.askdirectory(initialdir=start_folder, parent=root)
+   root.destroy()
+   return folder_path
+
+
+def render_json_input(parent_widget: Any, cache_field: str) -> None:
+    """
+    Function for rendering JSON input.
+    :param parent_widget: Parent widget.
+    :param cache_field: State cache field.
+    """
+    parent_widget.text(
+        """(CTRL+ENTER or "save" to confirm)""")
+    with parent_widget.empty():
+        content = st.session_state["CACHE"].get(cache_field)
+        code_editor(json.dumps({} if content is None else content).replace("{", "{\n\n").replace("}", "\n\n}"),
+                    key=f"{cache_field}_update",
+                    lang="json",
+                    allow_reset=True,
+                    options={"wrap": True},
+                    buttons=get_json_editor_buttons()
+                    )
+
+
 
 ###################
 # Rendering functions
@@ -71,3 +109,36 @@ def render_sidebar() -> None:
     Function for rendering the sidebar.
     """
     pass
+
+
+def render_object_config(object_type: str) -> None:
+    """
+    Function for rendering object configs.
+    :param ob
+    """
+    available = st.session_state["CONTROLLER"].get_objects_by_type(object_type)
+    if object_type == "transcriber":
+        current_config_id = st.selectbox(
+            key=f"{object_type}_config_selectbox",
+            label="Configuration",
+            options=[entry.id for entry in available]
+        )
+
+        backends = st.session_state["CONTROLLER"].Transcriber.supported_backends
+        default_models = st.session_state["CONTROLLER"].Transcriber.default_models
+
+        b_key = "new_transcriber"
+        form = st.form(
+            key=b_key
+        )
+        form.multiselect(key=f"{b_key}_backend", label="Backend", options=backends, default=backends[0])
+        
+        form.text_input(key=f"{b_key}_model", label="Model", value=default_models[st.session_state[f"{b_key}_backend"]])
+        select_folder = form.button("Select model folder...")
+        if select_folder:
+            folder = tkinter_folder_selector(cfg.PATHS.SOUND_GENERATION_MODEL_PATH)
+            if os.path.exists(folder):
+                st.session_state[f"{b_key}_model"] = folder 
+
+        render_json_input(form, f"{b_key}_model_parameters")
+        render_json_input(form, f"{b_key}_transcription_parameters")
