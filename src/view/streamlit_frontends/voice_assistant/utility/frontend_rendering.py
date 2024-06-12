@@ -184,7 +184,7 @@ def render_transcriber_config() -> None:
                       label="Transcription parameters",
                       default_data={} if current_config is None else current_config.transcription_parameters)
 
-    header_columns[2].write("")
+    header_columns[2].write("#####")
     if header_columns[2].button("Overwrite", disabled=current_config is None, 
                                 help="Overwrite the current configuration"):
         print(st.session_state)
