@@ -9,8 +9,8 @@ import streamlit as st
 
 from requests.exceptions import ConnectionError
 from time import sleep
-from .utility.frontend_rendering import render_sidebar
-from .utility.state_cache_handling import populate_state_cache
+from src.view.streamlit_frontends.voice_assistant.utility.frontend_rendering import render_sidebar
+from src.view.streamlit_frontends.voice_assistant.utility.state_cache_handling import wait_for_setup
 
 
 ###################
@@ -32,8 +32,7 @@ if __name__ == "__main__":
     )
 
     # Wait for backend and dependencies
-    with st.spinner("Waiting for backend to finish startup..."):#
-        populate_state_cache()
+    wait_for_setup()
                 
         
     # Page content
