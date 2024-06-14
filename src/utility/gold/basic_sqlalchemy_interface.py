@@ -124,6 +124,18 @@ class BasicSQLAlchemyInterface(object):
     """
     Default object interaction.
     """
+    def get_model_representation(self, ignore: List[str] = ["log"]) -> dict:
+        """
+        Method for acquiring model representation.
+        :param ignore: List of ignored object types.
+            Defaults to ["logs"].
+        :return: Model representation as dictionary.
+        """
+        rep = {
+            object_type: {
+
+            } for object_type in self.model if object_type not in ignore
+        }
 
     def get_object_count_by_type(self, object_type: str) -> int:
         """
@@ -249,3 +261,4 @@ class BasicSQLAlchemyInterface(object):
                 session.commit()
                 result = getattr(obj, self.primary_keys[object_type])
         return result
+    
