@@ -131,9 +131,23 @@ class BasicSQLAlchemyInterface(object):
             Defaults to ["logs"].
         :return: Model representation as dictionary.
         """
-        rep = {
+        return {
             object_type: {
-
+                "description": self.model[object_type].__table__.description,
+                "table_name": self.model[object_type].__table__.name,
+                "table_description": self.model[object_type].__table__.comment,
+                "entry_count": self.get_object_count_by_type(object_type),
+                "parameters": [{
+                    "name": column.name,
+                    "type": str(sqlalchemy_utility.SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY.get(column.type)),
+                    "table_type": str(column.type),
+                    "description": column.comment,
+                    "nullable": column.nullable,
+                    "unique": column.unique,
+                    "default": column.default,
+                    "server_default": str(column.server_default),
+                    "server_onupdate": str(column.server_onupdate)
+                } for column in self.model[object_type].__table__.columns]
             } for object_type in self.model if object_type not in ignore
         }
 
