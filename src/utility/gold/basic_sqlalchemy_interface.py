@@ -124,11 +124,15 @@ class BasicSQLAlchemyInterface(object):
     """
     Default object interaction.
     """
-    def get_model_representation(self, ignore: List[str] = ["log"]) -> dict:
+    def get_model_representation(self, 
+                                 ignore_object_types: List[str] = [],
+                                 ignore_columns: List[str] = []) -> dict:
         """
         Method for acquiring model representation.
-        :param ignore: List of ignored object types.
-            Defaults to ["logs"].
+        :param ignore_object_types: List of ignored object types, ["logs"].
+            Defaults to an empty list.
+        :param ignore_columns: List of ignored columns, e.g. ["created", "updated", "inactive"].
+            Defaults to an empty list.
         :return: Model representation as dictionary.
         """
         return {
@@ -147,8 +151,8 @@ class BasicSQLAlchemyInterface(object):
                     "default": column.default,
                     "server_default": str(column.server_default),
                     "server_onupdate": str(column.server_onupdate)
-                } for column in self.model[object_type].__table__.columns]
-            } for object_type in self.model if object_type not in ignore
+                } for column in self.model[object_type].__table__.columns if column.name not in ignore_columns]
+            } for object_type in self.model if object_type not in ignore_object_types
         }
 
     def get_object_count_by_type(self, object_type: str) -> int:
