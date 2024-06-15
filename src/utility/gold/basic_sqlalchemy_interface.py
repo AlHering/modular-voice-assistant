@@ -124,15 +124,18 @@ class BasicSQLAlchemyInterface(object):
     """
     Default object interaction.
     """
-    def get_model_representation(self, 
+    def get_model_representation(self,
                                  ignore_object_types: List[str] = [],
-                                 ignore_columns: List[str] = []) -> dict:
+                                 ignore_columns: List[str] = [], 
+                                 types_as_strings: bool = True) -> dict:
         """
         Method for acquiring model representation.
         :param ignore_object_types: List of ignored object types, ["logs"].
             Defaults to an empty list.
         :param ignore_columns: List of ignored columns, e.g. ["created", "updated", "inactive"].
             Defaults to an empty list.
+        :param types_as_strings: Flag for declaring whether to return types as strings.
+            Defaults to True.
         :return: Model representation as dictionary.
         """
         return {
@@ -143,8 +146,9 @@ class BasicSQLAlchemyInterface(object):
                 "entry_count": self.get_object_count_by_type(object_type),
                 "parameters": [{
                     "name": column.name,
-                    "type": str(sqlalchemy_utility.SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY.get(column.type)),
-                    "table_type": str(column.type),
+                    "type": str(sqlalchemy_utility.SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY.get(column.type)) if types_as_strings
+                        else sqlalchemy_utility.SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY.get(column.type),
+                    "table_type": str(column.type) if types_as_strings else column.type,
                     "description": column.comment,
                     "nullable": column.nullable,
                     "unique": column.unique,
