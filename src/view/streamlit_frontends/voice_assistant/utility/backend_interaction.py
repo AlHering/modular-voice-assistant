@@ -75,11 +75,11 @@ def setup() -> None:
     if MODE == "direct":
         st.session_state["CONTROLLER"] = VoiceAssistantController()
         st.session_state["CONTROLLER"].setup()
-        st.session_state["CLASSES"] = {
-            "transcriber": Transcriber,
-            "synthesizer": Synthesizer,
-            "speech_recorder": SpeechRecorder
-        }
+    st.session_state["CLASSES"] = {
+        "transcriber": Transcriber,
+        "synthesizer": Synthesizer,
+        "speech_recorder": SpeechRecorder
+    }
 
 
 
