@@ -128,8 +128,8 @@ def render_header_buttons(parent_widget: Any,
     current_config = st.session_state.get(f"{tab_key}_current")
     header_button_columns = parent_widget.columns([.30, .30, .30])
 
-    header_button_columns[0].write("#####")
     object_title = " ".join(object_type.split("_")).title()
+    header_button_columns[0].write("#####")
     with header_button_columns[0].popover("Overwrite",
                                           disabled=current_config is None, 
                                           help="Overwrite the current configuration"):
@@ -156,6 +156,29 @@ def render_header_buttons(parent_widget: Any,
         else:
             st.info(f"Created new configuration with ID {obj_id}.")
         st.session_state[f"{tab_key}_overwrite_config_id"] = obj_id
+    
+    header_button_columns[2].write("#####")
+    with header_button_columns[2].popover("Delete",
+                                          disabled=current_config is None, 
+                                          help="Delete the current configuration"):
+            st.write(f"{object_title} configuration {st.session_state[f'{object_type}_config_selectbox']} will be deleted!")
+            
+            if st.button("Approve", key=f"{tab_key}_delapprove_btn",):
+                obj_id = backend_interaction.delete_object(
+                    object_type=object_type,
+                    object_id=st.session_state[f"{object_type}_config_selectbox"]
+                ).get("id")
+                st.info(f"Deleted {object_title} configuration {obj_id}.")
+                ids = [st.session_state[f"{tab_key}_avilable"][elem]["id"] 
+                       for elem in st.session_state[f"{tab_key}_avilable"]]
+                deleted_index = ids.index(st.session_state[f"{object_type}_config_selectbox"])
+                if len(ids) > deleted_index+1:
+                    st.session_state[f"{tab_key}_overwrite_config_id"] = ids[deleted_index+1]
+                elif len(ids) > 1:
+                    st.session_state[f"{tab_key}_overwrite_config_id"] = ids[deleted_index-1]
+                else:
+                    st.session_state[f"{tab_key}_overwrite_config_id"] = ">> New <<"
+
     if st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state[f"{object_type}_config_selectbox"]) != st.session_state[f"{object_type}_config_selectbox"]:
         st.rerun()
 
