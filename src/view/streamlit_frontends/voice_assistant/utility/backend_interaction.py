@@ -256,3 +256,27 @@ def put_object(object_type: str, object_data: dict) -> Optional[dict]:
             object_type,
             **object_data
         )
+    
+
+def delete_object(object_type: str, object_id: int) -> Optional[dict]:
+    """
+    Function for deleting objects.
+    :param object_type: Object type.
+    :param object_id: Object ID.
+    :return: Object dictionary.
+    """
+    global MODE
+    if MODE == "default":
+        response = send_request(
+            method="delete",
+            url=f"{getattr(Endpoints, object_type)}/{object_id}",
+        )
+        try:
+            return response["response"][object_type]
+        except KeyError:
+            return None
+    if MODE == "direct":
+        return st.session_state["CONTROLLER"].delete_object(
+            object_type,
+            object_id
+        )
