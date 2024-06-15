@@ -11,6 +11,8 @@ from typing import List, Any
 from time import sleep
 from src.utility.bronze import json_utility
 from src.configuration import configuration as cfg
+from src.view.streamlit_frontends.voice_assistant.utility import backend_interaction
+
 
 def wait_for_setup() -> None:
     """
@@ -20,6 +22,8 @@ def wait_for_setup() -> None:
         while "CACHE" not in st.session_state:
             try:
                 populate_state_cache()
+                backend_interaction.MODE = st.session_state["CACHE"].get("MODE", "default")
+                backend_interaction.setup()
                 st.rerun()
             except ConnectionError:
                 sleep(3)
