@@ -12,7 +12,7 @@ import json
 from time import sleep
 from src.view.streamlit_frontends.voice_assistant.utility.state_cache_handling import wait_for_setup, clear_tab_config
 from src.view.streamlit_frontends.voice_assistant.utility.frontend_rendering import render_sidebar, render_json_input
-
+from src.view.streamlit_frontends.voice_assistant.utility import backend_interaction
 
 
 ###################
@@ -57,7 +57,7 @@ def render_config(object_type: str) -> None:
     :param object_type: Target object type.
     """
     tab_key = f"new_{object_type}"
-    available = {entry.id: entry for entry in st.session_state["CONTROLLER"].get_objects_by_type(object_type)}
+    available = {entry.id: entry for entry in backend_interaction.get_objects(object_type)}
     options = [">> New <<"] + list(available.keys())
     default = st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state.get(f"{object_type}_config_selectbox", ">> New <<"))
     
@@ -141,7 +141,7 @@ def render_config(object_type: str) -> None:
             st.write(f"{object_title} configuration {st.session_state[f'{object_type}_config_selectbox']} will be overwritten.")
             
             if st.button("Approve", key=f"{tab_key}_approve_btn",):
-                obj_id = st.session_state["CONTROLLER"].patch_object(
+                obj_id = backend_interaction.patch_object(
                     object_type,
                     st.session_state[f"{object_type}_config_selectbox"],
                     **gather_config(object_type)
@@ -152,7 +152,7 @@ def render_config(object_type: str) -> None:
     if header_button_columns[1].button("Add new", 
                                        key=f"{tab_key}_add_btn",
                                        help="Add new entry with the below configuration if it does not exist yet."):
-        obj_id = st.session_state["CONTROLLER"].put_object(
+        obj_id = backend_interaction.put_object(
             object_type,
             **gather_config(object_type)
         )
