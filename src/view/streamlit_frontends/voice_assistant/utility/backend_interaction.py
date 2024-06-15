@@ -8,10 +8,11 @@
 from typing import List, Any, Optional
 import json
 from enum import Enum
+from asyncio import sleep
 import streamlit as st
 import traceback
 import httpx
-from httpx import RequestError
+from httpx import RequestError, ConnectError, ConnectTimeout
 from http.client import responses as status_codes
 from src.control.voice_assistant_controller import VoiceAssistantController, Transcriber, Synthesizer, SpeechRecorder
 from src.configuration import configuration as cfg
@@ -61,6 +62,16 @@ def setup() -> None:
             "patch": httpx.AsyncClient.patch,
             "delete": httpx.AsyncClient.delete,
         }
+        connected_tg = False
+        connected_va = False
+        while not (connected_tg and connected_va):
+            try:
+                if connected_tg or CLIENT.get(Endpoints.lm_instance).status_code == 200:
+                    connected_tg = True
+                if connected_va or CLIENT.get(Endpoints.transcriber).status_code == 200:
+                    connected_va = True
+            except (ConnectError, ConnectTimeout):
+                sleep(2)
     if MODE == "direct":
         st.session_state["CONTROLLER"] = VoiceAssistantController()
         st.session_state["CONTROLLER"].setup()
