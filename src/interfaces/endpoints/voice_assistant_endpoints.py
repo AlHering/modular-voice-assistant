@@ -81,6 +81,7 @@ def register_endpoints(backend: FastAPI,
     :param controller: Backend controller to handle endpoint accesses.
     :param endpoint_base: Endpoint base.
     """
+    controller.handle_objects_as_dicts = True
     if endpoint_base[-1] == "/":
         endpoint_base = endpoint_base[:-1]
 
@@ -100,7 +101,7 @@ def register_endpoints(backend: FastAPI,
             Endpoint for getting all entries.
             :return: Response.
             """
-            return {object_type: [controller.return_obj_as_dict(obj) for obj in controller.get_objects_by_type(object_type)]}
+            return {object_type: controller.get_objects_by_type(object_type)}
 
         @backend.post(f"{constructed_endpoint}")
         @interaction_decorator()
@@ -111,7 +112,7 @@ def register_endpoints(backend: FastAPI,
             :param data: Instance data.
             :return: Response.
             """
-            return {object_type: controller.return_obj_as_dict(controller.post_object(object_type, **dict(data)))}
+            return {object_type: controller.post_object(object_type, **dict(data))}
 
         @backend.get(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
@@ -122,7 +123,7 @@ def register_endpoints(backend: FastAPI,
             :param id: Instance ID.
             :return: Response.
             """
-            return {object_type: controller.return_obj_as_dict(controller.get_object_by_id(object_type, id))}
+            return {object_type: controller.get_object_by_id(object_type, id)}
 
         @backend.delete(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
@@ -133,7 +134,7 @@ def register_endpoints(backend: FastAPI,
             :param id: Instance ID.
             :return: Response.
             """
-            return {object_type: controller.return_obj_as_dict(controller.delete_object(object_type, id))}
+            return {object_type: controller.delete_object(object_type, id)}
 
         @backend.patch(f"{constructed_endpoint}/{{id}}")
         @interaction_decorator()
