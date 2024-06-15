@@ -22,7 +22,7 @@ from src.configuration import configuration as cfg
 #   default: Backend is running on default network address
 #   direct: Controller in session chache
 #
-MODE: str = "default"
+MODE: str = "direct"
 CLIENT: httpx.AsyncClient = None
 METHODS: dict = None 
 
@@ -151,7 +151,9 @@ def get_objects(object_type: str) -> List[dict]:
         except KeyError:
             return []
     if MODE == "direct":
-        pass
+        return st.session_state["CONTROLLER"].get_objects_by_type(
+            object_type
+        )
 
 
 def get_object(object_type: str, object_id: int) -> Optional[dict]:
