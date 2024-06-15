@@ -67,10 +67,10 @@ def render_config_inputs(parent_widget: Any,
         key=f"{tab_key}_backend", 
         label="Backend", 
         options=backends, 
-        index=0 if current_config is None else backends.index(current_config.backend))
+        index=0 if current_config is None else backends.index(current_config["backend"]))
         if f"{tab_key}_model_path" not in st.session_state:
             st.session_state[f"{tab_key}_model_path"] = default_models[st.session_state[f"{tab_key}_backend"]][0] if (
-            current_config is None or current_config.model_path is None) else current_config.model_path
+            current_config is None or current_config["model_path"] is None) else current_config["model_path"]
         parent_widget.text_input(
             key=f"{tab_key}_model_path", 
             label="Model")
@@ -83,7 +83,7 @@ def render_config_inputs(parent_widget: Any,
         current_device_index = 0 
         if current_config is not None:
             for device_name in input_devices:
-                if current_config.input_device_index == input_devices[device_name]:
+                if current_config["input_device_index"] == input_devices[device_name]:
                     current_device_index = input_devices[device_name]
                     break
         device_name = input_device_column.selectbox(
@@ -106,7 +106,7 @@ def render_config_inputs(parent_widget: Any,
             step=0.1,
             min_value=0.01,
             max_value=10.1,
-            value=.1 if current_config is None else current_config.loop_pause
+            value=.1 if current_config is None else current_config["loop_pause"]
         )
 
     parent_widget.write("")
@@ -114,7 +114,7 @@ def render_config_inputs(parent_widget: Any,
         render_json_input(parent_widget=parent_widget, 
                         key=f"{tab_key}_{parameter}", 
                         label=" ".join(parameter.split("_")).capitalize(),
-                        default_data={} if current_config is None else getattr(current_config, parameter))
+                        default_data={} if current_config is None else current_config[parameter])
 
 def render_header_buttons(parent_widget: Any, 
                           tab_key: str, 
@@ -166,7 +166,7 @@ def render_config(object_type: str) -> None:
     :param object_type: Target object type.
     """
     tab_key = f"new_{object_type}"
-    st.session_state[f"{tab_key}_avilable"] = {entry.id: entry for entry in backend_interaction.get_objects(object_type)}
+    st.session_state[f"{tab_key}_avilable"] = {entry["id"]: entry for entry in backend_interaction.get_objects(object_type)}
     options = [">> New <<"] + list(st.session_state[f"{tab_key}_avilable"].keys())
     default = st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state.get(f"{object_type}_config_selectbox", ">> New <<"))
     
@@ -183,9 +183,11 @@ def render_config(object_type: str) -> None:
     st.session_state[f"{tab_key}_current"] = st.session_state[f"{tab_key}_avilable"].get(st.session_state[f"{object_type}_config_selectbox"])
     
     render_config_inputs(parent_widget=st,
+                         tab_key=tab_key,
                          object_type=object_type)
 
     render_header_buttons(parent_widget=header_columns[2],
+                          tab_key=tab_key,
                           object_type=object_type)
     
     
