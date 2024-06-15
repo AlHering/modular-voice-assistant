@@ -11,15 +11,13 @@ from typing import List, Any
 from time import sleep
 from src.utility.bronze import json_utility
 from src.configuration import configuration as cfg
-from src.control.voice_assistant_controller import VoiceAssistantController, Transcriber, Synthesizer, SpeechRecorder
-
 
 def wait_for_setup() -> None:
     """
     Function for waiting for setup to finish.
     """
     with st.spinner("Waiting for backend to finish startup..."):
-        while "CACHE" not in st.session_state or "CONTROLLER" not in st.session_state:
+        while "CACHE" not in st.session_state:
             try:
                 populate_state_cache()
                 st.rerun()
@@ -36,13 +34,6 @@ def populate_state_cache() -> None:
     ) if os.path.exists(cfg.PATHS.FRONTEND_CACHE) else json_utility.load(
         cfg.PATHS.FRONTEND_DEFAULT_CACHE
     )
-    st.session_state["CONTROLLER"] = VoiceAssistantController()
-    st.session_state["CONTROLLER"].setup()
-    st.session_state["CLASSES"] = {
-        "transcriber": Transcriber,
-        "synthesizer": Synthesizer,
-        "speech_recorder": SpeechRecorder
-    }
 
 
 def update_state_cache(update: dict) -> None:
