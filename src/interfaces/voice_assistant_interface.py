@@ -85,43 +85,48 @@ def interface_function() -> Optional[Any]:
 """
 Endpoints
 """
-@BACKEND.get("/", include_in_schema=False)
-async def root() -> dict:
+def setup_endpoints() -> None:
     """
-    Root endpoint.
-    :return: Redirect to SwaggerUI Docs.
+    Function for adding in router.
     """
-    return RedirectResponse(url="/docs")
+    global BACKEND, CONTROLLER
+
+    # Default endpoints
+    @BACKEND.get("/", include_in_schema=False)
+    async def root() -> dict:
+        """
+        Root endpoint.
+        :return: Redirect to SwaggerUI Docs.
+        """
+        return RedirectResponse(url="/docs")
 
 
-@BACKEND.post(f"{cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE}/upload")
-@interface_function()
-async def upload_file(file_name: str, file_data: UploadFile = File(...)) -> dict:
-    """
-    Endpoint for uplaoding a file.
-    :param file_name: File name.
-    :param file_data: File data.
-    :return: Response.
-    """
-    global CONTROLLER
-    upload_path = os.path.join(cfg.PATHS.FILE_PATH, file_name)
-    with open(upload_path, "wb") as output_file:
-        while contents := file_data.file.read(cfg.FILE_UPLOAD_CHUNK_SIZE):
-            output_file.write(contents)
-    file_data.file.close()
-    return {"file_path": upload_path}
+    @BACKEND.post(f"{cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE}/upload")
+    @interface_function()
+    async def upload_file(file_name: str, file_data: UploadFile = File(...)) -> dict:
+        """
+        Endpoint for uplaoding a file.
+        :param file_name: File name.
+        :param file_data: File data.
+        :return: Response.
+        """
+        upload_path = os.path.join(cfg.PATHS.FILE_PATH, file_name)
+        with open(upload_path, "wb") as output_file:
+            while contents := file_data.file.read(cfg.FILE_UPLOAD_CHUNK_SIZE):
+                output_file.write(contents)
+        file_data.file.close()
+        return {"file_path": upload_path}
 
-
-register_endpoints(backend=BACKEND,
-                   interaction_decorator=interface_function,
-                   controller=CONTROLLER,
-                   endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)
+    # CUSTOM endpoints
+    register_endpoints(backend=BACKEND,
+                    interaction_decorator=interface_function,
+                    controller=CONTROLLER,
+                    endpoint_base=cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE)
 
 
 """
 Backend runner
 """
-
 def run_backend(host: str = None, port: int = None, reload: bool = True) -> None:
     """
     Function for running backend server.
@@ -141,6 +146,8 @@ def run_backend(host: str = None, port: int = None, reload: bool = True) -> None
     CONTROLLER.setup()
     for path in [cfg.PATHS.FILE_PATH]:
         safely_create_path(path)
+
+    setup_endpoints()
 
     uvicorn.run("src.interfaces.voice_assistant_interface:BACKEND",
                 host=cfg.VOICE_ASSISTANT_BACKEND_HOST,
