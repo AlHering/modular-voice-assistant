@@ -140,7 +140,7 @@ def render_header_buttons(parent_widget: Any,
                     object_type=object_type,
                     object_id=st.session_state[f"{object_type}_config_selectbox"],
                     object_data=gather_config(object_type)
-                )
+                ).get("id")
                 st.info(f"Updated {object_title} configuration {obj_id}.")
 
     header_button_columns[1].write("#####")
@@ -150,7 +150,7 @@ def render_header_buttons(parent_widget: Any,
         obj_id = backend_interaction.put_object(
             object_type=object_type,
             object_data=gather_config(object_type)
-        )
+        ).get("id")
         if obj_id in st.session_state[f"{tab_key}_avilable"]:
             st.info(f"Configuration already found under ID {obj_id}.")
         else:
@@ -166,7 +166,9 @@ def render_config(object_type: str) -> None:
     :param object_type: Target object type.
     """
     tab_key = f"new_{object_type}"
-    st.session_state[f"{tab_key}_avilable"] = {entry["id"]: entry for entry in backend_interaction.get_objects(object_type=object_type)}
+    st.session_state[f"{tab_key}_avilable"] = {
+        entry["id"]: entry for entry in backend_interaction.get_objects(object_type=object_type)
+        if not entry["inactive"]}
     options = [">> New <<"] + list(st.session_state[f"{tab_key}_avilable"].keys())
     default = st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state.get(f"{object_type}_config_selectbox", ">> New <<"))
     
