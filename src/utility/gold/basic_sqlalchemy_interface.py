@@ -146,9 +146,9 @@ class BasicSQLAlchemyInterface(object):
                 "entry_count": self.get_object_count_by_type(object_type),
                 "parameters": [{
                     "name": column.name,
-                    "type": str(sqlalchemy_utility.SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY.get(column.type)) if types_as_strings
-                        else sqlalchemy_utility.SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY.get(column.type),
-                    "table_type": str(column.type) if types_as_strings else column.type,
+                    "type": str(sqlalchemy_utility.SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY.get(type(column.type))) if types_as_strings
+                        else sqlalchemy_utility.SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY.get(type(column.type)),
+                    "table_type": str(type(column.type)) if types_as_strings else type(column.type),
                     "description": column.comment,
                     "nullable": column.nullable,
                     "unique": column.unique,
