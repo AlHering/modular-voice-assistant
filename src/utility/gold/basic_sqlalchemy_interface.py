@@ -295,5 +295,5 @@ class BasicSQLAlchemyInterface(object):
             if not objs:
                 return self.post_object(object_type, **object_attributes)
             else:
-                return self.patch_object(object_type, getattr(objs[0], self.primary_keys[object_type]), **object_attributes)
+                return self.patch_object(object_type, objs[0][self.primary_keys[object_type]] if self.handle_objects_as_dicts else getattr(objs[0], self.primary_keys[object_type]), **object_attributes)
     
