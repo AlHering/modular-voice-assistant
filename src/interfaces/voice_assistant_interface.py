@@ -142,7 +142,7 @@ def run_backend(host: str = None, port: int = None, reload: bool = True) -> None
     for path in [cfg.PATHS.FILE_PATH]:
         safely_create_path(path)
 
-    uvicorn.run("src.interfaces.vocie_assistant_interface:BACKEND",
+    uvicorn.run("src.interfaces.voice_assistant_interface:BACKEND",
                 host=cfg.VOICE_ASSISTANT_BACKEND_HOST,
                 port=int(cfg.VOICE_ASSISTANT_BACKEND_PORT),
                 reload=reload)
