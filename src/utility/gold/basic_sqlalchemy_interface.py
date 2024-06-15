@@ -168,31 +168,38 @@ class BasicSQLAlchemyInterface(object):
         return int(self.engine.connect().execute(sqlalchemy_utility.select(sqlalchemy_utility.func.count()).select_from(
             self.model[object_type])).scalar())
 
-    def get_objects_by_type(self, object_type: str) -> List[Any]:
+    def get_objects_by_type(self, object_type: str, as_dict: bool = False) -> List[Any]:
         """
         Method for acquiring objects.
         :param object_type: Target object type.
+        :param as_dict: Flag for declaring whether to return resulting entries as dictionaries.
         :return: List of objects of given type.
         """
-        return self.session_factory().query(self.model[object_type]).all()
+        return [
+            self.return_obj_as_dict(elem) for elem in 
+            self.session_factory().query(self.model[object_type]).all()
+        ] if as_dict else self.session_factory().query(self.model[object_type]).all()
 
-    def get_object_by_id(self, object_type: str, object_id: Any) -> Optional[Any]:
+    def get_object_by_id(self, object_type: str, object_id: Any, as_dict: bool = False) -> Optional[Any]:
         """
         Method for acquiring objects.
         :param object_type: Target object type.
         :param object_id: Target ID.
+        :param as_dict: Flag for declaring whether to return resulting entries as dictionaries.
         :return: An object of given type and ID, if found.
         """
-        return self.session_factory().query(self.model[object_type]).filter(
+        obj = self.session_factory().query(self.model[object_type]).filter(
             getattr(self.model[object_type],
                     self.primary_keys[object_type]) == object_id
         ).first()
+        return self.return_obj_as_dict(obj) if as_dict else obj
 
-    def get_objects_by_filtermasks(self, object_type: str, filtermasks: List[FilterMask]) -> List[Any]:
+    def get_objects_by_filtermasks(self, object_type: str, filtermasks: List[FilterMask], as_dict: bool = False) -> List[Any]:
         """
         Method for acquiring objects.
         :param object_type: Target object type.
         :param filtermasks: Filtermasks.
+        :param as_dict: Flag for declaring whether to return resulting entries as dictionaries.
         :return: A list of objects, meeting filtermask conditions.
         """
         converted_filters = self.convert_filters(object_type, filtermasks)
@@ -200,7 +207,7 @@ class BasicSQLAlchemyInterface(object):
             result = session.query(self.model[object_type]).filter(sqlalchemy_utility.SQLALCHEMY_FILTER_CONVERTER["or"](
                 *converted_filters)
             ).all()
-        return result
+        return [self.return_obj_as_dict(elem) for elem in result] if as_dict else result
 
     def post_object(self, object_type: str, **object_attributes: Optional[Any]) -> Optional[Any]:
         """
