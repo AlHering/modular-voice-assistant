@@ -137,9 +137,9 @@ def render_header_buttons(parent_widget: Any,
             
             if st.button("Approve", key=f"{tab_key}_approve_btn",):
                 obj_id = backend_interaction.patch_object(
-                    object_type,
-                    st.session_state[f"{object_type}_config_selectbox"],
-                    **gather_config(object_type)
+                    object_type=object_type,
+                    object_id=st.session_state[f"{object_type}_config_selectbox"],
+                    object_data=gather_config(object_type)
                 )
                 st.info(f"Updated {object_title} configuration {obj_id}.")
 
@@ -148,8 +148,8 @@ def render_header_buttons(parent_widget: Any,
                                        key=f"{tab_key}_add_btn",
                                        help="Add new entry with the below configuration if it does not exist yet."):
         obj_id = backend_interaction.put_object(
-            object_type,
-            **gather_config(object_type)
+            object_type=object_type,
+            object_data=gather_config(object_type)
         )
         if obj_id in st.session_state[f"{tab_key}_avilable"]:
             st.info(f"Configuration already found under ID {obj_id}.")
@@ -166,7 +166,7 @@ def render_config(object_type: str) -> None:
     :param object_type: Target object type.
     """
     tab_key = f"new_{object_type}"
-    st.session_state[f"{tab_key}_avilable"] = {entry["id"]: entry for entry in backend_interaction.get_objects(object_type)}
+    st.session_state[f"{tab_key}_avilable"] = {entry["id"]: entry for entry in backend_interaction.get_objects(object_type=object_type)}
     options = [">> New <<"] + list(st.session_state[f"{tab_key}_avilable"].keys())
     default = st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state.get(f"{object_type}_config_selectbox", ">> New <<"))
     
