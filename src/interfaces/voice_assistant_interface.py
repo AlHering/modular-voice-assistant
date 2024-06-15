@@ -135,9 +135,9 @@ def run_backend(host: str = None, port: int = None, reload: bool = True) -> None
     if port is not None:
         cfg.VOICE_ASSISTANT_BACKEND_PORT = port
         
-    BACKEND: FastAPI = FastAPI(title=cfg.VOICE_ASSISTANT_BACKEND_TITLE, version=cfg.VOICE_ASSISTANT_BACKEND_VERSION,
+    BACKEND = FastAPI(title=cfg.VOICE_ASSISTANT_BACKEND_TITLE, version=cfg.VOICE_ASSISTANT_BACKEND_VERSION,
                   description=cfg.VOICE_ASSISTANT_BACKEND_DESCRIPTION)
-    CONTROLLER: VoiceAssistantController = VoiceAssistantController()
+    CONTROLLER = VoiceAssistantController()
     CONTROLLER.setup()
     for path in [cfg.PATHS.FILE_PATH]:
         safely_create_path(path)
