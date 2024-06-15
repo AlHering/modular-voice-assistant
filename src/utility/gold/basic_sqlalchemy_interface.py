@@ -18,13 +18,21 @@ class BasicSQLAlchemyInterface(object):
     Class, representing a basic SQLAlchemy interface.
     """
 
-    def __init__(self, working_directory: str, database_uri: str, population_function: Any = None, schema: str = "", logger: Any = None) -> None:
+    def __init__(self, 
+                 working_directory: str, 
+                 database_uri: str, 
+                 population_function: Any = None, 
+                 schema: str = "", 
+                 handle_objects_as_dicts: bool = False,
+                 logger: Any = None) -> None:
         """
         Initiation method.
         :param working_directory: Working directory.
         :param database_uri: Database URI.
         :param population_function: A function, taking an engine, schema and a dataclass dictionary (later one can be empty and is to be populated).
             Defaults to None.
+        :param handle_objects_as_dicts: Declares, whether to handle (mostly return) objects as dictionaries by default.
+            Defaults to False.
         :param logger: Logger instance. 
             Defaults to None in which case separate logging is disabled.
         """
@@ -34,6 +42,7 @@ class BasicSQLAlchemyInterface(object):
             os.makedirs(self.working_directory)
         self.database_uri = database_uri
         self.population_function = population_function
+        self.handle_objects_as_dicts = handle_objects_as_dicts
 
         # Database infrastructure
         self.base = None
@@ -103,7 +112,7 @@ class BasicSQLAlchemyInterface(object):
                                                                        exp[2]) for exp in filtermask.expressions))
         return converted_filtermasks
     
-    def return_obj_as_dict(self, obj: Any, convert_timestamps: bool = False) -> dict:
+    def obj_as_dict(self, obj: Any, convert_timestamps: bool = False) -> dict:
         """
         Method for converting SQLAlchemy ORM object to a dictionary.
         :param obj: Object.
@@ -168,38 +177,35 @@ class BasicSQLAlchemyInterface(object):
         return int(self.engine.connect().execute(sqlalchemy_utility.select(sqlalchemy_utility.func.count()).select_from(
             self.model[object_type])).scalar())
 
-    def get_objects_by_type(self, object_type: str, as_dict: bool = False) -> List[Any]:
+    def get_objects_by_type(self, object_type: str) -> List[Any]:
         """
         Method for acquiring objects.
         :param object_type: Target object type.
-        :param as_dict: Flag for declaring whether to return resulting entries as dictionaries.
         :return: List of objects of given type.
         """
         return [
-            self.return_obj_as_dict(elem) for elem in 
+            self.obj_as_dict(elem) for elem in 
             self.session_factory().query(self.model[object_type]).all()
-        ] if as_dict else self.session_factory().query(self.model[object_type]).all()
+        ] if self.handle_objects_as_dicts else self.session_factory().query(self.model[object_type]).all()
 
-    def get_object_by_id(self, object_type: str, object_id: Any, as_dict: bool = False) -> Optional[Any]:
+    def get_object_by_id(self, object_type: str, object_id: Any) -> Optional[Any]:
         """
         Method for acquiring objects.
         :param object_type: Target object type.
         :param object_id: Target ID.
-        :param as_dict: Flag for declaring whether to return resulting entries as dictionaries.
         :return: An object of given type and ID, if found.
         """
         obj = self.session_factory().query(self.model[object_type]).filter(
             getattr(self.model[object_type],
                     self.primary_keys[object_type]) == object_id
         ).first()
-        return self.return_obj_as_dict(obj) if as_dict else obj
+        return self.obj_as_dict(obj) if self.handle_objects_as_dicts else obj
 
-    def get_objects_by_filtermasks(self, object_type: str, filtermasks: List[FilterMask], as_dict: bool = False) -> List[Any]:
+    def get_objects_by_filtermasks(self, object_type: str, filtermasks: List[FilterMask]) -> List[Any]:
         """
         Method for acquiring objects.
         :param object_type: Target object type.
         :param filtermasks: Filtermasks.
-        :param as_dict: Flag for declaring whether to return resulting entries as dictionaries.
         :return: A list of objects, meeting filtermask conditions.
         """
         converted_filters = self.convert_filters(object_type, filtermasks)
@@ -207,39 +213,21 @@ class BasicSQLAlchemyInterface(object):
             result = session.query(self.model[object_type]).filter(sqlalchemy_utility.SQLALCHEMY_FILTER_CONVERTER["or"](
                 *converted_filters)
             ).all()
-        return [self.return_obj_as_dict(elem) for elem in result] if as_dict else result
+        return [self.obj_as_dict(elem) for elem in result] if self.handle_objects_as_dicts else result
 
     def post_object(self, object_type: str, **object_attributes: Optional[Any]) -> Optional[Any]:
         """
         Method for adding an object.
         :param object_type: Target object type.
         :param object_attributes: Object attributes.
-        :return: Object ID of added object, if adding was successful.
+        :return: Added object, if adding was successful.
         """
         obj = self.model[object_type](**object_attributes)
         with self.session_factory() as session:
             session.add(obj)
             session.commit()
             session.refresh(obj)
-        return getattr(obj, self.primary_keys[object_type])
-
-    def put_object(self, object_type: str, reference_attributes: List[str] = None, **object_attributes: Optional[Any]) -> Optional[Any]:
-        """
-        Method for putting in an object.
-        :param object_type: Target object type.
-        :param reference_attributes: Reference attributes for finding already existing objects.
-            Defaults to None in which case all given attributes are checked.
-        :param object_attributes: Object attributes.
-        :return: Object ID of added object, if adding was successful.
-        """
-        if reference_attributes is None:
-            reference_attributes = list(object_attributes.keys())
-        objs = self.get_objects_by_filtermasks(object_type,
-                                               [FilterMask([[key, "==", object_attributes[key]] for key in reference_attributes])])
-        if not objs:
-            return self.post_object(object_type, **object_attributes)
-        else:
-            return self.patch_object(object_type, getattr(objs[0], self.primary_keys[object_type]), **object_attributes)
+        return self.obj_as_dict(obj) if self.handle_objects_as_dicts else obj
 
     def patch_object(self, object_type: str, object_id: Any, **object_attributes: Optional[Any]) -> Optional[Any]:
         """
@@ -247,7 +235,7 @@ class BasicSQLAlchemyInterface(object):
         :param object_type: Target object type.
         :param object_id: Target ID.
         :param object_attributes: Object attributes.
-        :return: Object ID of patched object, if patching was successful.
+        :return: Patched object, if patching was successful.
         """
         result = None
         with self.session_factory() as session:
@@ -262,7 +250,7 @@ class BasicSQLAlchemyInterface(object):
                     setattr(obj, attribute, object_attributes[attribute])
                 session.add(obj)
                 session.commit()
-                result = getattr(obj, self.primary_keys[object_type])
+                result = self.obj_as_dict(obj) if self.handle_objects_as_dicts else obj
         return result
 
     def delete_object(self, object_type: str, object_id: Any, force: bool = False) -> Optional[Any]:
@@ -271,7 +259,7 @@ class BasicSQLAlchemyInterface(object):
         :param object_type: Target object type.
         :param object_id: Target ID.
         :param force: Force deletion of the object instead of setting inactivity flag.
-        :return: Object ID of deleted object, if deletion was successful.
+        :return: Deleted object, if deletion was successful.
         """
         result = None
         with self.session_factory() as session:
@@ -288,6 +276,24 @@ class BasicSQLAlchemyInterface(object):
                 else:
                     session.delete(obj)
                 session.commit()
-                result = getattr(obj, self.primary_keys[object_type])
+                result = self.obj_as_dict(obj) if self.handle_objects_as_dicts else obj
         return result
+        
+    def put_object(self, object_type: str, reference_attributes: List[str] = None,  **object_attributes: Optional[Any]) -> Optional[Any]:
+            """
+            Method for putting in an object.
+            :param object_type: Target object type.
+            :param reference_attributes: Reference attributes for finding already existing objects.
+                Defaults to None in which case all given attributes are checked.
+            :param object_attributes: Object attributes.
+            :return: Added/patched object, if adding/patching was successful.
+            """
+            if reference_attributes is None:
+                reference_attributes = list(object_attributes.keys())
+            objs = self.get_objects_by_filtermasks(object_type,
+                                                [FilterMask([[key, "==", object_attributes[key]] for key in reference_attributes])])
+            if not objs:
+                return self.post_object(object_type, **object_attributes)
+            else:
+                return self.patch_object(object_type, getattr(objs[0], self.primary_keys[object_type]), **object_attributes)
     
