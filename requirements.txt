@@ -54,3 +54,4 @@ prompt-toolkit==3.0.46
 streamlit==1.35.0
 streamlit-code-editor==0.1.20
 streamlit-extras==0.4.3
+stqdm==0.0.5
