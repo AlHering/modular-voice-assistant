@@ -5,21 +5,17 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-import os
-import traceback
 from queue import Queue
 import speech_recognition
-from typing import List, Tuple, Any, Callable, Optional, Union, Dict
-from datetime import datetime as dt
-from enum import Enum
+from typing import List, Tuple, Any, Union, Dict
 import pyaudio
 import numpy as np
 import time
-from ...bronze.sounddevice_utility import get_input_devices, get_output_devices
+from ...bronze.sounddevice_utility import get_input_devices
 from ...bronze.time_utility import get_timestamp
-from .sound_model_instantiation import load_whisper_model, load_faster_whisper_model, load_coqui_tts_model
-from .speech_to_text_utility import transcribe_with_faster_whisper, transcribe_with_whisper
-from .text_to_speech_utility import synthesize_with_coqui_tts, synthesize_with_coqui_tts_to_file
+from ...bronze.whisper_utility import load_whisper_model, transcribe_with_whisper
+from ...bronze.faster_whisper_utility import load_faster_whisper_model, transcribe_with_faster_whisper
+from ...bronze.coqui_tts_utility import load_coqui_tts_model, synthesize_with_coqui_tts, synthesize_with_coqui_tts_to_file
 
 
 class Transcriber(object):

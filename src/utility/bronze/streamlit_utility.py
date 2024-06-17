@@ -5,6 +5,7 @@
 *            (c) 2023 Alexander Hering             *
 ****************************************************
 """
+import os
 from typing import Any, List
 from time import sleep
 import streamlit as st
@@ -134,5 +135,53 @@ def render_json_input(parent_widget: Any, key: str, label: str = None, default_d
             buttons=get_json_editor_buttons(),
             response_mode="debounce"
         )
+
+
+def download_web_asset(asset_url: str, output_path: str, headers: dict = None) -> bool:
+    """
+    Function for downloading web asset.
+    :param asset_url: Asset URL.
+    :param output_path: Output path.
+    :param headers: Headers to use.
+        Default to None.
+    """
+    try: 
+        import requests as requests
+    except ImportError:
+        import httpx
+        import httpx as requests
+
+    try:
+        asset_head = requests.head(asset_url, headers=headers).headers
+        asset = requests.get(
+            asset_url, headers=headers, stream=True)
+    except (requests.exceptions.SSLError, httpx.ConnectError, httpx.ProxyError):
+        asset_head = requests.head(
+            asset_url, headers=headers, verify=False).headers
+        asset = requests.get(
+            asset_url, headers=headers, stream=True, verify=False)
+
+    asset_size = int(asset.headers.get("content-length", 0))
+    chunk_size = 1024
+    local_size = 0
+
+    try:
+        from stqdm import stqdm
+        with stqdm.wrapattr(open(output_path, "wb"), "write",
+                           miniters=1, desc=f"Downloading '{asset_url}' ...",
+                           total=asset_size) as output_file:
+            for chunk in asset.iter_content(chunk_size=chunk_size):
+                output_file.write(chunk)
+                local_size += len(chunk)
+    except ImportError:
+        with open(output_path, "wb") as output_file:
+            for chunk in asset.iter_content(chunk_size=chunk_size):
+                output_file.write(chunk)
+                local_size += len(chunk)
+    if local_size != asset_size:
+        if os.path.exists(output_path):
+            os.remove(output_path)
+            return False
+    return True
 
         

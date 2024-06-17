@@ -5,14 +5,47 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from typing import Any, Union, List, Tuple
+import os
+from typing import Any, Tuple
 import os
 import pyaudio
 import numpy as np
-import wave
 import torch
 from TTS.api import TTS
-from .sound_model_instantiation import load_coqui_tts_model
+from TTS.utils.manage import ModelManager
+
+
+def download_coqui_tts_model(model_path: str,
+                         model_parameters: dict = {}) -> Any:
+    """
+    Function for downloading coqui TTS model.
+    :param model_path: Path to model files.
+    :param model_parameters: Model loading kwargs as dictionary.
+        Defaults to empty dictionary.
+    :return: Model instance.
+    """
+    if os.path.exists(model_path):
+        default_config_path = f"{model_path}/config.json"
+        if "config_path" not in model_parameters and os.path.exists(default_config_path):
+            model_parameters["config_path"] = default_config_path
+        return TTS(model_path=model_path,
+            **model_parameters)
+    else:
+         return TTS(
+              model_name=model_path,
+              **model_parameters
+         )
+
+
+def load_coqui_tts_model(model_id: str,
+                         output_folder: str) -> None:
+    """
+    Function for downloading faster whisper models.
+    :param model_id: Target model ID.
+    :param output_folder: Output folder path.
+    """
+    manager = ModelManager(output_prefix=output_folder, progress_bar=True)
+    manager.download_model(model_id)
 
 
 def synthesize_with_coqui_tts(text: str, 
