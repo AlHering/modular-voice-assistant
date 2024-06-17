@@ -9,14 +9,15 @@ import os
 from typing import Any, Tuple
 import os
 import pyaudio
+from .pyaudio_utility import play_wave
 import numpy as np
 import torch
 from TTS.api import TTS
 from TTS.utils.manage import ModelManager
 
 
-def download_coqui_tts_model(model_path: str,
-                         model_parameters: dict = {}) -> Any:
+def load_coqui_tts_model(model_path: str,
+                         model_parameters: dict = {}) -> TTS:
     """
     Function for downloading coqui TTS model.
     :param model_path: Path to model files.
@@ -37,8 +38,8 @@ def download_coqui_tts_model(model_path: str,
          )
 
 
-def load_coqui_tts_model(model_id: str,
-                         output_folder: str) -> None:
+def download_coqui_tts_model(model_id: str,
+                             output_folder: str) -> None:
     """
     Function for downloading faster whisper models.
     :param model_id: Target model ID.
@@ -48,11 +49,11 @@ def load_coqui_tts_model(model_id: str,
     manager.download_model(model_id)
 
 
-def synthesize_with_coqui_tts(text: str, 
+def synthesize(text: str, 
                               model: TTS = None, 
                               synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
     """
-    Synthesizes text with Coqui TTS and saves results to a file.
+    Synthesizes text with Coqui TTS and returns the results.
     :param text: Output text.
     :param model: TTS model. 
         Defaults to None in which case a default model is instantiated and used.
@@ -85,7 +86,7 @@ def synthesize_with_coqui_tts(text: str,
     }
 
 
-def synthesize_with_coqui_tts_to_file(text: str, output_path: str, model: TTS = None, synthesis_parameters: dict = None) -> str:
+def synthesize_to_file(text: str, output_path: str, model: TTS = None, synthesis_parameters: dict = None) -> str:
     """
     Synthesizes text with Coqui TTS and saves results to a file.
     :param text: Output text.
@@ -103,3 +104,40 @@ def synthesize_with_coqui_tts_to_file(text: str, output_path: str, model: TTS = 
         text=text,
         file_path=output_path,
         **synthesis_parameters)
+
+
+def synthesize_and_output(text: str, 
+                              model: TTS = None, 
+                              synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
+    """
+    Synthesizes text with Coqui TTS and outputs the resulting audio data.
+    :param text: Output text.
+    :param model: TTS model. 
+        Defaults to None in which case a default model is instantiated and used.
+        Not providing a model therefore increases processing time tremendously!
+    :param synthesis_parameters: Synthesis keyword arguments. 
+        Defaults to None in which case default values are used.
+    :returns: Synthesized audio and audio metadata which can be used as stream keyword arguments for outputting.
+    """
+    model = load_coqui_tts_model(TTS().list_models()[0]) if model is None else model
+    synthesis_parameters = {} if synthesis_parameters is None else synthesis_parameters
+    snythesized = model.tts(
+            text=text,
+            **synthesis_parameters)
+    
+    # Conversion taken from 
+    # https://github.com/coqui-ai/TTS/blob/dev/TTS/utils/synthesizer.py and
+    # https://github.com/coqui-ai/TTS/blob/dev/TTS/utils/audio/numpy_transforms.py
+    if torch.is_tensor(snythesized):
+        snythesized = snythesized.cpu().numpy()
+    if isinstance(snythesized, list):
+        snythesized = np.array(snythesized)
+        
+    snythesized = snythesized * (32767 / max(0.01, np.max(np.abs(snythesized))))
+    snythesized = snythesized.astype(np.int16)
+    
+    return snythesized, {
+        "rate": model.synthesizer.output_sample_rate,
+        "format": pyaudio.paInt16,
+        "channels": 1
+    }

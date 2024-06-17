@@ -23,7 +23,7 @@ def download_whisper_model(model_id: str,
 
 
 def load_whisper_model(model_path: str,
-                       model_parameters: dict = {}) -> Any:
+                       model_parameters: dict = {}) -> whisper.Whisper:
     """
     Function for loading whisper based model instance.
     :param model_path: Path to model files.
@@ -53,7 +53,7 @@ def normalize_audio_for_whisper(audio_input: Union[str, np.ndarray, torch.Tensor
         return audio_input
 
 
-def transcribe_with_whisper(audio_input: Union[str, np.ndarray, torch.Tensor], model: whisper.Whisper = None, transcription_parameters: dict = None) -> Tuple[str, List[dict]]:
+def transcribe(audio_input: Union[str, np.ndarray, torch.Tensor], model: whisper.Whisper = None, transcription_parameters: dict = None) -> Tuple[str, List[dict]]:
     """
     Transcribes wave file or waveform with whisper.
     :param audio_input: Wave file path or waveform.
