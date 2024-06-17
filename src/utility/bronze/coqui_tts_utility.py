@@ -106,7 +106,7 @@ def synthesize_to_file(text: str, output_path: str, model: TTS = None, synthesis
         **synthesis_parameters)
 
 
-def synthesize_and_output(text: str, 
+def synthesize_and_play(text: str, 
                               model: TTS = None, 
                               synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
     """
@@ -135,9 +135,12 @@ def synthesize_and_output(text: str,
         
     snythesized = snythesized * (32767 / max(0.01, np.max(np.abs(snythesized))))
     snythesized = snythesized.astype(np.int16)
-    
-    return snythesized, {
+
+    metadata = {
         "rate": model.synthesizer.output_sample_rate,
         "format": pyaudio.paInt16,
         "channels": 1
     }
+
+    play_wave(wave=snythesized, stream_kwargs=metadata)
+    return snythesized, metadata
