@@ -73,7 +73,7 @@ def render_config_inputs(parent_widget: Any,
             current_config is None or current_config["model_path"] is None) else current_config["model_path"]
         parent_widget.text_input(
             key=f"{tab_key}_model_path", 
-            label="Model")
+            label="Model (Model name or path)")
     elif object_type == "speech_recorder":
         input_devices = {entry["name"]: entry["index"] 
                          for entry in sorted(
