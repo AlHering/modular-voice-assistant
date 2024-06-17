@@ -40,10 +40,18 @@ def render_selection_dataframe(key: str, dataframe: pd.DataFrame) -> Any:
         key=key,
         on_select="rerun",
         column_config={"Info": st.column_config.LinkColumn()},
+        column_order=["Model", "Backend", "Info", "Size (downloaded)", "Path (downloaded)"],
         use_container_width=True
     )
     return event.selection
 
+
+def check_downloaded_models(dataframe: pd.DataFrame) -> None:
+    """
+    Function for checking and adjusting downloaded model data.
+    :param dataframe: Dataframe.
+    """
+    pass
 
 def download_model(backend: str, model_id: str, target_folder: str) -> None:
     """
@@ -65,11 +73,10 @@ def render_model_page(object_type: str) -> None:
     st.header("Defaults")
     
     if object_type in DATAFRAMES:
+        check_downloaded_models(DATAFRAMES[object_type])
         selection = render_selection_dataframe(
             key=f"{object_type}_model_select",
             dataframe=DATAFRAMES[object_type]).get("rows")
-
-        DATAFRAMES["transcriber"].to_csv(os.path.join(cfg.PATHS.DATA_PATH, "frontend", "transcriber_models.csv"), index=False)
 
         download_path_col, download_button_col, _ = st.columns([.8, .1, .1])
         download_path = download_path_col.text_input(
@@ -83,6 +90,7 @@ def render_model_page(object_type: str) -> None:
                 backend = DATAFRAMES[object_type]["Backend"].iloc[row_index]
                 model_id = DATAFRAMES[object_type]["Model"].iloc[row_index]
                 download_model(backend=backend,model_id=model_id, target_folder=download_path)
+            DATAFRAMES["transcriber"].to_csv(os.path.join(cfg.PATHS.DATA_PATH, "frontend", "transcriber_models.csv"), index=False)
 
 
 
