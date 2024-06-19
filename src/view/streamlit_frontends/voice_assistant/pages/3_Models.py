@@ -7,17 +7,23 @@
 """
 import os
 import streamlit as st
+from stqdm import stqdm
 from typing import List, Any, Optional
 from requests.exceptions import ConnectionError
 import json
+import traceback
+import requests
 import pandas as pd
 from time import sleep
 from src.utility.silver.file_system_utility import safely_create_path
-from src.utility.bronze.streamlit_utility import render_json_input
+from src.utility.bronze.streamlit_utility import render_json_input, download_web_asset
 from src.configuration import configuration as cfg
 from src.view.streamlit_frontends.voice_assistant.utility.state_cache_handling import wait_for_setup, clear_tab_config
 from src.view.streamlit_frontends.voice_assistant.utility.frontend_rendering import render_sidebar
 from src.view.streamlit_frontends.voice_assistant.utility import backend_interaction
+from src.utility.bronze.whisper_utility import download_whisper_model
+from src.utility.bronze.faster_whisper_utility import download_faster_whisper_model
+from src.utility.bronze.coqui_tts_utility import download_coqui_tts_model
 
 
 ###################
@@ -53,46 +59,74 @@ def check_downloaded_models(dataframe: pd.DataFrame) -> None:
     """
     pass
 
-def download_model(backend: str, model_id: str, target_folder: str) -> None:
+def download_model(backend: str, model_id: str, target_folder: str) -> bool:
     """
     Function for downloading model.
     :param backend: Backend.
     :param model_id: Model ID.
     :param target_folder: Target folder.
+    :return: True if process was successful.
     """
-    print(backend)
-    print(model_id)
-    print(target_folder)
+    try:
+        with st.spinner(f"Downloading {backend}-{model_id} to '{target_folder}'..."):
+            {
+                "whisper": download_whisper_model,
+                "faster-whisper": download_faster_whisper_model,
+                "coqui-tts": download_coqui_tts_model
+            }[backend](model_id, target_folder)
+        return True
+    except Exception:
+        traceback.print_exc()
+        return False
     
-
 def render_model_page(object_type: str) -> None:
     """
     Function for rendering model page.
     :param object_type: Object type.
     """
+    if f"{object_type}_model_download_flair" not in st.session_state:
+        flairs = []
+    else: 
+        flairs = st.session_state[f"{object_type}_model_download_flair"]
+    for flair in flairs:
+        {
+            "success": st.success,
+            "warning": st.warning
+        }[flair[0]](flair[1])
+    st.session_state[f"{object_type}_model_download_flair"] = []
+
     st.header("Defaults")
-    
+   
+    changes = False
     if object_type in DATAFRAMES:
         check_downloaded_models(DATAFRAMES[object_type])
         selection = render_selection_dataframe(
             key=f"{object_type}_model_select",
             dataframe=DATAFRAMES[object_type]).get("rows")
 
-        download_path_col, download_button_col, _ = st.columns([.8, .1, .1])
+        download_path_col, download_button_col = st.columns([.76, .14])
         download_path = download_path_col.text_input(
             key=f"{object_type}_model_download_path", 
-            label="Download Folder")
+            label="Download Folder",
+            value=st.session_state.get(f"{object_type}_model_download_path"))
         download_button_col.write("")
         if download_button_col.button(
-            "Download selected"
+            "Download selected ..."
         ):
             for row_index in selection:
                 backend = DATAFRAMES[object_type]["Backend"].iloc[row_index]
                 model_id = DATAFRAMES[object_type]["Model"].iloc[row_index]
-                download_model(backend=backend,model_id=model_id, target_folder=download_path)
-            DATAFRAMES["transcriber"].to_csv(os.path.join(cfg.PATHS.DATA_PATH, "frontend", "transcriber_models.csv"), index=False)
-
-
+                if download_model(backend=backend,model_id=model_id, target_folder=download_path):
+                    changes = True
+                    st.session_state[f"{object_type}_model_download_flair"].append(("success", f"Downloading {backend}-{model_id} to '{download_path}' successful!"))
+                    if DATAFRAMES[object_type]["Path (downloaded)"].iloc[row_index] != download_path:
+                        DATAFRAMES[object_type]["Path (downloaded)"].iloc[row_index] = download_path
+                        DATAFRAMES[object_type].to_csv(os.path.join(cfg.PATHS.DATA_PATH, "frontend", f"{object_type}_models.csv"), index=False)
+                else:
+                    st.session_state[f"{object_type}_model_download_flair"].append(("warning", f"Downloading {backend}-{model_id} to '{download_path}' failed!"))
+    if changes:
+        st.session_state.pop("transcriber_model_select")
+        st.rerun()
 
 
 ###################
