@@ -6,7 +6,7 @@
 ****************************************************
 """
 import os
-from typing import Any, Tuple
+from typing import Any, Tuple, List
 import os
 import pyaudio
 from .pyaudio_utility import play_wave
@@ -50,8 +50,8 @@ def download_coqui_tts_model(model_id: str,
 
 
 def synthesize(text: str, 
-                              model: TTS = None, 
-                              synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
+               model: TTS = None, 
+               synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
     """
     Synthesizes text with Coqui TTS and returns the results.
     :param text: Output text.
@@ -86,7 +86,10 @@ def synthesize(text: str,
     }
 
 
-def synthesize_to_file(text: str, output_path: str, model: TTS = None, synthesis_parameters: dict = None) -> str:
+def synthesize_to_file(text: str, 
+                       output_path: str, 
+                       model: TTS = None, 
+                       synthesis_parameters: dict = None) -> str:
     """
     Synthesizes text with Coqui TTS and saves results to a file.
     :param text: Output text.
@@ -107,8 +110,8 @@ def synthesize_to_file(text: str, output_path: str, model: TTS = None, synthesis
 
 
 def synthesize_and_play(text: str, 
-                              model: TTS = None, 
-                              synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
+                        model: TTS = None, 
+                        synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
     """
     Synthesizes text with Coqui TTS and outputs the resulting audio data.
     :param text: Output text.
@@ -144,3 +147,31 @@ def synthesize_and_play(text: str,
 
     play_wave(wave=snythesized, stream_kwargs=metadata)
     return snythesized, metadata
+
+
+def test_available_speakers(model: TTS, 
+                            synthesis_parameters: dict = None,
+                            text: str = "This is a very short test.",
+                            play_results: bool = False) -> List[Tuple[str, Tuple[np.ndarray, dict]]]:
+    """
+    Function for testing available speakers.
+    :param model: TTS model.
+    :param synthesis_parameters: Synthesis keyword arguments. 
+        Defaults to None in which case default values are used.
+    :param text: Text to synthesize.
+        Defaults to "This is a very short test.".
+    :param play_results: Flag for declaring, whether to play the synthesized results.
+        Defaults to False.
+    :returns: Tuple of speaker name and a tuple of synthesized audio and audio metadata.
+    """
+    results = []
+    synthesis_parameters = {} if synthesis_parameters is None else synthesis_parameters
+    for speaker in model.speakers:
+        synthesis_parameters["speaker"] = speaker
+        if play_results:
+            print(speaker)
+            results.append((speaker, synthesize_and_play(text=text, model=model, synthesis_parameters=synthesis_parameters)))
+        else:
+            results.append((speaker, synthesize(text=text, model=model, synthesis_parameters=synthesis_parameters)))
+    return results
+         
