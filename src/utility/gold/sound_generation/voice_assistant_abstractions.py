@@ -179,14 +179,24 @@ class ConversationHandler(object):
         Acquires and forwards user input.
         """
         if not self.pause_input.is_set():
-            recorder_data, recorder_metadata = self.speech_recorder.record_single_input()
+            recorder_output, recorder_metadata = self.speech_recorder.record_single_input()
             cfg.LOGGER.info(f"Got voice input.")
             cfg.LOGGER.info(f"Transcribing input...")
-            input_data, transcriber_metadata = self.transcriber.transcribe(recorder_data)
-            cfg.LOGGER.info(f"Forwarding {input_data} to worker...")
-            self.queues["worker_in"].put(input_data)
+            transcriber_output, transcriber_metadata = self.transcriber.transcribe(recorder_output)
+            self.queues["worker_in"].put(self.prepare_worker_input(transcriber_output, transcriber_metadata))
         else:
             time.sleep(self.loop_pause)
+
+    def prepare_worker_input(self, output: str, metadata: dict) -> Tuple[str, dict]:
+        """
+        Method for preparing worker input.
+        :param output: Transcriber output.
+        :param metadata: Transcriber metadata.
+        :return: Refined output and metadata.
+        """
+        cfg.LOGGER.info(f"Fetched transcriber output {output}")
+        cfg.LOGGER.info(f"Preparing for worker...")
+        return output, metadata
 
     def handle_work(self, timeout: float = None, stream: bool = False) -> None:
         """
@@ -196,17 +206,31 @@ class ConversationHandler(object):
         """  
         if not self.pause_worker.is_set():
             try:
+                worker_input, worker_input_metadata = self.queues["worker_in"].get(block=True, timeout=timeout)
                 if stream:
-                    for elem in self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)):
+                    for elem in self.worker_function(worker_input):
                         if elem and elem[0]:
-                            self.queues["worker_out"].put(elem)
+                            self.queues["worker_out"].put(self.prepare_worker_output(*elem))
                 else:
-                    self.queues["worker_out"].put(self.worker_function(self.queues["worker_in"].get(block=True, timeout=timeout)))
+                    worker_output, worker_metadata = self.worker_function(worker_input)
+                    self.queues["worker_out"].put(self.prepare_worker_output(worker_output, worker_metadata))
             except Empty:
                 pass
         else:
             time.sleep(self.loop_pause)
 
+    def prepare_worker_output(self, output: str, metadata: dict) -> Tuple[np.ndarray, dict]:
+        """
+        Method for preparing worker output.
+        :param output: Worker output.
+        :param metadata: Worker metadata.
+        :return: Refined output and metadata.
+        """
+        cfg.LOGGER.info(f"Fetched worker output {output}.")
+        cfg.LOGGER.info(f"Synthesizing output...")
+        synthesizer_output, synthesizer_metadata = self.synthesizer.synthesize(output)
+        return synthesizer_output, synthesizer_metadata
+    
     def handle_output(self, timeout: float = None) -> None:
         """
         Acquires and reroutes generated output based.
@@ -216,11 +240,8 @@ class ConversationHandler(object):
             try:
                 worker_output, worker_metadata = self.queues["worker_out"].get(block=True, timeout=timeout)
                 self.pause_output.set()
-                cfg.LOGGER.info(f"Fetched worker output {worker_output}.")
-                cfg.LOGGER.info(f"Synthesizing output...")
-                synthesizer_output, synthesizer_metadata = self.synthesizer.synthesize(worker_output)
                 cfg.LOGGER.info(f"Outputting synthesized response...")
-                play_wave(synthesizer_output, synthesizer_metadata)
+                play_wave(worker_output, worker_metadata)
                 self.pause_output.clear()
             except Empty:
                 pass
@@ -308,7 +329,7 @@ class ConversationHandler(object):
             Defaults to False.
         """
         cfg.LOGGER.info(f"Starting conversation loop...")
-        self.queues["worker_out"].put(("Hello there, how may I help you today?", {}))
+        self.queues["worker_out"].put(self.prepare_worker_output("Hello there, how may I help you today?", {}))
         self.handle_output()
         try:
             if not blocking:
@@ -584,7 +605,7 @@ class BasicVoiceAssistant(object):
                 user_input = session.prompt(
                     "User: ")
                 if user_input is not None:
-                    self.handler.queues["worker_in"].put(user_input)
+                    self.handler.queues["worker_in"].put(self.handler.prepare_worker_input(user_input, {}))
                     """while True:
                         print(self.handler.report())
                         time.sleep(3)"""
