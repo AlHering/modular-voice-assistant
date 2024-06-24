@@ -15,15 +15,12 @@ import gc
 import time
 import numpy as np
 import pyaudio
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, HTML, print_formatted_text
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
-from rich import print as rich_print
-from rich.style import Style as RichStyle
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style as PTStyle
-import speech_recognition
 from datetime import datetime as dt
 from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent, Lock
@@ -591,7 +588,7 @@ class BasicVoiceAssistant(object):
             """
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
             self.handler.reset()
-            rich_print("[bold]\nBye [white]...")
+            print_formatted_text(HTML("<b>Bye...</b>"))
             event.app.exit()
             stop.set()
 
