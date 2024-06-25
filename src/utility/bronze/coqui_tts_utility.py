@@ -175,3 +175,31 @@ def test_available_speakers(model: TTS,
             results.append((speaker, synthesize(text=text, model=model, synthesis_parameters=synthesis_parameters)))
     return results
          
+
+def output_available_speakers_to_file(output_dir: str,
+                                      model: TTS, 
+                                      synthesis_parameters: dict = None,
+                                      text: str = "This is a very short test.") -> List[Tuple[str, str]]:
+    """
+    Function for testing available speakers by writing there output to files.
+    :param output_dir: Folder in which to store the wave files.
+    :param model: TTS model.
+    :param synthesis_parameters: Synthesis keyword arguments. 
+        Defaults to None in which case default values are used.
+    :param text: Text to synthesize.
+        Defaults to "This is a very short test.".
+    :returns: List of tuples of speaker name and output path.
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    results = []
+    synthesis_parameters = {} if synthesis_parameters is None else synthesis_parameters
+    for speaker in model.speakers:
+        synthesis_parameters["speaker"] = speaker
+        results.append((speaker, synthesize_to_file(
+            text=text,
+            output_path=os.path.join(output_dir, f"{speaker}.wav"),
+            model=model,
+            synthesis_parameters=synthesis_parameters
+        )))
+    return results
