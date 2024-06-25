@@ -547,6 +547,10 @@ class BasicVoiceAssistant(object):
         self.chat_model = chat_model
         self.stream = stream
 
+        self.conversation_kwargs = {}
+        if self.chat_model.history[-1]["role"] == "assistant":
+            self.conversation_kwargs["greeting"] = self.chat_model.history[-1]["content"]
+
     def setup(self) -> None:
         """
         Method for setting up conversation handler.
@@ -568,7 +572,7 @@ class BasicVoiceAssistant(object):
         :param blocking: Flag which declares whether or not to wait for each conversation step.
             Defaults to True.
         """
-        self.handler.run_conversation(blocking=blocking, stream=self.stream)
+        self.handler.run_conversation(blocking=blocking, stream=self.stream, **self.conversation_kwargs)
 
     def run_interaction(self, blocking: bool = True) -> None:
         """
@@ -576,7 +580,7 @@ class BasicVoiceAssistant(object):
         :param blocking: Flag which declares whether or not to wait for each conversation step.
             Defaults to True.
         """
-        self.handler.run_conversation(blocking=blocking, loop=False, stream=self.stream)
+        self.handler.run_conversation(blocking=blocking, loop=False, stream=self.stream, **self.conversation_kwargs)
 
     def run_terminal_conversation(self) -> None:
         """
@@ -601,7 +605,7 @@ class BasicVoiceAssistant(object):
         session = setup_prompt_session(bindings)
         cfg.LOGGER.info(f"Starting conversation loop...")
         self.handler.pause_input.set()
-        self.handler.run_conversation(blocking=False, loop=True, stream=self.stream)
+        self.handler.run_conversation(blocking=False, loop=True, stream=self.stream, **self.conversation_kwargs)
         
         while not stop.is_set():
             with patch_stdout():
