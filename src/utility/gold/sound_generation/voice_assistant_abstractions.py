@@ -315,7 +315,11 @@ class ConversationHandler(object):
                 self.interrupt.set()
         self.reset()
 
-    def run_conversation(self, blocking: bool = True, loop: bool = True, stream: bool = False) -> None:
+    def run_conversation(self, 
+                         blocking: bool = True, 
+                         loop: bool = True, 
+                         stream: bool = False,
+                         greeting: str = "Hello there, how may I help you today?") -> None:
         """
         Runs conversation.
         :param blocking: Declares, whether or not to wait for each step.
@@ -324,9 +328,11 @@ class ConversationHandler(object):
             Defaults to True.
         :param stream: Declares, whether worker function streams response.
             Defaults to False.
+        :param greeting: Assistant greeting.
+            Defaults to "Hello there, how may I help you today?".
         """
         cfg.LOGGER.info(f"Starting conversation loop...")
-        self.queues["worker_out"].put(self.prepare_worker_output("Hello there, how may I help you today?", {}))
+        self.queues["worker_out"].put(self.prepare_worker_output(greeting, {}))
         self.handle_output()
         try:
             if not blocking:
