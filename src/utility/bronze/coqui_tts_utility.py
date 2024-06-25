@@ -194,11 +194,12 @@ def output_available_speakers_to_file(output_dir: str,
         os.makedirs(output_dir)
     results = []
     synthesis_parameters = {} if synthesis_parameters is None else synthesis_parameters
+    synthesis_string = "_".join(f"{elem}={str(synthesis_parameters[elem])}" for elem in synthesis_parameters)
     for speaker in model.speakers:
         synthesis_parameters["speaker"] = speaker
         results.append((speaker, synthesize_to_file(
             text=text,
-            output_path=os.path.join(output_dir, f"{speaker}.wav"),
+            output_path=os.path.join(output_dir, f"{speaker}_{synthesis_string}.wav"),
             model=model,
             synthesis_parameters=synthesis_parameters
         )))
