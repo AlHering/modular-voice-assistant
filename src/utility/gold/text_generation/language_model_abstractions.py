@@ -333,8 +333,9 @@ class ChatModelInstance(object):
                     sentence += delta["content"]
                     if delta["content"] in SENTENCE_CHUNK_STOPS:
                         answer += sentence
-                        yield sentence, chunk
-                        sentence = ""
+                        if len(sentence) >= 8:
+                            yield sentence, chunk
+                            sentence = ""
                 elif not delta:
                     answer += sentence
                     metadata = {"chunks": chunks}
