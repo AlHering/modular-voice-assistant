@@ -332,7 +332,8 @@ class ChatModelInstance(object):
                 delta = chunk["choices"][0]["delta"]
                 if "content" in delta:
                     sentence += delta["content"]
-                    if delta["content"] in SENTENCE_CHUNK_STOPS:
+                    print(delta["content"])
+                    if delta["content"][-1] in SENTENCE_CHUNK_STOPS:
                         answer += sentence
                         if len([elem for elem in sentence if elem.isalpha()]) >= minium_yielded_characters:
                             yield sentence, chunk
