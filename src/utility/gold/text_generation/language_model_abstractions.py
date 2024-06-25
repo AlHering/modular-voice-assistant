@@ -282,13 +282,14 @@ class ChatModelInstance(object):
             })
         return answer, metadata
     
-    def chat_stream(self, prompt: str, chat_parameters: dict = None) -> Generator[Tuple[str, dict], None, None]:
+    def chat_stream(self, prompt: str, chat_parameters: dict = None, minium_yielded_characters: int = 10) -> Generator[Tuple[str, dict], None, None]:
         """
         Method for chatting with language model instance via stream.
         :param prompt: User input.
         :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
             model backend.
+        :param minium_yielded_characters: Minimum yielded alphabetic characters, defaults to 10.
         :return: Response and metadata stream.
         """
         chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
@@ -333,7 +334,7 @@ class ChatModelInstance(object):
                     sentence += delta["content"]
                     if delta["content"] in SENTENCE_CHUNK_STOPS:
                         answer += sentence
-                        if len([elem for elem in sentence if elem.isalpha()]) >= 8:
+                        if len([elem for elem in sentence if elem.isalpha()]) >= minium_yielded_characters:
                             yield sentence, chunk
                             sentence = ""
                 elif not delta:
