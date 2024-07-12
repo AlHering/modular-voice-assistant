@@ -219,11 +219,15 @@ class ChatModelInstance(object):
         self.prompt_maker = prompt_maker
 
         self.use_history = use_history
-        self.history = [{
-            "role": "system", 
-            "content": "You are a helpful AI assistant. Please help users with their tasks." if system_prompt is None else system_prompt, 
-            "metadata": {"intitated": dt.now()}
-        }] if history is None else history
+
+        if history is None:
+            self.history = [{
+                "role": "system", 
+                "content": "You are a helpful AI assistant. Please help users with their tasks." if system_prompt is None else system_prompt, 
+                "metadata": {"intitated": dt.now()}
+            }]
+        else:
+            self.history = history
 
     """
     Generation methods
@@ -240,7 +244,7 @@ class ChatModelInstance(object):
         """
         chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
         if not self.use_history:
-            self.history = self.history[0]
+            self.history = [self.history[0]]
         self.history.append({"role": "user", "content": prompt})
         full_prompt = self.prompt_maker(self.history)
 
@@ -295,7 +299,7 @@ class ChatModelInstance(object):
         chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
         chat_parameters["stream"] = True
         if not self.use_history:
-            self.history = self.history[0]
+            self.history = [self.history[0]]
         self.history.append({"role": "user", "content": prompt})
         full_prompt = self.prompt_maker(self.history)
 
