@@ -103,6 +103,33 @@ class LanguageModelInstance(object):
     """
     Generation methods
     """
+    def tokenize(self,
+                input: str,
+                encoding_parameters: dict = None
+                ) -> List[float]:
+        """
+        Method for embedding an input.
+        :param input: Input to embed.
+        :param encoding_parameters: Kwargs for encoding as dictionary.
+            Defaults to None.
+        """
+        # TODO: Implement
+        raise NotImplemented("Not yet implemented.")
+        encoding_parameters = self.encoding_parameters if encoding_parameters is None else encoding_parameters
+
+        if self.backend == "ctransformers":
+            return self.model.tokenize(input, **encoding_parameters)
+        elif self.backend == "langchain_llamacpp":
+            return self.embeddings.ctransformers(input)
+        elif self.backend == "transformers":
+            return self.tokenizer.encode(input, **encoding_parameters)
+        elif self.backend == "autogptq":
+            return self.tokenizer.encode(input, **encoding_parameters)
+        elif self.backend == "llamacpp":
+            return self.model.embed(input)
+        elif self.backend == "exllamav2":
+            return self.tokenizer.encode(input, **encoding_parameters)
+
 
     def embed(self,
               input: str,
