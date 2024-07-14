@@ -356,18 +356,18 @@ class ConversationHandler(object):
             "pause_worker": self.pause_worker,
             "pause_output": self.pause_output
         }
-        event_info = "        \n".join(f"Event '{event}: {events[event].is_set()}'" for event in events)
-        return f"""
-        ==========================================================
-        #                    {get_timestamp()}                   #
-        ==========================================================
-        {thread_info} 
-        ----------------------------------------------------------
-        {queue_info} 
-        ----------------------------------------------------------
-        {event_info} 
-        ----------------------------------------------------------
-        """
+        event_info = "\n".join(f"Event '{event}: {events[event].is_set()}'" for event in events)
+        return "\n".join([
+            "==========================================================",
+            "#                    {get_timestamp()}                   #",
+            "==========================================================",
+            thread_info,
+            "----------------------------------------------------------",
+            queue_info,
+            "----------------------------------------------------------",
+            event_info,
+            "----------------------------------------------------------"
+        ])
 
 
 class ConversationHandlerSession(object):
