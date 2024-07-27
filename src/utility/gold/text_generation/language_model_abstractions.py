@@ -12,7 +12,8 @@ from typing import List, Tuple, Any, Callable, Optional, Union, Dict, Generator
 from datetime import datetime as dt
 from ...bronze.string_utility import SENTENCE_CHUNK_STOPS
 from .language_model_instantiation import load_ctransformers_model, load_transformers_model, load_llamacpp_model, load_autogptq_model, load_exllamav2_model, load_langchain_llamacpp_model
-
+import requests
+import json
 
 """
 Abstractions
@@ -215,8 +216,7 @@ class ChatModelInstance(object):
                  system_prompt: str = None,
                  prompt_maker: Callable = None,
                  use_history: bool = True,
-                 history: List[Dict[str, Union[str, dict]]] = None,
-                 ) -> None:
+                 history: List[Dict[str, Union[str, dict]]] = None) -> None:
         """
         Initiation method.
         :param LanguageModelInstance: Language model instance.
@@ -226,7 +226,8 @@ class ChatModelInstance(object):
         :param system_prompt: Default system prompt.
             Defaults to a None in which case no system prompt is used.
         :param prompt_maker: Function which takes the prompt history as a list of {"role": <role>, "content": <message>, "metadata": <metadata>}-dictionaries 
-            (already including the new user prompt) as argument and calculates the final prompt. Only necessary, if the backend does not support chat interaction.
+            (already including the new user prompt) as argument and calculates the final prompt. 
+            Only necessary, if the backend does not support chat interaction via message list.
         :param use_history: Flag, declaring whether to use the history.
             Defaults to True.
         :param history: Interaction history as list of {"role": <role>, "content": <message>, "metadata": <metadata>}-dictionaries.
@@ -382,6 +383,152 @@ class ChatModelInstance(object):
             })
         return answer, metadata
 
+
+class RemoteChatModelInstance(object):
+    """
+    Remote chat model class.
+    """
+
+    def __init__(self,
+                 api_base: str,
+                 api_token: str = None,
+                 chat_parameters: dict = None,
+                 system_prompt: str = None,
+                 prompt_maker: Callable = None,
+                 use_history: bool = True,
+                 history: List[Dict[str, Union[str, dict]]] = None) -> None:
+        """
+        Initiation method.
+        :param api_base: API base URL in the format http://<host>:<port>/v1.
+        :param api_token: API token, if necessary.
+        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
+            Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
+            model backend.
+        :param system_prompt: Default system prompt.
+            Defaults to a None in which case no system prompt is used.
+        :param prompt_maker: Function which takes the prompt history as a list of {"role": <role>, "content": <message>, "metadata": <metadata>}-dictionaries 
+            (already including the new user prompt) as argument and calculates the final prompt. 
+            Only necessary, if the API does not support chat interaction.
+        :param use_history: Flag, declaring whether to use the history.
+            Defaults to True.
+        :param history: Interaction history as list of {"role": <role>, "content": <message>, "metadata": <metadata>}-dictionaries.
+            Defaults to None.
+        """
+        self.api_base = api_base
+        self.api_token = api_token
+        self.request_headers = {} if self.api_token is None else {
+            "Authorization": f"Bearer {self.api_token}"
+        }
+
+        self.chat_parameters = chat_parameters
+        self.system_prompt = system_prompt
+        if prompt_maker is None:
+            def prompt_maker(history: List[Dict[str, Union[str, dict]]]) -> str:
+                """
+                Default Prompt maker function.
+                :param history: History.
+                """
+                return "\n".join(f"<s>{entry['role']}:\n{entry['content']}</s>" for entry in history) + "\n"
+        self.prompt_maker = prompt_maker
+
+        self.use_history = use_history
+
+        if history is None:
+            self.history = [{
+                "role": "system", 
+                "content": "You are a helpful AI assistant. Please help users with their tasks." if system_prompt is None else system_prompt, 
+                "metadata": {"intitated": dt.now()}
+            }]
+        else:
+            self.history = history
+
+    """
+    Generation methods
+    """
+
+    def chat(self, prompt: str, chat_parameters: dict = None) -> Tuple[str, dict]:
+        """
+        Method for chatting with the remote language model instance.
+        :param prompt: User input.
+        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
+            Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
+            model backend.
+        :return: Response and metadata.
+        """
+        chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
+        if not self.use_history:
+            self.history = [self.history[0]]
+        self.history.append({"role": "user", "content": prompt})
+        full_prompt = self.prompt_maker(self.history)
+
+        metadata = {}
+        answer = ""
+
+        json_payload = copy.deepcopy(chat_parameters)
+        json_payload["messages"] = self.history
+
+        response = requests.post(f"{self.api_base}/chat/completions", headers=self.request_headers, json=json_payload)
+        if response.status_code == 200:
+            metadata = response.json()
+            answer = metadata["choices"][0]["message"]["content"]
+        else:
+            json_payload.pop("messages")
+            json_payload["prompt"] = full_prompt
+            response = requests.post(f"{self.api_base}/completions", headers=self.request_headers, json=json_payload)
+            if response.status_code == 200:
+                metadata = response.json()
+                answer = metadata["choices"][0]["text"]
+        if self.use_history:
+            self.history.append({"role": "assistant", "content": answer, "metadata": metadata})
+        return answer, metadata
+    
+    def chat_stream(self, prompt: str, chat_parameters: dict = None, minium_yielded_characters: int = 10) -> Generator[Tuple[str, dict], None, None]:
+        """
+        Method for chatting with the remote language model instance via stream.
+        :param prompt: User input.
+        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
+            Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
+            model backend.
+        :param minium_yielded_characters: Minimum yielded alphabetic characters, defaults to 10.
+        :return: Response and metadata stream.
+        """
+        chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
+        chat_parameters["stream"] = True
+        if not self.use_history:
+            self.history = [self.history[0]]
+        self.history.append({"role": "user", "content": prompt})
+        full_prompt = self.prompt_maker(self.history)
+
+        metadata = {}
+        answer = ""
+
+        json_payload = copy.deepcopy(chat_parameters)
+        json_payload["messages"] = self.history
+
+        response = requests.post(f"{self.api_base}/chat/completions", headers=self.request_headers, json=json_payload, stream=True)
+        chunks = []
+        sentence = ""
+
+        for encoded_chunk in response.iter_lines():
+            if encoded_chunk:
+                decoded_chunk = encoded_chunk.decode("utf-8")
+                chunk = json.loads(decoded_chunk)
+                chunks.append(chunk)
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    sentence += delta["content"]
+                    if delta["content"][-1] in SENTENCE_CHUNK_STOPS:
+                        answer += sentence
+                        if len([elem for elem in sentence if elem.isalpha()]) >= minium_yielded_characters:
+                            yield sentence, chunk
+                            sentence = ""
+                elif not delta:
+                    answer += sentence
+                    metadata = {"chunks": chunks}
+                    yield sentence, chunk
+
+        return answer, metadata
+        
 
 """
 Templates
