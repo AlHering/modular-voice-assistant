@@ -506,6 +506,11 @@ class RemoteChatModelInstance(object):
         json_payload["messages"] = self.history
 
         response = requests.post(f"{self.api_base}/chat/completions", headers=self.request_headers, json=json_payload, stream=True)
+        if response.status_code != 200:
+            response = requests.post(f"{self.api_base}/completions", headers=self.request_headers, json=json_payload, stream=True)
+        if response.status_code != 200:
+            return answer, metadata
+        
         chunks = []
         sentence = ""
 
