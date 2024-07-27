@@ -114,21 +114,20 @@ class LanguageModelInstance(object):
             Defaults to None.
         """
         # TODO: Implement
-        raise NotImplemented("Not yet implemented.")
         encoding_parameters = self.encoding_parameters if encoding_parameters is None else encoding_parameters
 
         if self.backend == "ctransformers":
-            return self.model.tokenize(input, **encoding_parameters)
+            raise NotImplemented("Not yet implemented.")
         elif self.backend == "langchain_llamacpp":
-            return self.embeddings.ctransformers(input)
+            raise NotImplemented("Not yet implemented.")
         elif self.backend == "transformers":
             return self.tokenizer.encode(input, **encoding_parameters)
         elif self.backend == "autogptq":
             return self.tokenizer.encode(input, **encoding_parameters)
         elif self.backend == "llamacpp":
-            return self.model.embed(input)
+            return self.model.tokenize(input)
         elif self.backend == "exllamav2":
-            return self.tokenizer.encode(input, **encoding_parameters)
+            raise NotImplemented("Not yet implemented.")
 
 
     def embed(self,
