@@ -191,7 +191,7 @@ class ConversationHandler(object):
         :param metadata: Transcriber metadata.
         :return: Refined output and metadata.
         """
-        cfg.LOGGER.info(f"Fetched transcriber output {output}")
+        cfg.LOGGER.info(f"Fetched transcriber output: '{output}'")
         cfg.LOGGER.info(f"Preparing for worker...")
         return output, metadata
 
@@ -223,7 +223,7 @@ class ConversationHandler(object):
         :param metadata: Worker metadata.
         :return: Refined output and metadata.
         """
-        cfg.LOGGER.info(f"Fetched worker output {output}.")
+        cfg.LOGGER.info(f"Fetched worker output: '{output}'.")
         cfg.LOGGER.info(f"Synthesizing output...")
         synthesizer_output, synthesizer_metadata = self.synthesizer.synthesize(output)
         return synthesizer_output, synthesizer_metadata
