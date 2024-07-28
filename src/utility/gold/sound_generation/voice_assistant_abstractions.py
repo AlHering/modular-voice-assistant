@@ -310,7 +310,11 @@ class ConversationHandler(object):
         while not self.interrupt.is_set():
             self.handle_input()
             self.handle_work(stream=stream)
-            self.handle_output()
+            if stream:
+                while self.queues["worker_out"].qsize() > 0:
+                    self.handle_output()
+            else:
+                self.handle_output()
             if not loop:
                 self.interrupt.set()
         self.reset()
