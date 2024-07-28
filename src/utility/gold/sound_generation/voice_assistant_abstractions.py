@@ -114,7 +114,7 @@ class ConversationHandler(object):
         self.worker_function = worker_function
         self.synthesizer = synthesizer
 
-        self.interrupt: TEvent = None
+        self.stop: TEvent = None
         self.pause_input: TEvent = None
         self.pause_worker: TEvent = None
         self.pause_output: TEvent = None
@@ -122,14 +122,14 @@ class ConversationHandler(object):
         self.threads: Dict[str, Thread] = {}
 
         self.loop_pause = loop_pause
-        self._setup_components()
+        self.setup_components()
 
-    def stop(self) -> None:
+    def stop_components(self) -> None:
         """
-        Stops processes.
+        Stops process components.
         """
         for event in [
-            self.interrupt,
+            self.stop,
             self.pause_input,
             self.pause_worker,
             self.pause_output
@@ -142,11 +142,11 @@ class ConversationHandler(object):
             except RuntimeError:
                 pass
 
-    def _setup_components(self) -> None:
+    def setup_components(self) -> None:
         """
         Sets up components.
         """
-        self.interrupt = TEvent()
+        self.stop = TEvent()
         self.pause_input = TEvent()
         self.pause_worker = TEvent()
         self.pause_output = TEvent()
@@ -166,9 +166,9 @@ class ConversationHandler(object):
         Sets up and resets handler. 
         """
         cfg.LOGGER.info("(Re)setting Conversation Handler...")
-        self.stop()
+        self.stop_components()
         gc.collect()
-        self._setup_components()
+        self.setup_components()
         cfg.LOGGER.info("Setup is done.")
 
     def handle_input(self) -> None:
@@ -258,7 +258,7 @@ class ConversationHandler(object):
             "worker": self.handle_work,
             "output": self.handle_output
         }[task]
-        while not self.interrupt.is_set():
+        while not self.stop.is_set():
             method(**parameters)
 
     def queues_are_busy(self) -> bool:
@@ -275,6 +275,20 @@ class ConversationHandler(object):
         """
         return (self.queues_are_busy() or
                 any(self.threads[thread].is_alive() for thread in self.threads))
+    
+    def interrupt(self) -> None:
+        """
+        Method for interrupting conversation on the assistant side.
+        """
+        self.pause_worker.set()
+        while self.pause_output.is_set():
+            time.sleep(self.loop_pause/16)
+        self.pause_output.set()
+        with self.queues["worker_out"].mutex:
+            self.queues["worker_out"].queue.clear()
+            self.queues["worker_out"].not_full.notify_all()
+        self.pause_worker.clear()
+        self.pause_output.clear()
 
     def _run_nonblocking_conversation(self, loop: bool, stream: bool = False) -> None:
         """
@@ -309,7 +323,7 @@ class ConversationHandler(object):
         """
         if stream:
             self.threads["output"].start()
-        while not self.interrupt.is_set():
+        while not self.stop.is_set():
             self.handle_input()
             self.handle_work(stream=stream)
             if stream:
@@ -318,7 +332,7 @@ class ConversationHandler(object):
             else:
                 self.handle_output()
             if not loop:
-                self.interrupt.set()
+                self.stop.set()
         self.reset()
 
     def run_conversation(self, 
@@ -347,7 +361,7 @@ class ConversationHandler(object):
                 self._run_blocking_conversation(loop=loop, stream=stream)
         except KeyboardInterrupt:
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-            self.stop()
+            self.stop_components()
 
     def report(self) -> str:
         """
@@ -357,7 +371,7 @@ class ConversationHandler(object):
         thread_info = "        \n".join(f"Thread '{thread}: {self.threads[thread].is_alive()}'" for thread in self.threads)
         queue_info = "        \n".join(f"Queue '{queue}: {self.queues[queue].qsize()}'" for queue in self.queues)
         events = {
-            "interrupt": self.interrupt,
+            "interrupt": self.stop,
             "pause_input": self.pause_input,
             "pause_worker": self.pause_worker,
             "pause_output": self.pause_output
@@ -568,9 +582,9 @@ class BasicVoiceAssistant(object):
 
     def stop(self) -> None:
         """
-        Method for setting up conversation handler.
+        Method for stopping conversation handler.
         """
-        self.handler.stop()
+        self.handler.stop_components()
 
     def run_conversation(self, blocking: bool = True) -> None:
         """
