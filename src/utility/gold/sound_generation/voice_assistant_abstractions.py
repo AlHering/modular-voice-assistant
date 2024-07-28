@@ -307,12 +307,14 @@ class ConversationHandler(object):
         :param stream: Declares, whether worker function streams response.
             Defaults to False.
         """
+        if stream:
+            self.threads["output"].start()
         while not self.interrupt.is_set():
             self.handle_input()
             self.handle_work(stream=stream)
             if stream:
-                while self.queues["worker_out"].qsize() > 0:
-                    self.handle_output()
+                while self.queues["worker_out"].qsize() > 0 or self.pause_output.is_set():
+                    time.sleep(self.loop_pause)
             else:
                 self.handle_output()
             if not loop:
