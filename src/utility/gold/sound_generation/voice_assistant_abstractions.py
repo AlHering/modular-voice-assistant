@@ -273,7 +273,7 @@ class ConversationHandler(object):
         Returns pipeline status:
         :return: True, if pipeline is busy, else False.
         """
-        return (self.queues_are_busy or
+        return (self.queues_are_busy() or
                 any(self.threads[thread].is_alive() for thread in self.threads))
 
     def _run_nonblocking_conversation(self, loop: bool, stream: bool = False) -> None:
