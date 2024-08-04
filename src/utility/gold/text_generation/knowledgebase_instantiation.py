@@ -131,4 +131,4 @@ def load_chromadb_knowledgebase(embedding_function: Callable,
             }
         }
     
-    return (client, collections, filtermasks_conversion)
+    return client, collections, filtermasks_conversion
