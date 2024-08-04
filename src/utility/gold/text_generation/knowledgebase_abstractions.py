@@ -6,6 +6,7 @@
 ****************************************************
 """
 import traceback
+from abc import ABC, abstractmethod
 from typing import List, Any, Callable, Optional, Union
 from ..filter_mask import FilterMask
 from src.utility.gold.text_generation.language_model_abstractions import LanguageModelInstance
@@ -90,52 +91,12 @@ class EmbeddingFunction(object):
             return self.multi_target_function(input, encoding_parameters, embedding_parameters)
 
 
-class Knowledgebase(object):
+class Knowledgebase(ABC):
     """
-    Class for knowledgebases.
+    Abstract class, representing knowledgebases.
     """
-    supported_backends: List[str] = []
-
-    def __init__(self,
-                 backend: str,
-                 embedding_function: EmbeddingFunction,
-                 knowledgebase_path: str = None,
-                 knowledgebase_parameters: dict = None,
-                 preprocessing_parameters: dict = None,
-                 embedding_parameters: dict = None,
-                 retrieval_method: str = "similarity",
-                 retrieval_parameters: dict = None) -> None:
-        """
-        Initiation method.
-        :param backend: Knowledgebase backend.
-            Check Knowledgebase.supported_backends for supported backends.
-        :param embedding_function: Default embedding function.
-        :param knowledgebase_path: Knowledgebase path for permanent storage on disk.
-            Defaults to None.
-        :param knowledgebase_parameters: Knowledgebase instantiation parameters.
-            Defaults to None.
-        :param preprocessing_parameters: Document preprocessing paramters.
-            Defaults to None.
-        :param embedding_parameters: Embedding parameters.
-            Defaults to None.
-        :param retrieval_method: Retrieval method.
-            Defaults to "similarity".
-        :param retrieval_parameters: Retrieval parameters.
-            Defaults to None.
-        """
-        self.backend = backend
-        self.embedding_function = embedding_function
-        self.knowledgebase_path = knowledgebase_path
-        self.knowledgebase_parameters = {
-        } if knowledgebase_parameters is None else knowledgebase_parameters
-        self.preprocessing_parameters = {
-        } if preprocessing_parameters is None else preprocessing_parameters
-        self.embedding_parameters = {
-        } if embedding_parameters is None else embedding_parameters
-        self.retrieval_method = retrieval_method
-        self.retrieval_parameters = {
-        } if retrieval_parameters is None else retrieval_parameters
-
+    
+    @abstractmethod
     def retrieve_documents(self, 
                            query: str, 
                            filtermasks: List[FilterMask] = None, 
@@ -157,6 +118,7 @@ class Knowledgebase(object):
         """
         pass
 
+    @abstractmethod
     def embed_documents(self,
                         documents: List[Document], 
                         embedding_paramters: dict = None, 
@@ -171,6 +133,7 @@ class Knowledgebase(object):
         """
         pass
 
+    @abstractmethod
     def store_embeddings(self,
                         embeddings: List[list], 
                         metadatas: List[list] = None, 
@@ -192,6 +155,7 @@ class Knowledgebase(object):
         """
         pass
 
+    @abstractmethod
     def load_documents_from_file(self,
                                 file_path: str,
                                 preprocessing_parameters: dict = None,
@@ -209,6 +173,7 @@ class Knowledgebase(object):
         """
         pass
 
+    @abstractmethod
     def update_document(self, document: Document) -> None:
         """
         Abstract method for deleting a document from the knowledgebase.
@@ -216,6 +181,7 @@ class Knowledgebase(object):
         """
         pass
 
+    @abstractmethod
     def delete_document(self, 
                         document_id: Union[int, str], 
                         collection: str = "base") -> None:
@@ -227,6 +193,7 @@ class Knowledgebase(object):
         """
         pass
 
+    @abstractmethod
     def get_all_documents(self,
                          collection: str = "base") -> List[Document]:
         """
@@ -237,18 +204,21 @@ class Knowledgebase(object):
         """
         pass
 
-    def wipe_knowledgebase(self) -> None:
+    @abstractmethod
+    def wipe(self) -> None:
         """
         Abstract method for wiping knowledgebase.
         """
         pass
 
+    @abstractmethod
     def write_to_storage(self) -> None:
         """
         Abstract method for writing knowledgebase to persistant storage.
         """
         pass
 
+    @abstractmethod
     def read_from_storage(self) -> None:
         """
         Abstract method for reading knowledgebase from persistant storage.
