@@ -209,20 +209,6 @@ class Knowledgebase(ABC):
         """
         pass
 
-    @abstractmethod
-    def write_to_storage(self) -> None:
-        """
-        Abstract method for writing knowledgebase to persistant storage.
-        """
-        pass
-
-    @abstractmethod
-    def read_from_storage(self) -> None:
-        """
-        Abstract method for reading knowledgebase from persistant storage.
-        """
-        pass
-
 
 class ChromaKnowledgebase(Knowledgebase):
     """
@@ -469,19 +455,6 @@ class ChromaKnowledgebase(Knowledgebase):
                 self.client.delete_collection(collection)
         else:
             self.client.delete_collection(collection)
-        
-
-    def write_to_storage(self) -> None:
-        """
-        Method  for writing knowledgebase to persistant storage.
-        """
-        pass
-
-    def read_from_storage(self) -> None:
-        """
-        Method for reading knowledgebase from persistant storage.
-        """
-        pass
 
 
 """
