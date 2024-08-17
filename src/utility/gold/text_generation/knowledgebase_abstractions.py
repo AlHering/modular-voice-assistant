@@ -475,7 +475,7 @@ class ChromaKnowledgebase(Knowledgebase):
         """
         Method  for writing knowledgebase to persistant storage.
         """
-        self.client.p
+        pass
 
     def read_from_storage(self) -> None:
         """
