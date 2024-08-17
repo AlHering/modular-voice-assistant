@@ -249,12 +249,15 @@ class ChromaKnowledgebase(Knowledgebase):
 
         settings = Settings(
             persist_directory=self.knowledgebase_path,
+            is_persistent=True,
             chroma_db_impl="duckdb+parquet",
             anonymized_telemetry=False
         )
         for parameter in [param for param in self.knowledgebase_parameters if hasattr(settings, param)]:
             setattr(settings, parameter, self.knowledgebase_parameters[parameter])
-        self.client = PersistentClient(settings=settings)
+        self.client = PersistentClient(
+            path=knowledgebase_path,
+            settings=settings)
 
         collections = self.knowledgebase_parameters.get("collections", {
             "base": {
@@ -472,7 +475,7 @@ class ChromaKnowledgebase(Knowledgebase):
         """
         Method  for writing knowledgebase to persistant storage.
         """
-        pass
+        self.client.p
 
     def read_from_storage(self) -> None:
         """
