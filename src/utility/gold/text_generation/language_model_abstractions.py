@@ -28,18 +28,18 @@ class LanguageModelInstance(object):
     def __init__(self,
                  backend: str,
                  model_path: str,
-                 model_file: str = None,
-                 model_parameters: dict = None,
-                 tokenizer_path: str = None,
-                 tokenizer_parameters: dict = None,
-                 embeddings_path: str = None,
-                 embeddings_parameters: dict = None,
-                 config_path: str = None,
-                 config_parameters: dict = None,
-                 encoding_parameters: dict = None,
-                 embedding_parameters: dict = None,
-                 generating_parameters: dict = None,
-                 decoding_parameters: dict = None
+                 model_file: str | None = None,
+                 model_parameters: dict | None = None,
+                 tokenizer_path: str | None = None,
+                 tokenizer_parameters: dict | None = None,
+                 embeddings_path: str | None = None,
+                 embeddings_parameters: dict | None = None,
+                 config_path: str | None = None,
+                 config_parameters: dict | None = None,
+                 encoding_parameters: dict | None = None,
+                 embedding_parameters: dict | None = None,
+                 generating_parameters: dict | None = None,
+                 decoding_parameters: dict | None = None
                  ) -> None:
         """
         Initiation method.
@@ -106,7 +106,7 @@ class LanguageModelInstance(object):
     """
     def tokenize(self,
                 input: str,
-                encoding_parameters: dict = None
+                encoding_parameters: dict | None = None
                 ) -> List[float]:
         """
         Method for embedding an input.
@@ -133,8 +133,8 @@ class LanguageModelInstance(object):
 
     def embed(self,
               input: str,
-              encoding_parameters: dict = None,
-              embedding_parameters: dict = None,
+              encoding_parameters: dict | None = None,
+              embedding_parameters: dict | None = None,
               ) -> List[float]:
         """
         Method for embedding an input.
@@ -165,9 +165,9 @@ class LanguageModelInstance(object):
 
     def generate(self,
                  prompt: str,
-                 encoding_parameters: dict = None,
-                 generating_parameters: dict = None,
-                 decoding_parameters: dict = None) -> Tuple[str, Optional[dict]]:
+                 encoding_parameters: dict | None = None,
+                 generating_parameters: dict | None = None,
+                 decoding_parameters: dict | None = None) -> Tuple[str, Optional[dict]]:
         """
         Method for generating a response to a given prompt and conversation history.
         :param prompt: Prompt.
@@ -212,8 +212,8 @@ class ChatModelInstance(object):
 
     def __init__(self,
                  language_model_instance: LanguageModelInstance,
-                 chat_parameters: dict = None,
-                 system_prompt: str = None,
+                 chat_parameters: dict | None = None,
+                 system_prompt: str | None = None,
                  prompt_maker: Callable = None,
                  use_history: bool = True,
                  history: List[Dict[str, Union[str, dict]]] = None) -> None:
@@ -260,7 +260,7 @@ class ChatModelInstance(object):
     Generation methods
     """
 
-    def chat(self, prompt: str, chat_parameters: dict = None) -> Tuple[str, dict]:
+    def chat(self, prompt: str, chat_parameters: dict | None = None) -> Tuple[str, dict]:
         """
         Method for chatting with language model instance.
         :param prompt: User input.
@@ -313,7 +313,7 @@ class ChatModelInstance(object):
             })
         return answer, metadata
     
-    def chat_stream(self, prompt: str, chat_parameters: dict = None, minium_yielded_characters: int = 10) -> Generator[Tuple[str, dict], None, None]:
+    def chat_stream(self, prompt: str, chat_parameters: dict | None = None, minium_yielded_characters: int = 10) -> Generator[Tuple[str, dict], None, None]:
         """
         Method for chatting with language model instance via stream.
         :param prompt: User input.
@@ -391,9 +391,9 @@ class RemoteChatModelInstance(object):
 
     def __init__(self,
                  api_base: str,
-                 api_token: str = None,
-                 chat_parameters: dict = None,
-                 system_prompt: str = None,
+                 api_token: str | None = None,
+                 chat_parameters: dict | None = None,
+                 system_prompt: str | None = None,
                  prompt_maker: Callable = None,
                  use_history: bool = True,
                  history: List[Dict[str, Union[str, dict]]] = None) -> None:
@@ -446,7 +446,7 @@ class RemoteChatModelInstance(object):
     Generation methods
     """
 
-    def chat(self, prompt: str, chat_parameters: dict = None) -> Tuple[str, dict]:
+    def chat(self, prompt: str, chat_parameters: dict | None = None) -> Tuple[str, dict]:
         """
         Method for chatting with the remote language model instance.
         :param prompt: User input.
@@ -482,7 +482,7 @@ class RemoteChatModelInstance(object):
             self.history.append({"role": "assistant", "content": answer, "metadata": metadata})
         return answer, metadata
     
-    def chat_stream(self, prompt: str, chat_parameters: dict = None, minium_yielded_characters: int = 10) -> Generator[Tuple[str, dict], None, None]:
+    def chat_stream(self, prompt: str, chat_parameters: dict | None = None, minium_yielded_characters: int = 10) -> Generator[Tuple[str, dict], None, None]:
         """
         Method for chatting with the remote language model instance via stream.
         :param prompt: User input.

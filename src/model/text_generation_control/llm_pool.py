@@ -54,7 +54,7 @@ class LLMPool(ABC):
     Class for handling a pool of LLM instances.
     """
 
-    def __init__(self, queue_spawns: bool = False, generation_timeout: float = None) -> None:
+    def __init__(self, queue_spawns: bool = False, generation_timeout: float | None = None) -> None:
         """
         Initiation method.
         :param queue_spawns: Queue up instanciation until resources are available.
@@ -128,7 +128,7 @@ class LLMPool(ABC):
             self.workers[target_worker]["config"] = llm_configuration
         return target_worker
 
-    def prepare_llm(self, llm_configuration: dict, given_uuid: str = None) -> str:
+    def prepare_llm(self, llm_configuration: dict, given_uuid: str | None = None) -> str:
         """
         Method for preparing LLM instance.
         :param llm_configuration: LLM configuration.

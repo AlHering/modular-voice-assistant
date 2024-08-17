@@ -105,7 +105,7 @@ def get_json_editor_buttons() -> List[dict]:
     ]
 
 
-def render_json_input(parent_widget: Any, key: str, label: str = None, default_data: dict = None) -> None:
+def render_json_input(parent_widget: Any, key: str, label: str | None = None, default_data: dict | None = None) -> None:
     """
     Function for rendering JSON input.
     :param parent_widget: Parent widget.
@@ -137,7 +137,7 @@ def render_json_input(parent_widget: Any, key: str, label: str = None, default_d
         )
 
 
-def download_web_asset(asset_url: str, output_path: str, headers: dict = None) -> bool:
+def download_web_asset(asset_url: str, output_path: str, headers: dict | None = None) -> bool:
     """
     Function for downloading web asset.
     :param asset_url: Asset URL.

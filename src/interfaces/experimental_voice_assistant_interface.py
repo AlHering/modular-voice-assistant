@@ -28,7 +28,7 @@ Backend control
 """
 BACKEND: FastAPI = None
 CONTROLLER: VoiceAssistantController = None
-OBJECT_REPR: dict = None
+OBJECT_REPR: dict | None = None
 ROUTER: APIRouter = None
 
 def interface_function() -> Optional[Any]:
@@ -154,7 +154,7 @@ def setup_endpoints() -> None:
 """
 Backend runner
 """
-def run_backend(host: str = None, port: int = None, reload: bool = True) -> None:
+def run_backend(host: str | None = None, port: int | None = None, reload: bool = True) -> None:
     """
     Function for running backend server.
     :param host: Server host. Defaults to None in which case "127.0.0.1" is set.

@@ -42,7 +42,7 @@ class WorkerPool(ABC):
     Class for handling a pool of worker instances.
     """
 
-    def __init__(self, task: Task, queue_spawns: bool = False, processing_timeout: float = None) -> None:
+    def __init__(self, task: Task, queue_spawns: bool = False, processing_timeout: float | None = None) -> None:
         """
         Initiation method.
         :param task: Task which implements the run-method.
@@ -118,7 +118,7 @@ class WorkerPool(ABC):
             self.workers[target_worker]["config"] = worker_configuration
         return target_worker
 
-    def prepare_worker(self, worker_configuration: dict, given_uuid: str = None) -> str:
+    def prepare_worker(self, worker_configuration: dict, given_uuid: str | None = None) -> str:
         """
         Method for preparing worker instance.
         :param worker_configuration: Worker configuration.
@@ -367,7 +367,7 @@ class Pipeline(object):
             )
             self.threads[component].daemon = True
 
-    def start(self, component: str = None) -> None:
+    def start(self, component: str | None = None) -> None:
         """
         Starts component thread(s).
         :param component: Specific component to start thread for.
@@ -379,7 +379,7 @@ class Pipeline(object):
         else:
             self.threads[component].start()
 
-    def stop(self, component: str = None) -> None:
+    def stop(self, component: str | None = None) -> None:
         """
         Stops component thread(s).
         :param component: Specific component to stop thread for.

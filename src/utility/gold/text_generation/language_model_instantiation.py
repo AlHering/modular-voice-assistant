@@ -49,13 +49,13 @@ Model instantiation functions
 
 
 def load_ctransformers_model(model_path: str,
-                             model_file: str = None,
+                             model_file: str | None = None,
                              model_parameters: dict = {},
-                             tokenizer_path: str = None,
+                             tokenizer_path: str | None = None,
                              tokenizer_parameters: dict = {},
-                             embeddings_path: str = None,
+                             embeddings_path: str | None = None,
                              embeddings_parameters: dict = {},
-                             config_path: str = None,
+                             config_path: str | None = None,
                              config_parameters: dict = {}) -> Tuple:
     """
     Function for loading ctransformers based model objects.
@@ -109,13 +109,13 @@ def load_ctransformers_model(model_path: str,
 
 
 def load_transformers_model(model_path: str,
-                            model_file: str = None,
+                            model_file: str | None = None,
                             model_parameters: dict = {},
-                            tokenizer_path: str = None,
+                            tokenizer_path: str | None = None,
                             tokenizer_parameters: dict = {},
-                            embeddings_path: str = None,
+                            embeddings_path: str | None = None,
                             embeddings_parameters: dict = {},
-                            config_path: str = None,
+                            config_path: str | None = None,
                             config_parameters: dict = {}) -> Tuple:
     """
     Function for loading transformers based model objects.
@@ -163,13 +163,13 @@ def load_transformers_model(model_path: str,
 
 
 def load_llamacpp_model(model_path: str,
-                        model_file: str = None,
+                        model_file: str | None = None,
                         model_parameters: dict = {},
-                        tokenizer_path: str = None,
+                        tokenizer_path: str | None = None,
                         tokenizer_parameters: dict = {},
-                        embeddings_path: str = None,
+                        embeddings_path: str | None = None,
                         embeddings_parameters: dict = {},
-                        config_path: str = None,
+                        config_path: str | None = None,
                         config_parameters: dict = {}) -> Tuple:
     """
     Function for loading llamacpp based model objects.
@@ -210,13 +210,13 @@ def load_llamacpp_model(model_path: str,
 
 
 def load_autogptq_model(model_path: str,
-                        model_file: str = None,
+                        model_file: str | None = None,
                         model_parameters: dict = {},
-                        tokenizer_path: str = None,
+                        tokenizer_path: str | None = None,
                         tokenizer_parameters: dict = {},
-                        embeddings_path: str = None,
+                        embeddings_path: str | None = None,
                         embeddings_parameters: dict = {},
-                        config_path: str = None,
+                        config_path: str | None = None,
                         config_parameters: dict = {}) -> Tuple:
     """
     Function for loading autogptq based model objects.
@@ -257,13 +257,13 @@ def load_autogptq_model(model_path: str,
 
 
 def load_exllamav2_model(model_path: str,
-                         model_file: str = None,
+                         model_file: str | None = None,
                          model_parameters: dict = {},
-                         tokenizer_path: str = None,
+                         tokenizer_path: str | None = None,
                          tokenizer_parameters: dict = {},
-                         embeddings_path: str = None,
+                         embeddings_path: str | None = None,
                          embeddings_parameters: dict = {},
-                         config_path: str = None,
+                         config_path: str | None = None,
                          config_parameters: dict = {}) -> Tuple:
     """
     Function for loading exllama v2 based model objects.
@@ -315,13 +315,13 @@ def load_exllamav2_model(model_path: str,
 
 
 def load_langchain_llamacpp_model(model_path: str,
-                                  model_file: str = None,
+                                  model_file: str | None = None,
                                   model_parameters: dict = {},
-                                  tokenizer_path: str = None,
+                                  tokenizer_path: str | None = None,
                                   tokenizer_parameters: dict = {},
-                                  embeddings_path: str = None,
+                                  embeddings_path: str | None = None,
                                   embeddings_parameters: dict = {},
-                                  config_path: str = None,
+                                  config_path: str | None = None,
                                   config_parameters: dict = {}) -> Tuple:
     """
     Function for loading langchain-llamacpp based model objects.

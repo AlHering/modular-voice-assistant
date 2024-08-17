@@ -17,7 +17,7 @@ except ImportError:
     keyboard = None
 
 
-def play_wave_file(wave_file: str, chunk_size: int = 1024, stream_kwargs: dict = None) -> None:
+def play_wave_file(wave_file: str, chunk_size: int = 1024, stream_kwargs: dict | None = None) -> None:
     """
     Plays wave audio file.
     :param wave_file: Wave file path.
@@ -48,7 +48,7 @@ def play_wave_file(wave_file: str, chunk_size: int = 1024, stream_kwargs: dict =
 
 
 def play_wave(wave: np.ndarray,
-              stream_kwargs: dict = None) -> None:
+              stream_kwargs: dict | None = None) -> None:
     """
     Plays wave audio file.
     :param wave: Waveform as numpy array.
@@ -85,7 +85,7 @@ class InterruptMethod(Enum):
 def record_audio_with_pyaudio(interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
                               interrupt_threshold: Any = 5.0,
                               chunk_size: int = 2024,
-                              stream_kwargs: dict = None) -> List[bytes]:
+                              stream_kwargs: dict | None = None) -> List[bytes]:
     """
     Records audio with pyaudio.
     :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT". 
@@ -140,7 +140,7 @@ def record_audio_with_pyaudio_to_file(output_path: str,
                                       interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
                                       interrupt_threshold: Any = 5.0,
                                       chunk_size: int = 2024,
-                                      stream_kwargs: dict = None) -> None:
+                                      stream_kwargs: dict | None = None) -> None:
     """
     Records audio with pyaudio and saves it to wave file.
     :param output_path: Wave file output path.
@@ -172,7 +172,7 @@ def record_audio_with_pyaudio_to_file(output_path: str,
 def record_audio_with_pyaudio_to_numpy_array(interrupt_method: InterruptMethod = InterruptMethod.TIME_INTERVAL,
                                              interrupt_threshold: Any = 5.0,
                                              chunk_size: int = 2024,
-                                             stream_kwargs: dict = None) -> np.ndarray:
+                                             stream_kwargs: dict | None = None) -> np.ndarray:
     """
     Records audio with pyaudio to a numpy array.
     :param interrupt_method: Interrupt method as either "TIME_INTERVAL", "KEYBOARD_INTERRUPT". 

@@ -41,7 +41,7 @@ def get_page_content(url: str) -> html.HtmlElement:
     return html.fromstring(page.content)
 
 
-def get_session(proxy_dict: dict = None) -> requests.Session:
+def get_session(proxy_dict: dict | None = None) -> requests.Session:
     """
     Function for getting requests session.
     :param proxy_dict: Proxy dictionary.
@@ -108,7 +108,7 @@ def safely_request_page(url, tries: int = 5, delay: float = 2.0) -> requests.Res
     return resp
 
 
-def download_web_asset(asset_url: str, output_path: str, add_extension: bool = False, headers: dict = None) -> None:
+def download_web_asset(asset_url: str, output_path: str, add_extension: bool = False, headers: dict | None = None) -> None:
     """
     Function for downloading web asset.
     :param asset_url: Asset URL.

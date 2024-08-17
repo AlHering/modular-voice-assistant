@@ -24,7 +24,7 @@ from src.configuration import configuration as cfg
 #
 MODE: str = "direct"
 CLIENT: httpx.AsyncClient = None
-METHODS: dict = None 
+METHODS: dict | None = None 
 
 
 VA_BASE = f"{cfg.VOICE_ASSISTANT_BACKEND_HOST}:{cfg.VOICE_ASSISTANT_BACKEND_PORT}/{cfg.VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE}"

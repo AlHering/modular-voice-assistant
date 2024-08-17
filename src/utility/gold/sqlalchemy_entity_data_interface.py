@@ -63,7 +63,7 @@ class SQLAlchemyEntityInterface(EntityDataInterface):
     """
 
     def __init__(self, environment_profile: dict, entity_profiles: dict, linkage_profiles: dict,
-                 view_profiles: dict = None) -> None:
+                 view_profiles: dict | None = None) -> None:
         """
         Initiation method for SQLAlchemy Entity Interface.
         :param environment_profile: Environment profile.

@@ -25,7 +25,7 @@ from llama_cpp.server.settings import ConfigFileSettings
 
 
 def load_llamacpp_model(model_path: str,
-                        model_file: str = None,
+                        model_file: str | None = None,
                         model_parameters: dict = {}) -> Llama:
     """
     Function for loading llamacpp-based model instance.

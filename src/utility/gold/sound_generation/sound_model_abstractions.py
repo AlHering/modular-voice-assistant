@@ -31,9 +31,9 @@ class Transcriber(object):
 
     def __init__(self,
                  backend: str,
-                 model_path: str = None,
-                 model_parameters: dict = None,
-                 transcription_parameters: dict = None) -> None:
+                 model_path: str | None = None,
+                 model_parameters: dict | None = None,
+                 transcription_parameters: dict | None = None) -> None:
         """
         Initiation method.
         :param backend: Backend for model loading.
@@ -65,7 +65,7 @@ class Transcriber(object):
             "whisper": transcribe_with_whisper
         }[self.backend]
 
-    def transcribe(self, audio_input: Union[str, list], transcription_parameters: dict = None) -> Tuple[str, dict]:
+    def transcribe(self, audio_input: Union[str, list], transcription_parameters: dict | None = None) -> Tuple[str, dict]:
         """
         Transcribes audio to text.
         :param audio_input: Wave file path or waveform.
@@ -91,9 +91,9 @@ class Synthesizer(object):
 
     def __init__(self,
                  backend: str,
-                 model_path: str = None,
-                 model_parameters: dict = None,
-                 synthesis_parameters: dict = None) -> None:
+                 model_path: str | None = None,
+                 model_parameters: dict | None = None,
+                 synthesis_parameters: dict | None = None) -> None:
         """
         Initiation method.
         :param backend: Backend for model loading.
@@ -126,7 +126,7 @@ class Synthesizer(object):
             "coqui-tts": synthesize_with_coqui_tts_to_file
         }[self.backend]
 
-    def synthesize(self, text: str, synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
+    def synthesize(self, text: str, synthesis_parameters: dict | None = None) -> Tuple[np.ndarray, dict]:
         """
         Synthesize text to audio.
         :param text: Text to synthesize to audio.
@@ -139,7 +139,7 @@ class Synthesizer(object):
             model=self.model,
             synthesis_parameters=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters)
 
-    def synthesize_to_file(self, text: str, output_path: str, synthesis_parameters: dict = None) -> Tuple[str, dict]:
+    def synthesize_to_file(self, text: str, output_path: str, synthesis_parameters: dict | None = None) -> Tuple[str, dict]:
         """
         Synthesize text to audio.
         :param text: Text to synthesize to audio.
@@ -162,9 +162,9 @@ class SpeechRecorder(object):
     supported_input_devices = get_input_devices(include_metadata=True)
 
     def __init__(self,
-                 input_device_index: int = None,
-                 recognizer_parameters: dict = None,
-                 microphone_parameters: dict = None,
+                 input_device_index: int | None = None,
+                 recognizer_parameters: dict | None = None,
+                 microphone_parameters: dict | None = None,
                  loop_pause = .1) -> None:
         """
         Initiation method.
@@ -198,8 +198,8 @@ class SpeechRecorder(object):
         } if microphone_parameters is None else microphone_parameters
 
     def record_single_input(self,
-                            recognizer_parameters: dict = None,
-                            microphone_parameters: dict = None) -> Tuple[np.ndarray, dict]:
+                            recognizer_parameters: dict | None = None,
+                            microphone_parameters: dict | None = None) -> Tuple[np.ndarray, dict]:
         """
         Records continuesly and puts results into output_queue.
         :param output_queue: Queue to put tuples of recordings and metadata into.
@@ -228,9 +228,9 @@ class SpeechRecorder(object):
 
     def record(self, 
                output_queue: Queue,
-               recognizer_parameters: dict = None,
-               microphone_parameters: dict = None,
-               interrupt_threshold: float = None) -> None:
+               recognizer_parameters: dict | None = None,
+               microphone_parameters: dict | None = None,
+               interrupt_threshold: float | None = None) -> None:
         """
         Records continuesly and puts results into output_queue.
         :param output_queue: Queue to put tuples of recorded audio data (as numpy array) and recording metadata.

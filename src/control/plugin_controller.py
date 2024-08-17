@@ -20,7 +20,7 @@ class PluginController(object):
     """
     Class, representing Plugin Controller objects.
     """
-    def __init__(self, plugin_class_dictionary: dict, plugin_folders: List[str] = None, security_hashes: dict = None,
+    def __init__(self, plugin_class_dictionary: dict, plugin_folders: List[str] = None, security_hashes: dict | None = None,
                  supported_types: List[str] = None, ignore_failed_imports: bool = True) -> None:
         """
         Plugin controller for importing and managing plugins.
@@ -131,7 +131,7 @@ class PluginController(object):
                 raise ex
         return plugin
 
-    def save_plugin_info(self, plugin_type: str = None, plugin_name: str = None) -> None:
+    def save_plugin_info(self, plugin_type: str | None = None, plugin_name: str | None = None) -> None:
         """
         Method for saving plugin info files back to disk.
         :param plugin_type: Plugin type of target plugin. Defaults to None in which case all types are potentially saved.
@@ -146,7 +146,7 @@ class PluginController(object):
         else:
             self.plugins[plugin_type][plugin_name].save()
 
-    def get_plugin(self, plugin_type: str = None, plugin_name: str = None) -> Any:
+    def get_plugin(self, plugin_type: str | None = None, plugin_name: str | None = None) -> Any:
         """
         Method for getting plugin instance.
         :param plugin_type: Plugin type of target plugin.

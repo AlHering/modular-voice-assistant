@@ -167,7 +167,7 @@ def get_entry_count(engine: Engine, table: Table) -> int:
     return int(engine.connect().execute(select(func.count()).select_from(table)).scalar())
 
 
-def create_mapping_from_dictionary(mapping_base: Any, entity_type: str, column_data: dict, linkage_data: dict = None, typing_translation: dict = SQLALCHEMY_TYPING_FROM_STRING_DICTIONARY) -> Any:
+def create_mapping_from_dictionary(mapping_base: Any, entity_type: str, column_data: dict, linkage_data: dict | None = None, typing_translation: dict = SQLALCHEMY_TYPING_FROM_STRING_DICTIONARY) -> Any:
     """
     Function for creating database mapping from dictionary.
     :param mapping_base: Mapping base class.
@@ -229,7 +229,7 @@ def create_mapping_from_dictionary(mapping_base: Any, entity_type: str, column_d
     return type(entity_type[0].upper()+entity_type[1:], (mapping_base,), class_data)
 
 
-def migrate(source_uri: str, target_uri: str, source_tables: List[str], target_tables: List[str], column_translation: dict = None) -> None:
+def migrate(source_uri: str, target_uri: str, source_tables: List[str], target_tables: List[str], column_translation: dict | None = None) -> None:
     """
     Function for migrating database contents.
     :param source_uri: URI of source DB.

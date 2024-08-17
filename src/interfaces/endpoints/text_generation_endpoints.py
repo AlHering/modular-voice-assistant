@@ -79,8 +79,8 @@ class AgentTool(BaseModel):
     """
     name: str
     description: str
-    function: str = None
-    return_type: str = None
+    function: str | None = None
+    return_type: str | None = None
     tool_arguments: Optional[List[Union[ToolArgument, int]]] = None
 
 

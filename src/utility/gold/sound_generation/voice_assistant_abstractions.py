@@ -195,7 +195,7 @@ class ConversationHandler(object):
         cfg.LOGGER.info(f"Preparing for worker...")
         return output, metadata
 
-    def handle_work(self, timeout: float = None, stream: bool = False) -> None:
+    def handle_work(self, timeout: float | None = None, stream: bool = False) -> None:
         """
         Acquires input, computes and reroutes worker output.
         :param timeout: Timeout for blocking methods.
@@ -228,7 +228,7 @@ class ConversationHandler(object):
         synthesizer_output, synthesizer_metadata = self.synthesizer.synthesize(output)
         return synthesizer_output, synthesizer_metadata
     
-    def handle_output(self, timeout: float = None) -> None:
+    def handle_output(self, timeout: float | None = None) -> None:
         """
         Acquires and reroutes generated output based.
         :param timeout: Timeout for blocking methods.
@@ -245,7 +245,7 @@ class ConversationHandler(object):
         else:
             time.sleep(self.loop_pause)
 
-    def loop(self, task: str = "output", parameters: dict = None) -> None:
+    def loop(self, task: str = "output", parameters: dict | None = None) -> None:
         """
         Method for looping task.
         :param task: Task out of "input", "worker" and "output".
@@ -398,19 +398,19 @@ class ConversationHandlerSession(object):
     synthesizer_supported_backends: List[str] = Synthesizer.supported_backends
 
     def __init__(self,
-        working_directory: str = None,
+        working_directory: str | None = None,
         loop_pause: float = .1,
-        transcriber_backend: str = None,
-        transcriber_model_path: str = None,
-        transcriber_model_parameters: dict = None,
-        transcriber_transcription_parameters: dict = None,
-        synthesizer_backend: str = None,
-        synthesizer_model_path: str = None,
-        synthesizer_model_parameters: dict = None,
-        synthesizer_synthesis_parameters: dict = None,
-        speechrecorder_input_device_index: int = None,
-        speechrecorder_recognizer_parameters: dict = None,
-        speechrecorder_microphone_parameters: dict = None,
+        transcriber_backend: str | None = None,
+        transcriber_model_path: str | None = None,
+        transcriber_model_parameters: dict | None = None,
+        transcriber_transcription_parameters: dict | None = None,
+        synthesizer_backend: str | None = None,
+        synthesizer_model_path: str | None = None,
+        synthesizer_model_parameters: dict | None = None,
+        synthesizer_synthesis_parameters: dict | None = None,
+        speechrecorder_input_device_index: int | None = None,
+        speechrecorder_recognizer_parameters: dict | None = None,
+        speechrecorder_microphone_parameters: dict | None = None,
         speechrecorder_loop_pause: float = .1 
     ) -> None:
         """

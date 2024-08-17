@@ -162,7 +162,7 @@ class AgentMemory(object):
     """
     supported_backends: List[str] = ["cache"]
 
-    def __init__(self, uuid: str = None, backend: str = "cache", memories: List[AgentMemoryEntry] = None, path: str = None) -> None:
+    def __init__(self, uuid: str | None = None, backend: str = "cache", memories: List[AgentMemoryEntry] = None, path: str | None = None) -> None:
         """
         Initiation method.
         :param uuid: UUID for identifying memory object.
@@ -236,7 +236,7 @@ class AgentMemory(object):
         """
         pass
 
-    def retrieve_memories_by_similarity(self, reference: str, filtermasks: List[FilterMask] = None, retrieval_parameters: dict = None) -> List[AgentMemoryEntry]:
+    def retrieve_memories_by_similarity(self, reference: str, filtermasks: List[FilterMask] = None, retrieval_parameters: dict | None = None) -> List[AgentMemoryEntry]:
         """
         Method for retrieving memories by similarity.
         :param reference: Reference for similarity search.

@@ -18,7 +18,7 @@ class GenericPlugin(object):
     Generic Plugin class.
     """
 
-    def __init__(self, info: dict, path: str, security_hash: str = None, install_dependencies: bool = False) -> None:
+    def __init__(self, info: dict, path: str, security_hash: str | None = None, install_dependencies: bool = False) -> None:
         """
         Representation of a generic plugin.
         :param info: Plugin info.
@@ -72,7 +72,7 @@ class GenericPlugin(object):
         """
         pass
 
-    def save(self, path: str = None) -> None:
+    def save(self, path: str | None = None) -> None:
         """
         Method for saving plugin info to file.
         :param path: Plugin path to safe plugin info file to, defaults to None in which case the import path is taken.

@@ -18,8 +18,8 @@ from .llama_cpp_python_utility import load_llamacpp_server_subprocess, terminate
 
 def run_llama_cpp_server_based_chat(server_config: Union[str, dict],
                                          initiation_message: str,
-                                         assistant_llm_config: dict = None,
-                                         user_proxy_llm_config: dict = None) -> None:
+                                         assistant_llm_config: dict | None = None,
+                                         user_proxy_llm_config: dict | None = None) -> None:
     """
     Function for running a llama cpp server based chat.
     :param server_config: Path to llama cpp server config file or config dictionary.

@@ -14,7 +14,7 @@ from typing import Any, List, Optional
 from ..bronze.hashing_utility import hash_with_sha256
 
 
-def get_module(path: str, sha256: str = None) -> Optional[Any]:
+def get_module(path: str, sha256: str | None = None) -> Optional[Any]:
     """
     Function for loading and returning module.
     :param path: Path to Python file.
@@ -29,7 +29,7 @@ def get_module(path: str, sha256: str = None) -> Optional[Any]:
         return module
 
 
-def get_function_from_path(path: str, sha256: str = None) -> Any:
+def get_function_from_path(path: str, sha256: str | None = None) -> Any:
     """
     Function for loading and returning function from path.
     :param path: Path to function in the form '[path to .py-file]:[function name]'.
@@ -79,7 +79,7 @@ def get_object_contents(target_object: object) -> list:
     return dir(target_object)
 
 
-def safely_import_package(package_name: str, version: str = None, import_name: str = None,
+def safely_import_package(package_name: str, version: str | None = None, import_name: str | None = None,
                           import_path: List[str] = None, _installation_executed: bool = False) -> Optional[Any]:
     """
     Function for safely importing pip package and installing it, if it is not already installed.
@@ -110,7 +110,7 @@ def safely_import_package(package_name: str, version: str = None, import_name: s
             raise ex
 
 
-def check_module_availability(package_name: str, import_name: str = None,
+def check_module_availability(package_name: str, import_name: str | None = None,
                               import_path: List[str] = None) -> Optional[Any]:
     """
     Function for checking import target availability.

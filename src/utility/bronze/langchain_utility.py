@@ -42,7 +42,7 @@ def get_or_create_chromadb(chroma_db_settings: Settings, embedding_function: Any
     return Chroma(persist_directory=chroma_db_settings.persist_directory, embedding_function=embedding_function, client_settings=chroma_db_settings)
 
 
-def create_collection(chroma_db: Chroma, collection_name: str, metadata: dict = None) -> None:
+def create_collection(chroma_db: Chroma, collection_name: str, metadata: dict | None = None) -> None:
     """
     Function for adding documents to ChromaDB.
     :param chroma_db: ChromaDB instance.
@@ -71,7 +71,7 @@ def add_documents_to_chromadb(chroma_db: Chroma, documents: List[Document], docs
                             hash_text_with_sha256(document.page_content) for document in documents])
 
 
-def add_texts_to_chromadb(chroma_db: Chroma, texts: List[str], texts_metadata: List[str] = None, texts_ids: List[str] = None, collection_name: str = None) -> None:
+def add_texts_to_chromadb(chroma_db: Chroma, texts: List[str], texts_metadata: List[str] = None, texts_ids: List[str] = None, collection_name: str | None = None) -> None:
     """
     Function for adding texts to ChromaDB.
     :param chroma_db: ChromaDB instance.

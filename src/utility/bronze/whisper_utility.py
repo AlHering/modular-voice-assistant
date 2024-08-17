@@ -53,7 +53,7 @@ def normalize_audio_for_whisper(audio_input: Union[str, np.ndarray, torch.Tensor
         return audio_input
 
 
-def transcribe(audio_input: Union[str, np.ndarray, torch.Tensor], model: whisper.Whisper = None, transcription_parameters: dict = None) -> Tuple[str, List[dict]]:
+def transcribe(audio_input: Union[str, np.ndarray, torch.Tensor], model: whisper.Whisper = None, transcription_parameters: dict | None = None) -> Tuple[str, List[dict]]:
     """
     Transcribes wave file or waveform with whisper.
     :param audio_input: Wave file path or waveform.

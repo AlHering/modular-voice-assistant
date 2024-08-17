@@ -129,7 +129,7 @@ Backend runner
 """
 
 
-def run_backend(host: str = None, port: int = None, reload: bool = True) -> None:
+def run_backend(host: str | None = None, port: int | None = None, reload: bool = True) -> None:
     """
     Function for running backend server.
     :param host: Server host. Defaults to None in which case "127.0.0.1" is set.

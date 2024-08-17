@@ -77,8 +77,8 @@ class EmbeddingFunction(object):
 
     def __call__(self,
                  input: Union[str, List[str]],
-                 encoding_parameters: dict = None,
-                 embedding_parameters: dict = None,
+                 encoding_parameters: dict | None = None,
+                 embedding_parameters: dict | None = None,
                  ) -> Union[List[float], List[List[float]]]:
         """
         Method for embedding an input.
@@ -103,8 +103,8 @@ class Knowledgebase(ABC):
     def retrieve_documents(self, 
                            query: str, 
                            filtermasks: List[FilterMask] = None, 
-                           retrieval_method: str = None, 
-                           retrieval_paramters: dict = None,
+                           retrieval_method: str | None = None, 
+                           retrieval_paramters: dict | None = None,
                            collection: str = "base") -> List[Document]:
         """
         Method for retrieving documents.
@@ -124,7 +124,7 @@ class Knowledgebase(ABC):
     @abstractmethod
     def embed_documents(self,
                         documents: List[Document], 
-                        embedding_paramters: dict = None, 
+                        embedding_paramters: dict | None = None, 
                         collection: str = "base") -> None:
         """
         Method for embedding documents.
@@ -201,7 +201,7 @@ class Knowledgebase(ABC):
 
     @abstractmethod
     def delete_collection(self,
-             collection: str = None) -> None:
+             collection: str | None = None) -> None:
         """
         Abstract method for deleting collections from the knowledgebase.
         :param collection: Target collection.
@@ -217,8 +217,8 @@ class ChromaKnowledgebase(Knowledgebase):
     def __init__(self,
                  knowledgebase_path: str,
                  embedding_function: ChromaEmbeddingFunction,
-                 knowledgebase_parameters: dict = None,
-                 retrieval_parameters: dict = None) -> None:
+                 knowledgebase_parameters: dict | None = None,
+                 retrieval_parameters: dict | None = None) -> None:
         """
         Initiates chroma based knowledgebase.
         :param knowledgebase_path: Knowledgebase path for permanent storage on disk.
@@ -317,7 +317,7 @@ class ChromaKnowledgebase(Knowledgebase):
     def retrieve_documents(self, 
                            query: str, 
                            filtermasks: List[FilterMask] = None, 
-                           retrieval_paramters: dict = None,
+                           retrieval_paramters: dict | None = None,
                            collection: str = "base") -> List[Document]:
         """
         Method for retrieving documents.
@@ -343,7 +343,7 @@ class ChromaKnowledgebase(Knowledgebase):
 
     def embed_documents(self,
                         documents: List[Document], 
-                        embedding_paramters: dict = None, 
+                        embedding_paramters: dict | None = None, 
                         collection: str = "base") -> None:
         """
         Method for embedding documents.
@@ -429,7 +429,7 @@ class ChromaKnowledgebase(Knowledgebase):
 
     def create_collection(self,
              collection: str,
-             metadata: dict = None,
+             metadata: dict | None = None,
              embedding_function: ChromaEmbeddingFunction = None) -> None:
         """
         Method for creating collections for the knowledgebase.
@@ -444,7 +444,7 @@ class ChromaKnowledgebase(Knowledgebase):
         )
 
     def delete_collection(self,
-             collection: str = None) -> None:
+             collection: str | None = None) -> None:
         """
         Method for deleting collections from the knowledgebase.
         :param collection: Target collection.

@@ -23,7 +23,7 @@ def get_authorization_token(password: str) -> str:
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 
-def handle_gateways(filter_index: int = None, data_index: Union[int, List[int]] = None, skip: bool = False) -> Any:
+def handle_gateways(filter_index: int | None = None, data_index: Union[int, List[int]] = None, skip: bool = False) -> Any:
     """
     Decorator method for wrapping interfacing methods and handling defaults, obfuscation and deobuscation.
     :param filter_index: Index of filter argument.
@@ -87,8 +87,8 @@ class EntityDataInterface(ABC):
     In contrast to the Common Entity Data Interfaces, this solution does not support Plugins!
     """
 
-    def __init__(self, environment_profile: dict, entity_profiles: dict, linkage_profiles: dict = None,
-                 view_profiles: dict = None) -> None:
+    def __init__(self, environment_profile: dict, entity_profiles: dict, linkage_profiles: dict | None = None,
+                 view_profiles: dict | None = None) -> None:
         """
         Method for initiating data handle object.
         :param environment_profile: Environment profile for entity profiles.

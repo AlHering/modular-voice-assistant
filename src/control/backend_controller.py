@@ -21,7 +21,7 @@ class BackendController(BasicSQLAlchemyInterface):
     Controller class for handling backend interface requests.
     """
     
-    def __init__(self, working_directory: str = None, database_uri: str = None) -> None:
+    def __init__(self, working_directory: str | None = None, database_uri: str | None = None) -> None:
         """
         Initiation method.
         :param working_directory: Working directory.

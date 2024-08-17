@@ -89,8 +89,8 @@ class EmbeddingFunction(object):
 
     def __call__(self,
                  input: Union[str, List[str]],
-                 encoding_parameters: dict = None,
-                 embedding_parameters: dict = None,
+                 encoding_parameters: dict | None = None,
+                 embedding_parameters: dict | None = None,
                  ) -> Union[List[float], List[List[float]]]:
         """
         Method for embedding an input.
@@ -126,11 +126,11 @@ class VectorStore(abc.ABC):
     def __init__(self,
                  backend: str,
                  embedding_function: EmbeddingFunction,
-                 knowledgebase_path: str = None,
-                 knowledgebase_parameters: dict = None,
-                 preprocessing_parameters: dict = None,
-                 embedding_parameters: dict = None,
-                 retrieval_parameters: dict = None) -> None:
+                 knowledgebase_path: str | None = None,
+                 knowledgebase_parameters: dict | None = None,
+                 preprocessing_parameters: dict | None = None,
+                 embedding_parameters: dict | None = None,
+                 retrieval_parameters: dict | None = None) -> None:
         """
         Initiation method.
         :param backend: Knowledgebase backend.
@@ -159,7 +159,7 @@ class VectorStore(abc.ABC):
         } if retrieval_parameters is None else retrieval_parameters
 
     @abc.abstractmethod
-    def get_or_create_collection(self, collection: str, metadata: dict = None, embedding_function: EmbeddingFunction = None) -> Any:
+    def get_or_create_collection(self, collection: str, metadata: dict | None = None, embedding_function: EmbeddingFunction = None) -> Any:
         """
         Method for retrieving or creating a collection.
         :param collection: Collection collection.
@@ -181,7 +181,7 @@ class VectorStore(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def retrieve_documents(self, query: str, collection: str, metadata_constraints: dict = None, search_type: str = "similarity", search_kwargs: dict = {"k": 4, "include_metadata": True}) -> List[Document]:
+    def retrieve_documents(self, query: str, collection: str, metadata_constraints: dict | None = None, search_type: str = "similarity", search_kwargs: dict = {"k": 4, "include_metadata": True}) -> List[Document]:
         """
         Method for acquiring documents.
         :param query: Retrieval query.

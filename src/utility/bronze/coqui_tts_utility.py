@@ -51,7 +51,7 @@ def download_coqui_tts_model(model_id: str,
 
 def synthesize(text: str, 
                model: TTS = None, 
-               synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
+               synthesis_parameters: dict | None = None) -> Tuple[np.ndarray, dict]:
     """
     Synthesizes text with Coqui TTS and returns the results.
     :param text: Output text.
@@ -89,7 +89,7 @@ def synthesize(text: str,
 def synthesize_to_file(text: str, 
                        output_path: str, 
                        model: TTS = None, 
-                       synthesis_parameters: dict = None) -> str:
+                       synthesis_parameters: dict | None = None) -> str:
     """
     Synthesizes text with Coqui TTS and saves results to a file.
     :param text: Output text.
@@ -111,7 +111,7 @@ def synthesize_to_file(text: str,
 
 def synthesize_and_play(text: str, 
                         model: TTS = None, 
-                        synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
+                        synthesis_parameters: dict | None = None) -> Tuple[np.ndarray, dict]:
     """
     Synthesizes text with Coqui TTS and outputs the resulting audio data.
     :param text: Output text.
@@ -150,7 +150,7 @@ def synthesize_and_play(text: str,
 
 
 def test_available_speakers(model: TTS, 
-                            synthesis_parameters: dict = None,
+                            synthesis_parameters: dict | None = None,
                             text: str = "This is a very short test.",
                             play_results: bool = False) -> List[Tuple[str, Tuple[np.ndarray, dict]]]:
     """
@@ -178,7 +178,7 @@ def test_available_speakers(model: TTS,
 
 def output_available_speakers_to_file(output_dir: str,
                                       model: TTS, 
-                                      synthesis_parameters: dict = None,
+                                      synthesis_parameters: dict | None = None,
                                       text: str = "This is a very short test.") -> List[Tuple[str, str]]:
     """
     Function for testing available speakers by writing there output to files.

@@ -20,8 +20,8 @@ def record_and_transcribe_speech_with_speech_recognition(transcription_callback:
                                                          interrupt_threshold: Any = 5.0,
                                                          pause_threshold: float = 1.0,
                                                          chunk_size: int = 2024,
-                                                         recognizer_kwargs: dict = None,
-                                                         microphone_kwargs: dict = None,
+                                                         recognizer_kwargs: dict | None = None,
+                                                         microphone_kwargs: dict | None = None,
                                                          logger: Any = None) -> List[bytes]:
     """
     Records and transcribes speech with the speech recognition framework.

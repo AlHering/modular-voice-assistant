@@ -208,14 +208,14 @@ class SpeechRecognitionModule(VoiceAssistantModule):
     """
 
     def __init__(self,
-                 recorder_input_device_index: int = None,
-                 recorder_recognizer_parameters: dict = None,
-                 recorder_microphone_parameters: dict = None,
+                 recorder_input_device_index: int | None = None,
+                 recorder_recognizer_parameters: dict | None = None,
+                 recorder_microphone_parameters: dict | None = None,
                  recorder_loop_pause = .1,
-                 transcriber_backend: str = None,
-                 transcriber_model_path: str = None,
-                 transcriber_model_parameters: dict = None,
-                 transcription_parameters: dict = None,
+                 transcriber_backend: str | None = None,
+                 transcriber_model_path: str | None = None,
+                 transcriber_model_parameters: dict | None = None,
+                 transcription_parameters: dict | None = None,
                  skip_validation: bool = False) -> None:
         """
         Initiation method.
@@ -287,9 +287,9 @@ class SynthesizedAudioOutputModule(VoiceAssistantModule):
 
     def __init__(self,
                  synthesizer_backend: str,
-                 synthesizer_model_path: str = None,
-                 synthesizer_model_parameters: dict = None,
-                 synthesis_parameters: dict = None,
+                 synthesizer_model_path: str | None = None,
+                 synthesizer_model_parameters: dict | None = None,
+                 synthesis_parameters: dict | None = None,
                  skip_validation:bool = False) -> None:
         """
         Initiation method.
@@ -323,7 +323,7 @@ class SynthesizedAudioOutputModule(VoiceAssistantModule):
         """
         return True, {"reason": "validation successful"}
         
-    def run(self, text: str, synthesis_parameters: dict = None) -> Tuple[np.ndarray, dict]:
+    def run(self, text: str, synthesis_parameters: dict | None = None) -> Tuple[np.ndarray, dict]:
         """
         Synthesize text to audio and outputs it.
         :param text: Text to synthesize to audio.

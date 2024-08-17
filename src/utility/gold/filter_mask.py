@@ -82,7 +82,7 @@ class FilterMask(object):
     "OR"-Logic can be implemented, by creating different FilterMasks and wrapping their checks into an any()-function.
     """
 
-    def __init__(self, expressions: List[list], operator_dictionary: dict = None, deep: bool = False,
+    def __init__(self, expressions: List[list], operator_dictionary: dict | None = None, deep: bool = False,
                  relative: bool = False, reference: Any = None) -> None:
         """
         Initiation method for FilterMasks objects.
@@ -246,7 +246,7 @@ class FilterMask(object):
             reference_data, reference_attribute))
 
     def _check_flat_dictionary_key_existence(self, data: dict, attribute: Union[str, list],
-                                             reference_data: dict = None,
+                                             reference_data: dict | None = None,
                                              reference_attribute: Union[str, list] = None) -> bool:
         """
         Internal Method for checking flat key existence.
@@ -260,7 +260,7 @@ class FilterMask(object):
         return attribute in data and (not self.relative or reference_attribute in reference_data)
 
     def _check_deep_dictionary_key_existence(self, data: dict, attribute: Union[str, list],
-                                             reference_data: dict = None,
+                                             reference_data: dict | None = None,
                                              reference_attribute: Union[str, list] = None) -> bool:
         """
         Internal Method for checking deep key existence.
