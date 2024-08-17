@@ -6,12 +6,13 @@
 ****************************************************
 """
 import traceback
+import copy
 from abc import ABC, abstractmethod
 from typing import List, Any, Callable, Optional, Union
 from ..filter_mask import FilterMask
 from src.utility.gold.text_generation.language_model_abstractions import LanguageModelInstance
 from chromadb.config import Settings
-from chromadb import Client
+from chromadb import PersistentClient, Documents as ChromaDocuments, EmbeddingFunction as ChromaEmbeddingFunction, Embeddings as ChromaEmbeddings, QueryResult as ChromaQueryResult
 
 
 """
@@ -114,7 +115,7 @@ class Knowledgebase(ABC):
             Defaults to None.
         :param retrieval_paramters: Retrieval paramters.
             Defaults to None.
-        :param collection: Collection to retrieve documents from.
+        :param collection: Target collection.
             Defaults to "base".
         :return: Retrieved documents.
         """
@@ -130,7 +131,7 @@ class Knowledgebase(ABC):
         :param documents: Documents to embed.
         :param embedding_paramters: Embedding parameters.
             Defaults to None.
-        :param collection: Collection to embed to.
+        :param collection: Target collection.
             Defaults to "base".
         """
         pass
@@ -140,7 +141,6 @@ class Knowledgebase(ABC):
                         embeddings: List[list], 
                         metadatas: List[list] = None, 
                         ids: List[Union[int, str]] = None, 
-                        embedding_paramters: dict = None, 
                         collection: str = "base") -> None:
         """
         Method for storing embeddings.
@@ -150,36 +150,20 @@ class Knowledgebase(ABC):
         :param ids: IDs to store the embedding of the same index under.
             Defaults to None.
         :param embeddings: Documents to embed.
-        :param embedding_paramters: Embedding parameters.
-            Defaults to None.
-        :param collection: Collection to embed to.
+        :param collection: Target collection.
             Defaults to "base".
         """
         pass
 
     @abstractmethod
-    def load_documents_from_file(self,
-                                file_path: str,
-                                preprocessing_parameters: dict = None,
-                                embed_after_loading: bool = False,
-                                collection: str = "base") -> List[Document]:
+    def update_document(self, 
+                        document: Document, 
+                        collection: str = "base") -> None:
         """
-        Method for loading documents from a file.
-        :param file_path: File path to load documents from.
-        :param preprocessing_parameters: Preprocessing parameters.
-            Defaults to None in which case the default preprocessing parameters are used.
-        :param embed_after_loading: Flag for declaring whether to directly embed the loaded documents.
-            Defaults to False.
-        :param collection: Collection to embed to. Only is relevant if embed_after_loading is set to True.
-            Defaults to "base".
-        """
-        pass
-
-    @abstractmethod
-    def update_document(self, document: Document) -> None:
-        """
-        Abstract method for deleting a document from the knowledgebase.
+        Abstract method for updating a document in the knowledgebase.
         :param document: Document update.
+        :param collection: Target collection.
+            Defaults to "base".
         """
         pass
 
@@ -190,7 +174,7 @@ class Knowledgebase(ABC):
         """
         Abstract method for deleting a document from the knowledgebase.
         :param document_id: Document ID.
-        :param collection: Collection to embed to.
+        :param collection: Target collection.
             Defaults to "base".
         """
         pass
@@ -200,16 +184,28 @@ class Knowledgebase(ABC):
                          collection: str = "base") -> List[Document]:
         """
         Method for retrieving all documents.
-        :param collection: Collection to retrieve documents from.
+        :param collection: Target collection.
             Defaults to "base".
         :return: Retrieved documents.
         """
         pass
 
     @abstractmethod
-    def wipe(self) -> None:
+    def create_collection(self,
+             collection: str) -> None:
         """
-        Abstract method for wiping knowledgebase.
+        Abstract method for creating collections for the knowledgebase.
+        :param collection: Collection name.
+        """
+        pass
+
+    @abstractmethod
+    def delete_collection(self,
+             collection: str = None) -> None:
+        """
+        Abstract method for deleting collections from the knowledgebase.
+        :param collection: Target collection.
+            Defaults to None in which case all collections are wiped.
         """
         pass
 
@@ -234,7 +230,7 @@ class ChromaKnowledgebase(Knowledgebase):
     """
     def __init__(self,
                  knowledgebase_path: str,
-                 embedding_function: EmbeddingFunction,
+                 embedding_function: ChromaEmbeddingFunction,
                  knowledgebase_parameters: dict = None,
                  retrieval_parameters: dict = None) -> None:
         """
@@ -258,14 +254,14 @@ class ChromaKnowledgebase(Knowledgebase):
         )
         for parameter in [param for param in self.knowledgebase_parameters if hasattr(settings, param)]:
             setattr(settings, parameter, self.knowledgebase_parameters[parameter])
-        self.client = Client(settings=settings)
+        self.client = PersistentClient(settings=settings)
 
         collections = self.knowledgebase_parameters.get("collections", {
             "base": {
                 "embedding_function": embedding_function
             }
         })
-        collections = {
+        self.collections = {
             collection: self.client.get_or_create_collection(
                 name=collection,
                 **collections[collection])
@@ -300,7 +296,6 @@ class ChromaKnowledgebase(Knowledgebase):
         :return: Query keyword arguments.
         """
         return {
-            "where": {
                 "$or": [
                     {
                         "$and": [
@@ -313,12 +308,26 @@ class ChromaKnowledgebase(Knowledgebase):
                     }
                 ] 
             }
-        }
+    
+    def query_result_conversion(self, query_result: ChromaQueryResult) -> List[Document]:
+        """
+        Method for converting a ChromaDB query result to documents.
+        :param query_result: ChromaDB query result.
+        :return: List of documents.
+        """
+        documents = []
+        for index, id in enumerate(query_result.ids):
+            documents.extend([
+                Document(id=id, 
+                         content=doc, 
+                         metadata=query_result.metadatas[index][doc_index]
+                ) for doc_index, doc in enumerate(query_result.documents[index])
+            ])
+        return documents
     
     def retrieve_documents(self, 
                            query: str, 
                            filtermasks: List[FilterMask] = None, 
-                           retrieval_method: str = None, 
                            retrieval_paramters: dict = None,
                            collection: str = "base") -> List[Document]:
         """
@@ -330,11 +339,18 @@ class ChromaKnowledgebase(Knowledgebase):
             Defaults to None.
         :param retrieval_paramters: Retrieval paramters.
             Defaults to None.
-        :param collection: Collection to retrieve documents from.
+        :param collection: Target collection.
             Defaults to "base".
         :return: Retrieved documents.
         """
-        pass
+        retrieval_paramters = copy.deepcopy(self.retrieval_parameters) if retrieval_paramters is None else copy.deepcopy(retrieval_paramters)
+        if filtermasks is not None:
+            retrieval_paramters["where"] = self.filtermasks_conversion(filtermasks)
+        result = self.collections[collection].query(
+            query_texts=[query],
+            **retrieval_paramters
+        )
+        return self.query_result_conversion(result)
 
     def embed_documents(self,
                         documents: List[Document], 
@@ -344,17 +360,28 @@ class ChromaKnowledgebase(Knowledgebase):
         Method for embedding documents.
         :param documents: Documents to embed.
         :param embedding_paramters: Embedding parameters.
-            Defaults to None.
-        :param collection: Collection to embed to.
+            Defaults to None and is not used for the ChromaDB backend.
+        :param collection: Target collection.
             Defaults to "base".
         """
-        pass
+        ids = []
+        contents = []
+        metadatas = []
+        for document in documents:
+            ids.append(document.id)
+            contents.append(document.content)
+            metadatas.append(document.metadatas)
+
+        self.collections[collection](
+            ids=ids,
+            documents=contents,
+            metadatas=metadatas
+        )
 
     def store_embeddings(self,
                         embeddings: List[list], 
                         metadatas: List[list] = None, 
                         ids: List[Union[int, str]] = None, 
-                        embedding_paramters: dict = None, 
                         collection: str = "base") -> None:
         """
         Method for storing embeddings.
@@ -364,73 +391,92 @@ class ChromaKnowledgebase(Knowledgebase):
         :param ids: IDs to store the embedding of the same index under.
             Defaults to None.
         :param embeddings: Documents to embed.
-        :param embedding_paramters: Embedding parameters.
-            Defaults to None.
-        :param collection: Collection to embed to.
+        :param collection: Target collection.
             Defaults to "base".
         """
-        pass
+        self.collections[collection].add(
+            ids=ids,
+            embeddings=embeddings,
+            metadatas=metadatas
+        )
 
-    def load_documents_from_file(self,
-                                file_path: str,
-                                preprocessing_parameters: dict = None,
-                                embed_after_loading: bool = False,
-                                collection: str = "base") -> List[Document]:
+    def update_document(self, 
+                        document: Document, 
+                        collection: str = "base") -> None:
         """
-        Method for loading documents from a file.
-        :param file_path: File path to load documents from.
-        :param preprocessing_parameters: Preprocessing parameters.
-            Defaults to None in which case the default preprocessing parameters are used.
-        :param embed_after_loading: Flag for declaring whether to directly embed the loaded documents.
-            Defaults to False.
-        :param collection: Collection to embed to. Only is relevant if embed_after_loading is set to True.
-            Defaults to "base".
-        """
-        pass
-
-    def update_document(self, document: Document) -> None:
-        """
-        Abstract method for deleting a document from the knowledgebase.
+        Method  for updating a document in the knowledgebase.
         :param document: Document update.
+        :param collection: Target collection.
+            Defaults to "base".
         """
-        pass
+        self.collections[collection].update(
+            ids=document.id,
+            documents=document.content,
+            metadatas=document.metadata
+        )
 
     def delete_document(self, 
                         document_id: Union[int, str], 
                         collection: str = "base") -> None:
         """
-        Abstract method for deleting a document from the knowledgebase.
+        Method  for deleting a document from the knowledgebase.
         :param document_id: Document ID.
-        :param collection: Collection to embed to.
+        :param collection: Target collection.
             Defaults to "base".
         """
-        pass
+        self.collections[collection].delete(
+            ids=document_id
+        )
 
     def get_all_documents(self,
-                         collection: str = "base") -> List[Document]:
+                          collection: str = "base") -> List[Document]:
         """
         Method for retrieving all documents.
-        :param collection: Collection to retrieve documents from.
+        :param collection: Target collection.
             Defaults to "base".
         :return: Retrieved documents.
         """
-        pass
+        return self.query_result_conversion(self.collections[collection].get())
 
-    def wipe(self) -> None:
+    def create_collection(self,
+             collection: str,
+             metadata: dict = None,
+             embedding_function: ChromaEmbeddingFunction = None) -> None:
         """
-        Abstract method for wiping knowledgebase.
+        Method for creating collections for the knowledgebase.
+        :param collection: Collection name.
+        :param metadata: Collection metadata.
+        :param embedding_function: Collection embedding function.
         """
-        pass
+        self.collections[collection] = self.client.get_or_create_collection(
+            name=collection,
+            metadata=metadata,
+            embedding_function=embedding_function
+        )
+
+    def delete_collection(self,
+             collection: str = None) -> None:
+        """
+        Method for deleting collections from the knowledgebase.
+        :param collection: Target collection.
+            Defaults to None in which case all collections are wiped.
+        """
+        if collection is None:
+            for collection in self.collections:
+                self.client.delete_collection(collection)
+        else:
+            self.client.delete_collection(collection)
+        
 
     def write_to_storage(self) -> None:
         """
-        Abstract method for writing knowledgebase to persistant storage.
+        Method  for writing knowledgebase to persistant storage.
         """
         pass
 
     def read_from_storage(self) -> None:
         """
-        Abstract method for reading knowledgebase from persistant storage.
+        Method for reading knowledgebase from persistant storage.
         """
         pass
 
