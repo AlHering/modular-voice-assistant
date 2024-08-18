@@ -222,13 +222,14 @@ class ChromaKnowledgebase(Knowledgebase):
     """
     def __init__(self,
                  knowledgebase_path: str,
-                 embedding_function: ChromaEmbeddingFunction,
+                 embedding_function: ChromaEmbeddingFunction | None = None,
                  knowledgebase_parameters: dict | None = None,
                  retrieval_parameters: dict | None = None) -> None:
         """
         Initiates chroma based knowledgebase.
         :param knowledgebase_path: Knowledgebase path for permanent storage on disk.
         :param embedding_model: Embedding function.
+            Defaults to None.
         :param knowledgebase_parameters: Knowledgebase instantiation parameters.
             Defaults to None.
         :param retrieval_parameters: Retrieval parameters.
