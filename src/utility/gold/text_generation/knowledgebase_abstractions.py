@@ -12,6 +12,7 @@ from datetime import datetime as dt
 from pydantic import BaseModel
 from typing import List, Any, Callable, Optional, Union
 from ..filter_mask import FilterMask
+from uuid import uuid4
 from src.utility.gold.text_generation.language_model_abstractions import LanguageModelInstance
 from chromadb.config import Settings
 from chromadb import PersistentClient, Documents as ChromaDocuments, EmbeddingFunction as ChromaEmbeddingFunction, Embeddings as ChromaEmbeddings, QueryResult as ChromaQueryResult
@@ -24,7 +25,7 @@ class Document(object):
     """
     Class, representing documents.
     """
-    def __init__(self, id: Union[int, str], content: str, metadata: dict) -> None:
+    def __init__(self, id: Union[int, str], content: str, metadata: dict | None = None, embedding: List[float] | None = None) -> None:
         """
         Initiation method.
         :param id: ID of the document.
@@ -33,7 +34,8 @@ class Document(object):
         """
         self.id = id
         self.content = content
-        self.metadata = metadata
+        self.metadata = {} if metadata is None else metadata
+        self.embedding = embedding
 
 
 class EmbeddingFunction(object):
@@ -42,8 +44,8 @@ class EmbeddingFunction(object):
     """
 
     def __init__(self,
-                 single_target_function: Callable = None,
-                 multi_target_function: Callable = None,
+                 single_target_function: Callable | None = None,
+                 multi_target_function: Callable | None = None,
                  language_model_instance: LanguageModelInstance = None) -> None:
         """
         Intiation method. 
@@ -104,7 +106,7 @@ class Knowledgebase(ABC):
     @abstractmethod
     def retrieve_documents(self, 
                            query: str, 
-                           filtermasks: List[FilterMask] = None, 
+                           filtermasks: List[FilterMask] | None = None, 
                            retrieval_method: str | None = None, 
                            retrieval_paramters: dict | None = None,
                            collection: str = "base") -> List[Document]:
@@ -311,14 +313,15 @@ class ChromaKnowledgebase(Knowledgebase):
             documents.extend([
                 Document(id=id, 
                          content=doc, 
-                         metadata=query_result.metadatas[index][doc_index]
+                         metadata=query_result.metadatas[index][doc_index],
+                         embedding=query_result.embeddings[index][doc_index] if query_result.embeddings else None
                 ) for doc_index, doc in enumerate(query_result.documents[index])
             ])
         return documents
     
     def retrieve_documents(self, 
                            query: str, 
-                           filtermasks: List[FilterMask] = None, 
+                           filtermasks: List[FilterMask] | None = None, 
                            retrieval_paramters: dict | None = None,
                            collection: str = "base") -> List[Document]:
         """
@@ -337,6 +340,8 @@ class ChromaKnowledgebase(Knowledgebase):
         retrieval_paramters = copy.deepcopy(self.retrieval_parameters) if retrieval_paramters is None else copy.deepcopy(retrieval_paramters)
         if filtermasks is not None:
             retrieval_paramters["where"] = self.filtermasks_conversion(filtermasks)
+        if "include" not in retrieval_paramters:
+            retrieval_paramters["include"] = ["embeddings", "metadatas", "documents"]
         result = self.collections[collection].query(
             query_texts=[query],
             **retrieval_paramters
@@ -355,31 +360,40 @@ class ChromaKnowledgebase(Knowledgebase):
         :param collection: Target collection.
             Defaults to "base".
         """
-        ids = []
-        contents = []
-        metadatas = []
+        data = {
+            "embeddings": {"ids": [], "documents": [], "metadatas": [], "embeddings":[]},
+            "no_embeddings": {"ids": [], "documents": [], "metadatas": []}
+        }
+        
         for document in documents:
-            ids.append(document.id)
-            contents.append(document.content)
-            metadatas.append(document.metadatas)
+            if document.embedding is None:
+                data["no_embeddings"]["ids"].append(document.id)
+                data["no_embeddings"]["documents"].append(document.content)
+                data["no_embeddings"]["metadatas"].append(document.metadata)
+            else:
+                data["embeddings"]["ids"].append(document.id)
+                data["embeddings"]["documents"].append(document.content)
+                data["embeddings"]["metadatas"].append(document.metadata)
+                data["embeddings"]["embeddings"].append(document.embedding)
 
-        self.collections[collection](
-            ids=ids,
-            documents=contents,
-            metadatas=metadatas
-        )
+        if data["no_embeddings"]["ids"]:
+            self.collections[collection].add(**data["no_embeddings"])
+        if data["embeddings"]["ids"]:
+            self.collections[collection].add(**data["embeddings"])
 
     def store_embeddings(self,
+                        ids: List[Union[int, str]],
                         embeddings: List[list], 
+                        contents: List[str] = None, 
                         metadatas: List[list] = None, 
-                        ids: List[Union[int, str]] = None, 
                         collection: str = "base") -> None:
         """
         Method for storing embeddings.
-        :param embeddings: Embeddings to store.
-        :param metadatas: Metadata entries to attach to embedding of the same index.
-            Defaults to None.
         :param ids: IDs to store the embedding of the same index under.
+        :param embeddings: Embeddings to store.
+        :param contents: Content entries to attach to embedding of the same index.
+            Defaults to None.
+        :param metadatas: Metadata entries to attach to embedding of the same index.
             Defaults to None.
         :param embeddings: Documents to embed.
         :param collection: Target collection.
@@ -388,6 +402,7 @@ class ChromaKnowledgebase(Knowledgebase):
         self.collections[collection].add(
             ids=ids,
             embeddings=embeddings,
+            documents=contents,
             metadatas=metadatas
         )
 
@@ -403,7 +418,8 @@ class ChromaKnowledgebase(Knowledgebase):
         self.collections[collection].update(
             ids=document.id,
             documents=document.content,
-            metadatas=document.metadata
+            metadatas=document.metadata,
+            embeddings=document.embedding
         )
 
     def delete_document(self, 
@@ -459,38 +475,69 @@ class ChromaKnowledgebase(Knowledgebase):
             self.client.delete_collection(collection)
 
 
+class MemoryMetadata(BaseModel):
+    """
+    Represents a memory entry metadata.
+    """
+    timestamp: dt
+    importance: int = -1
+    layer: int = 0
+    additional: dict = {}
+
+
 class MemoryEntry(BaseModel):
     """
     Represents a memory entry.
     """
     id: Union[int, str]
-    timestamp: dt
     content: str
-    embedding: List[float]
-    importance: int = -1
-    layer: int = 0
-    metadata: dict = {}
+    embedding: List[float] | None
+    metadata: MemoryMetadata
 
 
 class Memory(object):
     """
     Represents a knowledgebase based memory.
     """
-    def __init__(self, 
-                 knowledgebase: Knowledgebase) -> None:
+    def __init__(self, knowledgebase: Knowledgebase, memories: List[MemoryEntry] | None = None) -> None:
         """
         Initiation method.
         :param knowledgebase: Knowledgebase for managing memories.
+        :param memories: List of memory entries for initialization.
+            Defaults to None.
         """
         self.knowledgebase = knowledgebase
+        self._initiate_memory(memories=memories)
 
-    def _initiate_memory(self, memories: List[MemoryEntry] = None) -> None:
+    @classmethod
+    def from_knowledgebase(cls, knowledgebase: Knowledgebase) -> Any:
+        """
+        Returns session instance from a json file.
+        :param file_path: Path to json file.
+        :returns: VoiceAssistantSession instance.
+        """
+        return cls(knowledgebase=knowledgebase)
+
+    def _initiate_memory(self, memories: List[MemoryEntry] | None = None) -> None:
         """
         Method for initiating memories.
         :param memories: List of memory entries for initialization.
             Defaults to None.
         """
-        pass
+        if memories is not None:
+            for memory in memories:
+                self.add_memory(memory)
+
+    def memory_to_document(self, memory: MemoryEntry) -> Document:
+        """
+        Method for converting memory entries to documents.
+        :param memory: Memory entry.
+        """
+        return Document(
+            id=memory.id,
+            content=memory.content,
+
+        )
 
     def memorize(self, content: str, metadata: dict) -> None:
         """
@@ -499,30 +546,47 @@ class Memory(object):
         :param content: Memory content.
         :param metadata: Metadata for memory.
         """
-        pass
+        self.add_memory(MemoryEntry(
+            id=uuid4(),
+            timestamp=dt.now(),
+            content=content,
+            metadata=metadata
+        ))
 
-    def remember(self, reference: str, metadata: dict) -> Optional[List[str]]:
+    def remember(self, reference: str, metadata: dict | None = None) -> Optional[List[str]]:
         """
         Method for remembering something.
         This method should be used for memory model agnostic usage.
         :param reference: Recall reference.
         :param metadata: Metadata.
+            Defaults to None.
         :return: Memory contents as list of strings.
         """
-        pass
+        if metadata:
+            filtermask = FilterMask([[key, "==", metadata[key]] for key in metadata])
+            self.retrieve_memories_by_similarity(
+                    reference=reference,
+                    filtermasks=[filtermask])
+        else:
+            return self.retrieve_memories_by_similarity(
+                    reference=reference)
 
     def add_memory(self, memory: MemoryEntry) -> None:
         """
         Method to add a memory.
         :param memory: Memory to add.
         """
-        pass
+        self.knowledgebase.embed_documents(
+            documents=[Document(
+                id=memory.id,
+                content=memory.content,
+                metadata=memory.metadata
+            )]
+        )
 
-    def retrieve_memories(self, retrieval_method: str = "similarity", *args: Optional[Any], **kwargs: Optional[Any]) -> List[MemoryEntry]:
+    def retrieve_memories(self) -> List[MemoryEntry]:
         """
-        Method to add a memory.
-        :param args: Arbitrary initiation arguments.
-        :param kwargs: Arbitrary initiation keyword arguments.
+        Method to retrieve memories.
         :return: List of memories.
         """
         pass
@@ -541,7 +605,7 @@ class Memory(object):
         """
         pass
 
-    def retrieve_memories_by_similarity(self, reference: str, filtermasks: List[FilterMask] = None, retrieval_parameters: dict | None = None) -> List[MemoryEntry]:
+    def retrieve_memories_by_similarity(self, reference: str, filtermasks: List[FilterMask] | None = None, retrieval_parameters: dict | None = None) -> List[MemoryEntry]:
         """
         Method for retrieving memories by similarity.
         :param reference: Reference for similarity search.
