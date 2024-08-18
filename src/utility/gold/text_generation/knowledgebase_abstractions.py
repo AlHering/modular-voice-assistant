@@ -8,6 +8,8 @@
 import traceback
 import copy
 from abc import ABC, abstractmethod
+from datetime import datetime as dt
+from pydantic import BaseModel
 from typing import List, Any, Callable, Optional, Union
 from ..filter_mask import FilterMask
 from src.utility.gold.text_generation.language_model_abstractions import LanguageModelInstance
@@ -456,6 +458,99 @@ class ChromaKnowledgebase(Knowledgebase):
         else:
             self.client.delete_collection(collection)
 
+
+class MemoryEntry(BaseModel):
+    """
+    Represents a memory entry.
+    """
+    id: Union[int, str]
+    timestamp: dt
+    content: str
+    embedding: List[float]
+    importance: int = -1
+    layer: int = 0
+    metadata: dict = {}
+
+
+class Memory(object):
+    """
+    Represents a knowledgebase based memory.
+    """
+    def __init__(self, 
+                 knowledgebase: Knowledgebase) -> None:
+        """
+        Initiation method.
+        :param knowledgebase: Knowledgebase for managing memories.
+        """
+        self.knowledgebase = knowledgebase
+
+    def _initiate_memory(self, memories: List[MemoryEntry] = None) -> None:
+        """
+        Method for initiating memories.
+        :param memories: List of memory entries for initialization.
+            Defaults to None.
+        """
+        pass
+
+    def memorize(self, content: str, metadata: dict) -> None:
+        """
+        Method for memorizing something.
+        This method should be used for memory model agnostic usage.
+        :param content: Memory content.
+        :param metadata: Metadata for memory.
+        """
+        pass
+
+    def remember(self, reference: str, metadata: dict) -> Optional[List[str]]:
+        """
+        Method for remembering something.
+        This method should be used for memory model agnostic usage.
+        :param reference: Recall reference.
+        :param metadata: Metadata.
+        :return: Memory contents as list of strings.
+        """
+        pass
+
+    def add_memory(self, memory: MemoryEntry) -> None:
+        """
+        Method to add a memory.
+        :param memory: Memory to add.
+        """
+        pass
+
+    def retrieve_memories(self, retrieval_method: str = "similarity", *args: Optional[Any], **kwargs: Optional[Any]) -> List[MemoryEntry]:
+        """
+        Method to add a memory.
+        :param args: Arbitrary initiation arguments.
+        :param kwargs: Arbitrary initiation keyword arguments.
+        :return: List of memories.
+        """
+        pass
+
+    def retrieve_memories_by_filtermask(self, filtermasks: List[FilterMask]) -> List[MemoryEntry]:
+        """
+        Method for retrieving memory by filtermasks.
+        :param filtermasks: List of filtermasks.
+        """
+        pass
+
+    def retrieve_memories_by_ids(self, ids: List[Union[int, str]]) -> List[MemoryEntry]:
+        """
+        Method for retrieving memories by IDs.
+        :param ids: IDs of the memories to retrieve.
+        """
+        pass
+
+    def retrieve_memories_by_similarity(self, reference: str, filtermasks: List[FilterMask] = None, retrieval_parameters: dict | None = None) -> List[MemoryEntry]:
+        """
+        Method for retrieving memories by similarity.
+        :param reference: Reference for similarity search.
+        :param filtermasks: List of filtermasks for additional filering.
+            Defaults to None.
+        :param retrieval_parameters: Keyword arguments for retrieval.
+            Defaults to None.
+        """
+        pass
 
 """
 Templates
