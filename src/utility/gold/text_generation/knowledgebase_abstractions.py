@@ -14,8 +14,7 @@ from typing import List, Any, Callable, Optional, Union, Tuple
 from ..filter_mask import FilterMask
 from uuid import uuid4
 from src.utility.gold.text_generation.language_model_abstractions import LanguageModelInstance
-from chromadb.config import Settings
-from chromadb import PersistentClient, Documents as ChromaDocuments, EmbeddingFunction as ChromaEmbeddingFunction, Embeddings as ChromaEmbeddings, QueryResult as ChromaQueryResult
+from chromadb import Settings, PersistentClient, Documents as ChromaDocuments, EmbeddingFunction as ChromaEmbeddingFunction, Embeddings as ChromaEmbeddings, QueryResult as ChromaQueryResult
 
 
 """
