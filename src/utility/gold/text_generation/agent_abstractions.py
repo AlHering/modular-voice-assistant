@@ -215,7 +215,7 @@ class AgentMemory(object):
 
     def retrieve_memories(self, retrieval_method: str = "similarity", *args: Optional[Any], **kwargs: Optional[Any]) -> List[AgentMemoryEntry]:
         """
-        Method to add a memory.
+        Method for retrieving a memory.
         :param args: Arbitrary initiation arguments.
         :param kwargs: Arbitrary initiation keyword arguments.
         :return: List of memories.
