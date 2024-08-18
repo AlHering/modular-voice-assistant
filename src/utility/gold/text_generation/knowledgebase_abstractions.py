@@ -10,7 +10,7 @@ import copy
 from abc import ABC, abstractmethod
 from datetime import datetime as dt
 from pydantic import BaseModel, Field
-from typing import List, Any, Callable, Optional, Union
+from typing import List, Any, Callable, Optional, Union, Tuple
 from ..filter_mask import FilterMask
 from uuid import uuid4
 from src.utility.gold.text_generation.language_model_abstractions import LanguageModelInstance
@@ -323,13 +323,14 @@ class ChromaKnowledgebase(Knowledgebase):
         return documents
     
     def retrieve_documents(self, 
-                           query: str, 
+                           query: str | None = None, 
                            filtermasks: List[FilterMask] | None = None, 
                            retrieval_paramters: dict | None = None,
                            collection: str = "base") -> List[Document]:
         """
         Method for retrieving documents.
         :param query: Retrieval query.
+            Defaults to None.
         :param filtermasks: List of filtermasks.
             Defaults to None.
         :param retrieval_method: Retrieval method.
@@ -341,12 +342,13 @@ class ChromaKnowledgebase(Knowledgebase):
         :return: Retrieved documents.
         """
         retrieval_paramters = copy.deepcopy(self.retrieval_parameters) if retrieval_paramters is None else copy.deepcopy(retrieval_paramters)
+        if query is not None:
+            retrieval_paramters["query_texts"] = [query]
         if filtermasks is not None:
             retrieval_paramters["where"] = self.filtermasks_conversion(filtermasks)
         if "include" not in retrieval_paramters:
             retrieval_paramters["include"] = ["embeddings", "metadatas", "documents"]
         result = self.collections[collection].query(
-            query_texts=[query],
             **retrieval_paramters
         )
         return self.query_result_conversion(result)
@@ -535,12 +537,26 @@ class Memory(object):
         """
         Method for converting memory entries to documents.
         :param memory: Memory entry.
+        :return: Document.
         """
         return Document(
             id=memory.id,
             content=memory.content,
             metadata=memory.metadata.model_dump(),
             embedding=memory.embedding
+        )
+    
+    def document_to_memory(self, document: Document) -> MemoryEntry:
+        """
+        Method for converting documents to memory entries.
+        :param document: Document.
+        :return: Memory entry.
+        """
+        return MemoryEntry(
+            id=document.id,
+            content=document.content,
+            metadata=MemoryMetadata(**document.metadata),
+            embedding=document.embedding
         )
 
     def memorize(self, content: str, metadata: dict) -> None:
@@ -562,7 +578,7 @@ class Memory(object):
                  reference: str, 
                  min_importance: int | None = None, 
                  min_layer: int | None = None, 
-                 additional: dict | None = None) -> Optional[List[str]]:
+                 additional: dict | None = None) -> Optional[List[Tuple[str, dict]]]:
         """
         Method for remembering something.
         This method should be used for memory model agnostic usage.
@@ -582,12 +598,13 @@ class Memory(object):
             for key in additional:
                 filtermask.append([key, "==", additional[key]])
         if filtermask:
-            self.retrieve_memories_by_similarity(
+            memories = self.retrieve_memories_by_similarity(
                     reference=reference,
                     filtermasks=[filtermask])
         else:
-            return self.retrieve_memories_by_similarity(
+            memories = self.retrieve_memories_by_similarity(
                     reference=reference)
+        return [(memory.content, memory.metadata.model_dump()) for memory in memories]
 
     def add_memory(self, memory: MemoryEntry) -> None:
         """
@@ -608,21 +625,7 @@ class Memory(object):
         Method to retrieve memories.
         :return: List of memories.
         """
-        pass
-
-    def retrieve_memories_by_filtermask(self, filtermasks: List[FilterMask]) -> List[MemoryEntry]:
-        """
-        Method for retrieving memory by filtermasks.
-        :param filtermasks: List of filtermasks.
-        """
-        pass
-
-    def retrieve_memories_by_ids(self, ids: List[Union[int, str]]) -> List[MemoryEntry]:
-        """
-        Method for retrieving memories by IDs.
-        :param ids: IDs of the memories to retrieve.
-        """
-        pass
+        return [self.document_to_memory(doc) for doc in self.knowledgebase.get_all_documents()]
 
     def retrieve_memories_by_similarity(self, reference: str, filtermasks: List[FilterMask] | None = None, retrieval_parameters: dict | None = None) -> List[MemoryEntry]:
         """
@@ -633,7 +636,8 @@ class Memory(object):
         :param retrieval_parameters: Keyword arguments for retrieval.
             Defaults to None.
         """
-        pass
+        return [self.document_to_memory(doc) for doc in
+            self.knowledgebase.retrieve_documents(query=reference, filtermasks=filtermasks, retrieval_parameters=retrieval_parameters)]
 
 """
 Templates
