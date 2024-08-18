@@ -53,8 +53,8 @@ class EmbeddingFunction(object):
     """
 
     def __init__(self,
-                 single_target_function: Callable = None,
-                 multi_target_function: Callable = None,
+                 single_target_function: Callable | None = None,
+                 multi_target_function: Callable | None = None,
                  language_model_instance: LanguageModelInstance = None
                  ) -> None:
         """

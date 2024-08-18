@@ -214,7 +214,7 @@ class ChatModelInstance(object):
                  language_model_instance: LanguageModelInstance,
                  chat_parameters: dict | None = None,
                  system_prompt: str | None = None,
-                 prompt_maker: Callable = None,
+                 prompt_maker: Callable | None = None,
                  use_history: bool = True,
                  history: List[Dict[str, Union[str, dict]]] = None) -> None:
         """
@@ -394,7 +394,7 @@ class RemoteChatModelInstance(object):
                  api_token: str | None = None,
                  chat_parameters: dict | None = None,
                  system_prompt: str | None = None,
-                 prompt_maker: Callable = None,
+                 prompt_maker: Callable | None = None,
                  use_history: bool = True,
                  history: List[Dict[str, Union[str, dict]]] = None) -> None:
         """

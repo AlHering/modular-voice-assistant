@@ -71,7 +71,7 @@ class ConversationHandler(object):
                  speech_recorder: SpeechRecorder,
                  transcriber: Transcriber,
                  synthesizer: Synthesizer,
-                 worker_function: Callable = None,
+                 worker_function: Callable | None = None,
                  loop_pause: float = 0.1) -> None:
         """
         Initiation method.

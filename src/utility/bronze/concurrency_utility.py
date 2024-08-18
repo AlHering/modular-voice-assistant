@@ -271,7 +271,7 @@ class PipelineComponentThread(Thread):
                  output_queue: TQueue = None,
                  interrupt: TEvent = None,
                  loop_pause: float = .1,
-                 validation_function: Callable = None,
+                 validation_function: Callable | None = None,
                  *thread_args: Optional[Any], 
                  **thread_kwargs: Optional[Any]) -> None:
         """
