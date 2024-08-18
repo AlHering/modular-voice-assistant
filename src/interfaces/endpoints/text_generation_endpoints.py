@@ -90,7 +90,7 @@ class AgentMemory(BaseModel):
     """
     backend: str
     path: str
-    paramters: Optional[dict] = None
+    parameters: Optional[dict] = None
 
 
 class Agent(BaseModel):

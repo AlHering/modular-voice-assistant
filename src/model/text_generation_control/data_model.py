@@ -183,7 +183,7 @@ def populate_data_instrastructure(engine: Engine, schema: str, model: dict) -> N
                          comment="Cache of the Agent Memory.")
         path = Column(String, nullable=False,
                       comment="Path of the Agent Memory.")
-        paramters = Column(JSON,
+        parameters = Column(JSON,
                            comment="Parameters for the Agent Memory instantiation.")
 
         created = Column(DateTime, server_default=func.now(),

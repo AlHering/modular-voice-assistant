@@ -59,13 +59,13 @@ class EmbeddingFunction(object):
                  ) -> None:
         """
         Intiation method. 
-        Needs at least one of the following paramters.
+        Needs at least one of the following parameters.
         :param single_target_function: Single target embedding function.
             Should be callable with an input as string,
-            encoding parameters and embedding paramters as dictionaries.
+            encoding parameters and embedding parameters as dictionaries.
         :param multi_target_function: Multitarget embedding function.
             Should be callable with an input as list of strings,
-            encoding parameters and embedding paramters as dictionaries.
+            encoding parameters and embedding parameters as dictionaries.
         :param language_model_instance: Language model instance for embedding.
         """
         if all(elem is None for elem in [single_target_function, multi_target_function, language_model_instance]):
@@ -97,7 +97,7 @@ class EmbeddingFunction(object):
         :param input: Input to embed as string or list of strings.
         :param encoding_parameters: Kwargs for encoding as dictionary.
             Defaults to None.
-        :param embedding_paramters: Kwargs for embedding as dictionary.
+        :param embedding_parameters: Kwargs for embedding as dictionary.
             Defaults to None.
         """
         if isinstance(input, str):
@@ -139,7 +139,7 @@ class VectorStore(abc.ABC):
             Defaults to None.
         :param knowledgebase_parameters: Knowledgebase instantiation parameters.
             Defaults to None.
-        :param preprocessing_parameters: Document preprocessing paramters.
+        :param preprocessing_parameters: Document preprocessing parameters.
             Defaults to None.
         :param embedding_parameters: Embedding parameters.
             Defaults to None.

@@ -65,7 +65,7 @@ class LanguageModelInstance(object):
         :param encoding_parameters: Kwargs for encoding in the generation process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the backend in the 
             different initation methods.
-        :param embedding_paramters: Kwargs for embedding as dictionary.
+        :param embedding_parameters: Kwargs for embedding as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the backend in the 
             different initation methods.
         :param generating_parameters: Kwargs for generating in the generation process as dictionary.
@@ -141,7 +141,7 @@ class LanguageModelInstance(object):
         :param input: Input to embed.
         :param encoding_parameters: Kwargs for encoding as dictionary.
             Defaults to None.
-        :param embedding_paramters: Kwargs for embedding as dictionary.
+        :param embedding_parameters: Kwargs for embedding as dictionary.
             Defaults to None.
         """
         encoding_parameters = self.encoding_parameters if encoding_parameters is None else encoding_parameters
