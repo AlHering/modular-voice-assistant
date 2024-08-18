@@ -85,5 +85,13 @@ COMPARISON_METHOD_DICTIONARY = {
     "not": lambda x: not x,
     "&&": lambda *x: all(x),
     "||": lambda *x: any(x),
-    "!": lambda x: not x
+    "!": lambda x: not x,
+    "smaller": lambda x, y: x < y,
+    "greater": lambda x, y: x > y,
+    "smaller_or_equal": lambda x, y: x <= y,
+    "greater_or_equal": lambda x, y: x >= y,
+    "<": lambda x, y: x < y,
+    ">": lambda x, y: x > y,
+    "<=": lambda x, y: x <= y,
+    ">=": lambda x, y: x >= y,
 }
