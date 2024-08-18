@@ -9,7 +9,7 @@ import traceback
 import copy
 from abc import ABC, abstractmethod
 from datetime import datetime as dt
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Any, Callable, Optional, Union
 from ..filter_mask import FilterMask
 from uuid import uuid4
@@ -482,7 +482,7 @@ class MemoryMetadata(BaseModel):
     """
     Represents a memory entry metadata.
     """
-    timestamp: dt
+    timestamp: dt = Field(default_factory=dt.now)
     importance: int = -1
     layer: int = 0
     additional: dict = {}
@@ -539,7 +539,8 @@ class Memory(object):
         return Document(
             id=memory.id,
             content=memory.content,
-
+            metadata=memory.metadata.model_dump(),
+            embedding=memory.embedding
         )
 
     def memorize(self, content: str, metadata: dict) -> None:
@@ -551,22 +552,36 @@ class Memory(object):
         """
         self.add_memory(MemoryEntry(
             id=uuid4(),
-            timestamp=dt.now(),
             content=content,
-            metadata=metadata
+            metadata=MemoryMetadata(
+                additional=metadata
+            )
         ))
 
-    def remember(self, reference: str, metadata: dict | None = None) -> Optional[List[str]]:
+    def remember(self, 
+                 reference: str, 
+                 min_importance: int | None = None, 
+                 min_layer: int | None = None, 
+                 additional: dict | None = None) -> Optional[List[str]]:
         """
         Method for remembering something.
         This method should be used for memory model agnostic usage.
         :param reference: Recall reference.
+        :param min_importance: Minimum importance of the memory.
+
         :param metadata: Metadata.
             Defaults to None.
         :return: Memory contents as list of strings.
         """
-        if metadata:
-            filtermask = FilterMask([[key, "==", metadata[key]] for key in metadata])
+        filtermask = []
+        if min_importance is not None:
+            filtermask.append(["importance", ">=", min_importance])
+        if min_layer is not None:
+            filtermask.append(["layer", ">=", min_layer])
+        if additional is not None:
+            for key in additional:
+                filtermask.append([key, "==", additional[key]])
+        if filtermask:
             self.retrieve_memories_by_similarity(
                     reference=reference,
                     filtermasks=[filtermask])
@@ -583,7 +598,8 @@ class Memory(object):
             documents=[Document(
                 id=memory.id,
                 content=memory.content,
-                metadata=memory.metadata
+                metadata=memory.metadata.model_dump(),
+                embedding=memory.embedding
             )]
         )
 
