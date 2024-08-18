@@ -31,6 +31,9 @@ class Document(object):
         :param id: ID of the document.
         :param content: Textual content of the document.
         :param metadata: Metadata of the document.
+            Defaults to None.
+        :param embedding: Embedding of the document.
+            Defaults to None.
         """
         self.id = id
         self.content = content
