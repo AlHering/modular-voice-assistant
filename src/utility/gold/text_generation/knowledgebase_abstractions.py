@@ -40,6 +40,13 @@ class Document(object):
         self.metadata = {} if metadata is None else metadata
         self.embedding = embedding
 
+    def __dict__(self) -> dict:
+        """
+        Returns dictionary representation of a document.
+        :return: Dictionary representation.
+        """
+        return {"id": self.id, "content": self.content, "metadata": self.metadata, "embedding": self.embedding}
+
 
 class EmbeddingFunction(object):
     """
@@ -312,13 +319,13 @@ class ChromaKnowledgebase(Knowledgebase):
         :return: List of documents.
         """
         documents = []
-        for index, id in enumerate(query_result.ids):
+        for index, id in enumerate(query_result["ids"]):
             documents.extend([
-                Document(id=id, 
+                Document(id=id[index], 
                          content=doc, 
-                         metadata=query_result.metadatas[index][doc_index],
-                         embedding=query_result.embeddings[index][doc_index] if query_result.embeddings else None
-                ) for doc_index, doc in enumerate(query_result.documents[index])
+                         metadata=query_result["metadatas"][index][doc_index],
+                         embedding=query_result["embeddings"][index][doc_index] if query_result["embeddings"] else None
+                ) for doc_index, doc in enumerate(query_result["documents"][index])
             ])
         return documents
     
@@ -559,6 +566,7 @@ class Memory(object):
         :param document: Document.
         :return: Memory entry.
         """
+        print(document.id)
         return MemoryEntry(
             id=document.id,
             content=document.content,
