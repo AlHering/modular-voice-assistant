@@ -373,7 +373,7 @@ class SQLAlchemyEntityInterface(EntityDataInterface):
     """
 
     # override
-    def get_linked_entities(self, linkage: str, source: Any, filters: List[FilterMask] = None, **kwargs: Optional[Any]) -> List[Any]:
+    def get_linked_entities(self, linkage: str, source: Any, filters: List[FilterMask] | None = None, **kwargs: Optional[Any]) -> List[Any]:
         """
         Method for getting linked entities.
         :param source: Source entity.

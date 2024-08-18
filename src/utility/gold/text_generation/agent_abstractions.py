@@ -236,7 +236,7 @@ class AgentMemory(object):
         """
         pass
 
-    def retrieve_memories_by_similarity(self, reference: str, filtermasks: List[FilterMask] = None, retrieval_parameters: dict | None = None) -> List[AgentMemoryEntry]:
+    def retrieve_memories_by_similarity(self, reference: str, filtermasks: List[FilterMask] | None = None, retrieval_parameters: dict | None = None) -> List[AgentMemoryEntry]:
         """
         Method for retrieving memories by similarity.
         :param reference: Reference for similarity search.
