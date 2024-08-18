@@ -168,6 +168,7 @@ configuration/*.env
 machine_learning_models/text_generation/*
 machine_learning_models/sound_generation/*
 machine_learning_models/image_generation/*
+Untitled*.ipynb
 tmp*
 .desktop
 link_local_models.sh
