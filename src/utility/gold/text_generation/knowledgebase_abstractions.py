@@ -14,7 +14,8 @@ from typing import List, Any, Callable, Optional, Union, Tuple
 from ..filter_mask import FilterMask
 from uuid import uuid4
 from src.utility.gold.text_generation.language_model_abstractions import LanguageModelInstance
-from chromadb import Settings, PersistentClient, Documents as ChromaDocuments, EmbeddingFunction as ChromaEmbeddingFunction, Embeddings as ChromaEmbeddings, QueryResult as ChromaQueryResult
+from chromadb import Settings, PersistentClient, EmbeddingFunction as ChromaEmbeddingFunction, QueryResult as ChromaQueryResult
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction as ChromaDefaultEmbeddingFunction
 
 
 """
@@ -51,13 +52,13 @@ class EmbeddingFunction(object):
                  language_model_instance: LanguageModelInstance = None) -> None:
         """
         Intiation method. 
-        Needs at least one of the following paramters.
+        Needs at least one of the following parameters.
         :param single_target_function: Single target embedding function.
             Should be callable with an input as string,
-            encoding parameters and embedding paramters as dictionaries.
+            encoding parameters and embedding parameters as dictionaries.
         :param multi_target_function: Multitarget embedding function.
             Should be callable with an input as list of strings,
-            encoding parameters and embedding paramters as dictionaries.
+            encoding parameters and embedding parameters as dictionaries.
         :param language_model_instance: Language model instance for embedding.
         """
         if all(elem is None for elem in [single_target_function, 
@@ -91,7 +92,7 @@ class EmbeddingFunction(object):
         :param input: Input to embed as string or list of strings.
         :param encoding_parameters: Kwargs for encoding as dictionary.
             Defaults to None.
-        :param embedding_paramters: Kwargs for embedding as dictionary.
+        :param embedding_parameters: Kwargs for embedding as dictionary.
             Defaults to None.
         """
         if isinstance(input, str):
@@ -110,7 +111,7 @@ class Knowledgebase(ABC):
                            query: str, 
                            filtermasks: List[FilterMask] | None = None, 
                            retrieval_method: str | None = None, 
-                           retrieval_paramters: dict | None = None,
+                           retrieval_parameters: dict | None = None,
                            collection: str = "base") -> List[Document]:
         """
         Method for retrieving documents.
@@ -119,7 +120,7 @@ class Knowledgebase(ABC):
             Defaults to None.
         :param retrieval_method: Retrieval method.
             Defaults to None.
-        :param retrieval_paramters: Retrieval paramters.
+        :param retrieval_parameters: Retrieval parameters.
             Defaults to None.
         :param collection: Target collection.
             Defaults to "base".
@@ -130,12 +131,12 @@ class Knowledgebase(ABC):
     @abstractmethod
     def embed_documents(self,
                         documents: List[Document], 
-                        embedding_paramters: dict | None = None, 
+                        embedding_parameters: dict | None = None, 
                         collection: str = "base") -> None:
         """
         Method for embedding documents.
         :param documents: Documents to embed.
-        :param embedding_paramters: Embedding parameters.
+        :param embedding_parameters: Embedding parameters.
             Defaults to None.
         :param collection: Target collection.
             Defaults to "base".
@@ -236,14 +237,13 @@ class ChromaKnowledgebase(Knowledgebase):
             Defaults to None.
         """
         self.knowledgebase_path = knowledgebase_path
-        self.embedding_function = embedding_function
+        self.embedding_function = ChromaDefaultEmbeddingFunction() if embedding_function is None else embedding_function
         self.knowledgebase_parameters = {} if knowledgebase_parameters is None else knowledgebase_parameters
         self.retrieval_parameters = {} if retrieval_parameters is None else retrieval_parameters
 
         settings = Settings(
             persist_directory=self.knowledgebase_path,
             is_persistent=True,
-            chroma_db_impl="duckdb+parquet",
             anonymized_telemetry=False
         )
         for parameter in [param for param in self.knowledgebase_parameters if hasattr(settings, param)]:
@@ -254,7 +254,7 @@ class ChromaKnowledgebase(Knowledgebase):
 
         collections = self.knowledgebase_parameters.get("collections", {
             "base": {
-                "embedding_function": embedding_function
+                "embedding_function": self.embedding_function
             }
         })
         self.collections = {
@@ -325,7 +325,7 @@ class ChromaKnowledgebase(Knowledgebase):
     def retrieve_documents(self, 
                            query: str | None = None, 
                            filtermasks: List[FilterMask] | None = None, 
-                           retrieval_paramters: dict | None = None,
+                           retrieval_parameters: dict | None = None,
                            collection: str = "base") -> List[Document]:
         """
         Method for retrieving documents.
@@ -335,32 +335,32 @@ class ChromaKnowledgebase(Knowledgebase):
             Defaults to None.
         :param retrieval_method: Retrieval method.
             Defaults to None.
-        :param retrieval_paramters: Retrieval paramters.
+        :param retrieval_parameters: Retrieval parameters.
             Defaults to None.
         :param collection: Target collection.
             Defaults to "base".
         :return: Retrieved documents.
         """
-        retrieval_paramters = copy.deepcopy(self.retrieval_parameters) if retrieval_paramters is None else copy.deepcopy(retrieval_paramters)
+        retrieval_parameters = copy.deepcopy(self.retrieval_parameters) if retrieval_parameters is None else copy.deepcopy(retrieval_parameters)
         if query is not None:
-            retrieval_paramters["query_texts"] = [query]
+            retrieval_parameters["query_texts"] = [query]
         if filtermasks is not None:
-            retrieval_paramters["where"] = self.filtermasks_conversion(filtermasks)
-        if "include" not in retrieval_paramters:
-            retrieval_paramters["include"] = ["embeddings", "metadatas", "documents"]
+            retrieval_parameters["where"] = self.filtermasks_conversion(filtermasks)
+        if "include" not in retrieval_parameters:
+            retrieval_parameters["include"] = ["embeddings", "metadatas", "documents"]
         result = self.collections[collection].query(
-            **retrieval_paramters
+            **retrieval_parameters
         )
         return self.query_result_conversion(result)
 
     def embed_documents(self,
                         documents: List[Document], 
-                        embedding_paramters: dict | None = None, 
+                        embedding_parameters: dict | None = None, 
                         collection: str = "base") -> None:
         """
         Method for embedding documents.
         :param documents: Documents to embed.
-        :param embedding_paramters: Embedding parameters.
+        :param embedding_parameters: Embedding parameters.
             Defaults to None and is not used for the ChromaDB backend.
         :param collection: Target collection.
             Defaults to "base".
@@ -480,14 +480,21 @@ class ChromaKnowledgebase(Knowledgebase):
             self.client.delete_collection(collection)
 
 
+def create_memory_timestamp() -> str:
+    """
+    Returns memory timestamp.
+    :return: Ctime formated timestamp.
+    """
+    return dt.ctime(dt.now())
+
+
 class MemoryMetadata(BaseModel):
     """
     Represents a memory entry metadata.
     """
-    timestamp: dt = Field(default_factory=dt.now)
+    timestamp: str = Field(default_factory=create_memory_timestamp)
     importance: int = -1
     layer: int = 0
-    additional: dict = {}
 
 
 class MemoryEntry(BaseModel):
@@ -496,8 +503,8 @@ class MemoryEntry(BaseModel):
     """
     id: Union[int, str]
     content: str
-    embedding: List[float] | None
-    metadata: MemoryMetadata
+    embedding: List[float] | None = None
+    metadata: MemoryMetadata = MemoryMetadata()
 
 
 class Memory(object):
@@ -567,25 +574,22 @@ class Memory(object):
         :param metadata: Metadata for memory.
         """
         self.add_memory(MemoryEntry(
-            id=uuid4(),
+            id=str(uuid4()),
             content=content,
-            metadata=MemoryMetadata(
-                additional=metadata
-            )
+            metadata=MemoryMetadata()
         ))
 
     def remember(self, 
                  reference: str, 
                  min_importance: int | None = None, 
-                 min_layer: int | None = None, 
-                 additional: dict | None = None) -> Optional[List[Tuple[str, dict]]]:
+                 min_layer: int | None = None) -> Optional[List[Tuple[str, dict]]]:
         """
         Method for remembering something.
         This method should be used for memory model agnostic usage.
         :param reference: Recall reference.
         :param min_importance: Minimum importance of the memory.
-
-        :param metadata: Metadata.
+            Defaults to None.
+        :param min_layer: Minimum layer of the memory.
             Defaults to None.
         :return: Memory contents as list of strings.
         """
@@ -594,9 +598,6 @@ class Memory(object):
             filtermask.append(["importance", ">=", min_importance])
         if min_layer is not None:
             filtermask.append(["layer", ">=", min_layer])
-        if additional is not None:
-            for key in additional:
-                filtermask.append([key, "==", additional[key]])
         if filtermask:
             memories = self.retrieve_memories_by_similarity(
                     reference=reference,
