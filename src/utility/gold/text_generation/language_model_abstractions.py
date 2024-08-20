@@ -539,7 +539,8 @@ class RemoteChatModelInstance(object):
                     answer += sentence
                     metadata = {"chunks": chunks}
                     yield sentence, chunk
-
+        if self.use_history:
+            self.history.append({"role": "assistant", "content": answer, "metadata": metadata})
         return answer, metadata
 
     """
