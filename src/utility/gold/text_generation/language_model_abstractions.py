@@ -446,7 +446,7 @@ class RemoteChatModelInstance(object):
             self.history = [{
                 "role": "system", 
                 "content": "You are a helpful AI assistant. Please help users with their tasks." if system_prompt is None else system_prompt, 
-                "metadata": {"intitated": dt.now()}
+                "metadata": {"intitated": dt.ctime(dt.now())}
             }]
         else:
             self.history = history
@@ -551,7 +551,7 @@ class RemoteChatModelInstance(object):
         Method for retrieving a list of available models.
         :return: List of model dictionaries, if fetching was successful.
         """        
-        response = requests.post(self.models_endpoint, headers=self.request_headers)
+        response = requests.get(self.models_endpoint, headers=self.request_headers)
         if response.status_code == 200:
             metadata = response.json()
             return metadata["data"]
