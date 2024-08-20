@@ -216,7 +216,7 @@ class ChatModelInstance(object):
                  system_prompt: str | None = None,
                  prompt_maker: Callable | None = None,
                  use_history: bool = True,
-                 history: List[Dict[str, Union[str, dict]]] = None) -> None:
+                 history: List[Dict[str, Union[str, dict]]] | None = None) -> None:
         """
         Initiation method.
         :param LanguageModelInstance: Language model instance.
@@ -396,7 +396,7 @@ class RemoteChatModelInstance(object):
                  system_prompt: str | None = None,
                  prompt_maker: Callable | None = None,
                  use_history: bool = True,
-                 history: List[Dict[str, Union[str, dict]]] = None) -> None:
+                 history: List[Dict[str, Union[str, dict]]] | None = None) -> None:
         """
         Initiation method.
         :param api_base: API base URL in the format http://<host>:<port>/v1.
@@ -433,6 +433,15 @@ class RemoteChatModelInstance(object):
 
         self.use_history = use_history
 
+        self.completions_endpoint = f"{api_base}/completions"
+        self.embeddings_endpoint = f"{api_base}/embeddings"
+        self.chat_completions_endpoint = f"{api_base}/chat/completions"
+        self.models_endpoint = f"{api_base}/models"
+
+        self.tokenize_endpoint = f"{api_base}/extras/tokenize"
+        self.tokenize_count_endpoint = f"{api_base}/extras/tokenize/count"
+        self.detokenize_endpoint = f"{api_base}/extras/detokenize"
+
         if history is None:
             self.history = [{
                 "role": "system", 
@@ -467,14 +476,14 @@ class RemoteChatModelInstance(object):
         json_payload = copy.deepcopy(chat_parameters)
         json_payload["messages"] = self.history
 
-        response = requests.post(f"{self.api_base}/chat/completions", headers=self.request_headers, json=json_payload)
+        response = requests.post(self.chat_completions_endpoint, headers=self.request_headers, json=json_payload)
         if response.status_code == 200:
             metadata = response.json()
             answer = metadata["choices"][0]["message"]["content"]
         else:
             json_payload.pop("messages")
             json_payload["prompt"] = full_prompt
-            response = requests.post(f"{self.api_base}/completions", headers=self.request_headers, json=json_payload)
+            response = requests.post(self.completions_endpoint, headers=self.request_headers, json=json_payload)
             if response.status_code == 200:
                 metadata = response.json()
                 answer = metadata["choices"][0]["text"]
@@ -505,9 +514,9 @@ class RemoteChatModelInstance(object):
         json_payload = copy.deepcopy(chat_parameters)
         json_payload["messages"] = self.history
 
-        response = requests.post(f"{self.api_base}/chat/completions", headers=self.request_headers, json=json_payload, stream=True)
+        response = requests.post(self.chat_completions_endpoint, headers=self.request_headers, json=json_payload, stream=True)
         if response.status_code != 200:
-            response = requests.post(f"{self.api_base}/completions", headers=self.request_headers, json=json_payload, stream=True)
+            response = requests.post(self.completions_endpoint, headers=self.request_headers, json=json_payload, stream=True)
         if response.status_code != 200:
             return answer, metadata
         
@@ -534,6 +543,7 @@ class RemoteChatModelInstance(object):
 
         return answer, metadata
         
+
 
 """
 Templates
