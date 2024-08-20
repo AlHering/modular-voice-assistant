@@ -496,8 +496,7 @@ class RemoteChatModelInstance(object):
         Method for chatting with the remote language model instance via stream.
         :param prompt: User input.
         :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
-            Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
-            model backend.
+            Defaults to None in which case an empty dictionary is created.
         :param minium_yielded_characters: Minimum yielded alphabetic characters, defaults to 10.
         :return: Response and metadata stream.
         """
@@ -542,7 +541,72 @@ class RemoteChatModelInstance(object):
                     yield sentence, chunk
 
         return answer, metadata
+
+    """
+    Addtional endpoint wrappers
+    """
+
+    def get_models(self) -> List[dict] | None:
+        """
+        Method for retrieving a list of available models.
+        :return: List of model dictionaries, if fetching was successful.
+        """        
+        response = requests.post(self.models_endpoint, headers=self.request_headers)
+        if response.status_code == 200:
+            metadata = response.json()
+            return metadata["data"]
+    
+    def embed(self, input: str, embeddings_parameters: dict | None = None) -> List[List[float]] | None:
+        """
+        Method for retrieving embeddings.
+        :param input: Input to generate embeddings from.
+        :param embeddings_parameters: Embeddings parameters. 
+            Defaults to None in which case an empty dictionary is created.
+        :return: Embeddings.
+        """        
+        if embeddings_parameters is None:
+            embeddings_parameters = {"input": input}
+        else:
+            embeddings_parameters["input"] = input
+        response = requests.post(self.embeddings_endpoint, headers=self.request_headers, json=embeddings_parameters)
+        if response.status_code == 200:
+            metadata = response.json()
+            return metadata["data"][0]["embedding"]
         
+    def tokenize(self, input: str, tokenization_parameters: dict | None = None) -> List[List[float]] | None:
+        """
+        Method for tokenizing an input.
+        :param input: Input to tokenize.
+        :param tokenization_parameters: Tokenization parameters. 
+            Defaults to None in which case an empty dictionary is created.
+        :return: Input tokens.
+        """        
+        if tokenization_parameters is None:
+            tokenization_parameters = {"input": input}
+        else:
+            tokenization_parameters["input"] = input
+        response = requests.post(self.tokenize_endpoint, headers=self.request_headers, json=tokenization_parameters)
+        if response.status_code == 200:
+            metadata = response.json()
+            return metadata["tokens"]
+    
+    def detokenize(self, tokens: List[int], detokenization_parameters: dict | None = None) -> List[List[float]] | None:
+        """
+        Method for detokenizing an input.
+        :param tokens: Tokens to detokenize.
+        :param detokenization_parameters: Detokenization parameters. 
+            Defaults to None in which case an empty dictionary is created.
+        :return: Input tokens.
+        """   
+        raise NotImplementedError("Currently not working with Llama CPP Server.")     
+        if detokenization_parameters is None:
+            detokenization_parameters = {"tokens": input}
+        else:
+            detokenization_parameters["input"] = input
+        response = requests.post(self.detokenize_endpoint, headers=self.request_headers, json=detokenization_parameters)
+        if response.status_code == 200:
+            metadata = response.json()
+            return metadata["data"]
 
 
 """
