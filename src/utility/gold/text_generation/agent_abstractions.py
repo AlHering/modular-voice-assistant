@@ -180,8 +180,8 @@ class Agent(object):
         self.memory = memory
         self.cache = []
 
-        self.planner_format = f"""Task: {{prompt}} 
-            
+        self.planner_format = f"""Task: {{prompt}}
+        
             Create a plan for solving the task. Respond in the following format:
             THOUGHT: Formulate precisely, what you want to do.
             TOOL: The name of the tool to use. Should be one of [{', '.join(tool.name for tool in self.tools)}]. Only add this line if you want to use a tool in this step.
