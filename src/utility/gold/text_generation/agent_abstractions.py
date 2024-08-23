@@ -10,7 +10,8 @@ import traceback
 from typing import List, Any, Callable, Optional, Type, Union, Tuple
 from uuid import uuid4
 from datetime import datetime as dt
-from .language_model_abstractions import LanguageModelInstance, ChatModelInstance
+from .language_model_abstractions import LanguageModelInstance, ChatModelInstance, RemoteChatModelInstance
+from .knowledgebase_abstractions import MemoryMetadata, MemoryEntry, Memory
 from ..filter_mask import FilterMask
 
 
@@ -156,99 +157,6 @@ class AgentMemoryEntry(object):
         self.metadata = metadata
 
 
-class AgentMemory(object):
-    """
-    Class, representing a longterm memory.
-    """
-    supported_backends: List[str] = ["cache"]
-
-    def __init__(self, uuid: str | None = None, backend: str = "cache", memories: List[AgentMemoryEntry] = None, path: str | None = None) -> None:
-        """
-        Initiation method.
-        :param uuid: UUID for identifying memory object.
-            Defaults to None, in which case a new UUID is generated.
-        :param backend: Memory backend. Defaults to "cache".
-            Check AgentMemory.supported_backends for supported backends.
-        :param memories: List of memory entries to initialize memory with.
-            Defaults to None.
-        :param path: Path for reading and writing memory, if the backend supports it.
-            Defaults to None.
-        """
-        self.uuid = str(uuid4()) if uuid is None else uuid
-        self.backend = backend
-        self.path = path
-        self._initiate_memory(memories)
-
-    def _initiate_memory(self, memories: List[AgentMemoryEntry] = None) -> None:
-        """
-        Method for initiating memories.
-        :param memories: List of memory entries for initialization.
-            Defaults to None.
-        """
-        pass
-
-    def memorize(self, content: str, metadata: dict) -> None:
-        """
-        Method for memorizing something.
-        This method should be used for memory model agnostic usage.
-        :param content: Memory content.
-        :param metadata: Metadata for memory.
-        """
-        pass
-
-    def remember(self, reference: str, metadata: dict) -> Optional[List[str]]:
-        """
-        Method for remembering something.
-        This method should be used for memory model agnostic usage.
-        :param reference: Recall reference.
-        :param metadata: Metadata.
-        :return: Memory contents as list of strings.
-        """
-        pass
-
-    def add_memory(self, memory: AgentMemoryEntry) -> None:
-        """
-        Method to add a memory.
-        :param memory: Memory to add.
-        """
-        pass
-
-    def retrieve_memories(self, retrieval_method: str = "similarity", *args: Optional[Any], **kwargs: Optional[Any]) -> List[AgentMemoryEntry]:
-        """
-        Method for retrieving a memory.
-        :param args: Arbitrary initiation arguments.
-        :param kwargs: Arbitrary initiation keyword arguments.
-        :return: List of memories.
-        """
-        pass
-
-    def retrieve_memories_by_filtermask(self, filtermasks: List[FilterMask]) -> List[AgentMemoryEntry]:
-        """
-        Method for retrieving memory by filtermasks.
-        :param filtermasks: List of filtermasks.
-        """
-        pass
-
-    def retrieve_memories_by_ids(self, ids: List[Union[int, str]]) -> List[AgentMemoryEntry]:
-        """
-        Method for retrieving memories by IDs.
-        :param ids: IDs of the memories to retrieve.
-        """
-        pass
-
-    def retrieve_memories_by_similarity(self, reference: str, filtermasks: List[FilterMask] | None = None, retrieval_parameters: dict | None = None) -> List[AgentMemoryEntry]:
-        """
-        Method for retrieving memories by similarity.
-        :param reference: Reference for similarity search.
-        :param filtermasks: List of filtermasks for additional filering.
-            Defaults to None.
-        :param retrieval_parameters: Keyword arguments for retrieval.
-            Defaults to None.
-        """
-        pass
-
-
-
 class Agent(object):
     """
     Class, representing an agent.
@@ -257,7 +165,7 @@ class Agent(object):
     def __init__(self,
                  llm: ChatModelInstance,
                  tools: List[AgentTool] = None,
-                 memory: AgentMemory = None) -> None:
+                 memory: Memory = None) -> None:
         """
         Initiation method.
         :param llm: ChatModelInstance for handling text generation tasks.
