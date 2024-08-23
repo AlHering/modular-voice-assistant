@@ -631,7 +631,7 @@ class Memory(object):
             Defaults to None.
         :param max_layer: Maximum layer of the memory.
             Defaults to None.
-        :return: Memory contents as list of strings.
+        :return: Memories as list of memory texts and metadata entriess.
         """
         filtermask = []
         
