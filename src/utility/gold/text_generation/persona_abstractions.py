@@ -40,9 +40,7 @@ class Persona(object):
         self.persona_description = persona_description
         self.conversation_example = conversation_example
         self.memories = memories
-
-
-
+        
     @classmethod
     def from_configuration(cls, config: PersonaConfiguration) -> Any:
         """
