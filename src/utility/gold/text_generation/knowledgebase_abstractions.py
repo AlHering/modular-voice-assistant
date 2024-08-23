@@ -371,6 +371,7 @@ class ChromaKnowledgebase(Knowledgebase):
             retrieval_parameters["where"] = self.filtermasks_conversion(filtermasks)
         if "include" not in retrieval_parameters:
             retrieval_parameters["include"] = ["embeddings", "metadatas", "documents", "distances"]
+
         result = self.collections[collection].query(
             **retrieval_parameters
         )
@@ -611,6 +612,7 @@ class Memory(object):
 
     def remember(self, 
                  reference: str, 
+                 max_retrievals: int = 4,
                  min_importance: int | None = None, 
                  min_layer: int | None = None,
                  max_importance: int | None = None, 
@@ -623,6 +625,7 @@ class Memory(object):
         It is further recommended, to consolidate similar lower layer memories into higher layer memories every now and then, 
         and afterwards respectively retrieve memories from higher to lower layer.
         :param reference: Recall reference.
+        :param max_retrievals: Maximum number of retrieved memories.
         :param min_importance: Minimum importance of the memory.
             Defaults to None.
         :param min_layer: Minimum layer of the memory.
@@ -647,10 +650,14 @@ class Memory(object):
         if filtermask:
             memories = self.retrieve_memories_by_similarity(
                     reference=reference,
-                    filtermasks=[filtermask])
+                    filtermasks=[filtermask],
+                    retrieval_parameters={"n_results": max_retrievals,
+                                          "include": ["embeddings", "metadatas", "documents", "distances"]})
         else:
             memories = self.retrieve_memories_by_similarity(
-                    reference=reference)
+                    reference=reference,
+                    retrieval_parameters={"n_results": max_retrievals,
+                                          "include": ["embeddings", "metadatas", "documents", "distances"]})
         return [(memory.content, memory.metadata.model_dump()) for memory in memories]
 
     def add_memory(self, memory: MemoryEntry) -> None:
