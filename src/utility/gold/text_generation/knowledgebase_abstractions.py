@@ -626,10 +626,16 @@ class Memory(object):
         :return: Memory contents as list of strings.
         """
         filtermask = []
+        
         if min_importance is not None:
             filtermask.append(["importance", ">=", min_importance])
         if min_layer is not None:
             filtermask.append(["layer", ">=", min_layer])
+        if max_importance is not None:
+            filtermask.append(["importance", "<=", max_importance])
+        if max_layer is not None:
+            filtermask.append(["layer", "<=", max_layer])
+
         if filtermask:
             memories = self.retrieve_memories_by_similarity(
                     reference=reference,
