@@ -307,8 +307,8 @@ class ChromaKnowledgebase(Knowledgebase):
                                     self.operation_translation[expression[1]]: expression[2]
                                 }
                             } for expression in filtermask
-                        ] for filtermask in filtermasks 
-                    }
+                        ] 
+                    } for filtermask in filtermasks 
                 ] 
             }
     
