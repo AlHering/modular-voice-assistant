@@ -289,7 +289,15 @@ class ChromaKnowledgebase(Knowledgebase):
             "not": lambda x: {"$ne": x},
             "&&": lambda *x: {"$and": [*x]},
             "||": lambda *x: {"$or": [*x]},
-            "!": lambda x: {"$ne": x}
+            "!": lambda x: {"$ne": x},
+            "smaller": lambda x: {"$lt": x},
+            "greater": lambda x: {"$gt": x},
+            "smaller_or_equal": lambda x: {"$lte": x},
+            "greater_or_equal": lambda x: {"$gte": x},
+            "<": lambda x: {"$lt": x},
+            ">": lambda x: {"$gt": x},
+            "<=": lambda x: {"$lte": x},
+            ">=": lambda x: {"$gte": x},
         }
 
     def filtermasks_conversion(self, filtermasks: List[FilterMask]) -> dict:
