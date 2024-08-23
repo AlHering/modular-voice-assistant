@@ -8,6 +8,7 @@
 """
 import traceback
 import copy
+from pydantic import BaseModel
 from typing import List, Tuple, Any, Callable, Optional, Union, Dict, Generator
 from datetime import datetime as dt
 from ...bronze.string_utility import SENTENCE_CHUNK_STOPS
@@ -205,6 +206,18 @@ class LanguageModelInstance(object):
         return answer, metadata
     
 
+class ChatModelConfig(BaseModel):
+    """
+    Chat model configuration class.
+    """
+    language_model_instance: LanguageModelInstance
+    chat_parameters: dict | None = None
+    system_prompt: str | None = None
+    prompt_maker: Callable | None = None
+    use_history: bool = True
+    history: List[Dict[str, Union[str, dict]]] | None = None
+
+
 class ChatModelInstance(object):
     """
     Chat model class.
@@ -255,6 +268,20 @@ class ChatModelInstance(object):
             }]
         else:
             self.history = history
+
+    @classmethod
+    def from_configuration(cls, config: ChatModelConfig) -> Any:
+        """
+        Returns a chat model instance from configuration.
+        :param config: Persona configuration.
+        :return: Persona instance.
+        """
+        return cls(language_model_instance=config.language_model_instance,
+                   chat_parameters=config.chat_parameters,
+                   system_prompt=config.system_prompt,
+                   prompt_maker=config.prompt_maker,
+                   use_history=config.use_history,
+                   history=config.history)
 
     """
     Generation methods
@@ -384,6 +411,21 @@ class ChatModelInstance(object):
         return answer, metadata
 
 
+    
+
+class RemoteChatModelConfig(BaseModel):
+    """
+    Remote chat model configuration class.
+    """
+    api_base: str
+    api_token: str | None = None
+    chat_parameters: dict | None = None
+    system_prompt: str | None = None
+    prompt_maker: Callable | None = None
+    use_history: bool = True
+    history: List[Dict[str, Union[str, dict]]] | None = None
+
+
 class RemoteChatModelInstance(ChatModelInstance):
     """
     Remote chat model class.
@@ -450,6 +492,22 @@ class RemoteChatModelInstance(ChatModelInstance):
             }]
         else:
             self.history = history
+
+    @classmethod
+    def from_configuration(cls, config: RemoteChatModelConfig) -> Any:
+        """
+        Returns a remote chat model instance from configuration.
+        :param config: Persona configuration.
+        :return: Persona instance.
+        """
+        return cls(api_base=config.api_base,
+                   api_token=config.api_token,
+                   chat_parameters=config.chat_parameters,
+                   system_prompt=config.system_prompt,
+                   prompt_maker=config.prompt_maker,
+                   use_history=config.use_history,
+                   history=config.history)
+
 
     """
     Generation methods
