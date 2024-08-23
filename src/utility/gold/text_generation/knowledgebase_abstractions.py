@@ -312,21 +312,29 @@ class ChromaKnowledgebase(Knowledgebase):
                 ] 
             }
     
-    def query_result_conversion(self, query_result: ChromaQueryResult) -> List[Document]:
+    def query_result_conversion(self, query_result: ChromaQueryResult, query: str | None = None, filtermasks: List[FilterMask] | None = None) -> List[Document]:
         """
         Method for converting a ChromaDB query result to documents.
         :param query_result: ChromaDB query result.
+        :param query: Retrieval query.
+        :param filtermasks: List of retrieval filter masks.
         :return: List of documents.
         """
         documents = []
+        metadata_update = {} if query is None else {"retrieval_query": query}
+        if filtermasks is not None:
+            metadata_update["retrieval_filtermasks"] = filtermasks
         for index, id in enumerate(query_result["ids"]):
-            documents.extend([
-                Document(id=id[index], 
-                         content=doc, 
-                         metadata=query_result["metadatas"][index][doc_index],
-                         embedding=query_result["embeddings"][index][doc_index] if query_result["embeddings"] else None
-                ) for doc_index, doc in enumerate(query_result["documents"][index])
-            ])
+            for doc_index, text in enumerate(query_result["documents"][index]):
+                new_document = Document(id=id[index],
+                                        content=text, 
+                                        metadata=query_result["metadatas"][index][doc_index],
+                                        embedding=query_result["embeddings"][index][doc_index] if query_result["embeddings"] else None)
+                if "distances" in query_result:
+                    metadata_update["query_distance"] = query_result["distances"][index][doc_index]
+                new_document.metadata.update(metadata_update)
+                documents.append(new_document)
+
         return documents
     
     def retrieve_documents(self, 
@@ -354,7 +362,7 @@ class ChromaKnowledgebase(Knowledgebase):
         if filtermasks is not None:
             retrieval_parameters["where"] = self.filtermasks_conversion(filtermasks)
         if "include" not in retrieval_parameters:
-            retrieval_parameters["include"] = ["embeddings", "metadatas", "documents"]
+            retrieval_parameters["include"] = ["embeddings", "metadatas", "documents", "distances"]
         result = self.collections[collection].query(
             **retrieval_parameters
         )
