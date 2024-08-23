@@ -637,9 +637,9 @@ class Memory(object):
             )]
         )
 
-    def retrieve_memories(self) -> List[MemoryEntry]:
+    def retrieve_all_memories(self) -> List[MemoryEntry]:
         """
-        Method to retrieve memories.
+        Method to retrieve all memories.
         :return: List of memories.
         """
         return [self.document_to_memory(doc) for doc in self.knowledgebase.get_all_documents()]
