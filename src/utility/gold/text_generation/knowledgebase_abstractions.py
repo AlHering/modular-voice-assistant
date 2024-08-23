@@ -568,13 +568,19 @@ class Memory(object):
             embedding=memory.embedding
         )
     
-    def document_to_memory(self, document: Document) -> MemoryEntry:
+    def document_to_memory(self, document: Document, importance: int = -1, layer: int = 0) -> MemoryEntry:
         """
-        Method for converting documents to memory entries.
+        Method for converting documents to memory entries. Importance and layer can be used to organize memories.
+        It is recommendet, to use negative integers for custom memory types (like factual knowledge from books).
+        It is further recommended, to consolidate similar lower layer memories into higher layer memories every now and then, 
+        and afterwards respectively retrieve memories from higher to lower layer.
         :param document: Document.
+        :param importance: Document importance.
+            Defaults to -1.
+        :param layer: Memory layer.
+            Defaults to 0. 
         :return: Memory entry.
         """
-        print(document.id)
         return MemoryEntry(
             id=document.id,
             content=document.content,
@@ -598,14 +604,24 @@ class Memory(object):
     def remember(self, 
                  reference: str, 
                  min_importance: int | None = None, 
-                 min_layer: int | None = None) -> Optional[List[Tuple[str, dict]]]:
+                 min_layer: int | None = None,
+                 max_importance: int | None = None, 
+                 max_layer: int | None = None) -> Optional[List[Tuple[str, dict]]]:
         """
         Method for remembering something.
         This method should be used for memory model agnostic usage.
+        Importance and layer can be used to filtre for specific memories.
+        It is recommendet, to use negative integers for custom memory types (like factual knowledge from books).
+        It is further recommended, to consolidate similar lower layer memories into higher layer memories every now and then, 
+        and afterwards respectively retrieve memories from higher to lower layer.
         :param reference: Recall reference.
         :param min_importance: Minimum importance of the memory.
             Defaults to None.
         :param min_layer: Minimum layer of the memory.
+            Defaults to None.
+        :param max_importance: Maximum importance of the memory.
+            Defaults to None.
+        :param max_layer: Maximum layer of the memory.
             Defaults to None.
         :return: Memory contents as list of strings.
         """
