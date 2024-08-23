@@ -384,7 +384,7 @@ class ChatModelInstance(object):
         return answer, metadata
 
 
-class RemoteChatModelInstance(object):
+class RemoteChatModelInstance(ChatModelInstance):
     """
     Remote chat model class.
     """
