@@ -636,30 +636,3 @@ class BasicVoiceAssistant(object):
                     """while True:
                         print(self.handler.report())
                         time.sleep(3)"""
-
-
-class AgenticVoiceAssistant(BasicVoiceAssistant):
-    """
-    Represents a basic voice assistant.
-    """
-
-    def __init__(self,
-                 handler_session: ConversationHandlerSession,
-                 agent_model: Agent) -> None:
-        """
-        Initiation method.
-        :param handler_session: Conversation handler session.
-        :param agent_model: Agent model to handle interaction.
-        """
-        self.session = handler_session
-        self.agent_model = agent_model
-        self.handler = None
-
-    def setup(self) -> None:
-        """
-        Method for setting up conversation handler.
-        """
-        if self.handler is None:
-            self.handler = self.session.spawn_conversation_handler(worker_function=self.agent_model.interact)
-        else:
-            self.handler.reset()
