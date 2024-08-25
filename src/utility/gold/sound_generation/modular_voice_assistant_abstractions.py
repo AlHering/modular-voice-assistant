@@ -130,6 +130,13 @@ class VAModule(ABC):
         Flushes output queue.
         """
         self._flush_queue(self.output_queue)
+
+    def queues_are_busy(self) -> bool:
+        """
+        Returns queue status.
+        :return: True, if any queue contains elements, else False.
+        """
+        return self.input_queue.qsize() > 0 or self.output_queue.qsize > 0
     
     def log_info(self, text: str) -> None:
         """
@@ -346,22 +353,12 @@ class ModularConversationHandler(object):
 
     def __init__(self, 
                  working_directory: str,
-                 speech_recorder: SpeechRecorder,
-                 transcriber: Transcriber,
-                 synthesizer: Synthesizer,
-                 worker_function: Callable | None = None,
+                 modules: List[VAModule],
                  loop_pause: float = 0.1) -> None:
         """
         Initiation method.
         :param working_directory: Directory for productive files.
-        :param speech_recorder: Speech recorder for STT processes.
-        :param transcriber: Transcriber for STT processes.
-        :param synthesizer: Synthesizer for TTS processes.
-        :param worker_function: Worker function for handling cleaned input.
-            Default to None.
-        :param input_method: Input method.
-            Defaults to SPEECH (STT).
-        :param output_method: Output method.
+        :param modules: List of modules to handle.
             Defaults to SPEECH (TTS).
         :param loop_pause: Pause in seconds between processing loops.
             Defaults to 0.1.
@@ -377,28 +374,9 @@ class ModularConversationHandler(object):
         self.output_device_index = pya.get_default_output_device_info().get("index")
         pya.terminate()
 
-        if worker_function is None:
-            def worker_function(worker_input: Any) -> Any:
-                """
-                Dummy worker function, logging and forwarding input.
-                :param worker_input: Worker input.
-                :return: Worker input.
-                """
-                cfg.LOGGER.info(f"Worker recieved: {worker_input}")
-                return worker_input
-
-        self.speech_recorder = speech_recorder
-        self.transcriber = transcriber
-        self.worker_function = worker_function
-        self.synthesizer = synthesizer
-
-        self.stop: TEvent = None
-        self.pause_input: TEvent = None
-        self.pause_worker: TEvent = None
-        self.pause_output: TEvent = None
-        self.queues: Dict[str, TQueue] = {}
-        self.threads: Dict[str, Thread] = {}
-
+        self.modules = modules
+        self.threads = None
+        self.stop = None
         self.loop_pause = loop_pause
         self.setup_components()
 
@@ -406,17 +384,13 @@ class ModularConversationHandler(object):
         """
         Stops process components.
         """
-        for event in [
-            self.stop,
-            self.pause_input,
-            self.pause_worker,
-            self.pause_output
-        ]:
-            if event is not None:
-                event.set()
-        for component in self.threads:
+        self.stop.set()
+        for module in self.modules:
+            module.interrupt.set()
+            module.pause.set()
+        for thread in self.threads:
             try:
-                self.threads[component].join(self.loop_pause) 
+                thread.join(self.loop_pause) 
             except RuntimeError:
                 pass
 
@@ -425,19 +399,7 @@ class ModularConversationHandler(object):
         Sets up components.
         """
         self.stop = TEvent()
-        self.pause_input = TEvent()
-        self.pause_worker = TEvent()
-        self.pause_output = TEvent()
-
-        self.queues = {f"worker_in": TQueue(), "worker_out": TQueue() }
-
-        self.threads = {
-            "input": Thread(target=self.loop, kwargs={"task": "input"}),
-            "worker": Thread(target=self.loop, kwargs={"task": "worker", "parameters": {"timeout": self.loop_pause/2}}),
-            "output": Thread(target=self.loop, kwargs={"task": "output", "parameters": {"timeout": self.loop_pause/2}})
-        }
-        for thread in self.threads:
-            self.threads[thread].daemon = True
+        self.threads = [module.to_thread() for module in self.modules]
 
     def reset(self) -> None:
         """
@@ -448,125 +410,6 @@ class ModularConversationHandler(object):
         gc.collect()
         self.setup_components()
         cfg.LOGGER.info("Setup is done.")
-
-    def handle_input(self) -> None:
-        """
-        Acquires and forwards user input.
-        """
-        if not self.pause_input.is_set():
-            recorder_output, recorder_metadata = self.speech_recorder.record_single_input()
-            cfg.LOGGER.info(f"Got voice input.")
-            cfg.LOGGER.info(f"Transcribing input...")
-            transcriber_output, transcriber_metadata = self.transcriber.transcribe(recorder_output)
-            self.queues["worker_in"].put(self.prepare_worker_input(transcriber_output, transcriber_metadata))
-        else:
-            time.sleep(self.loop_pause)
-
-    def prepare_worker_input(self, output: str, metadata: dict) -> Tuple[str, dict]:
-        """
-        Method for preparing worker input.
-        :param output: Transcriber output.
-        :param metadata: Transcriber metadata.
-        :return: Refined output and metadata.
-        """
-        cfg.LOGGER.info(f"Fetched transcriber output: '{output}'")
-        cfg.LOGGER.info(f"Preparing for worker...")
-        return output, metadata
-
-    def handle_work(self, timeout: float | None = None, stream: bool = False) -> None:
-        """
-        Acquires input, computes and reroutes worker output.
-        :param timeout: Timeout for blocking methods.
-        :param stream: Declares, whether worker function return should be handled as a generator.
-        """  
-        if not self.pause_worker.is_set():
-            try:
-                worker_input, worker_input_metadata = self.queues["worker_in"].get(block=True, timeout=timeout)
-                if stream:
-                    for elem in self.worker_function(worker_input):
-                        if elem and elem[0]:
-                            self.queues["worker_out"].put(self.prepare_worker_output(*elem))
-                else:
-                    worker_output, worker_metadata = self.worker_function(worker_input)
-                    self.queues["worker_out"].put(self.prepare_worker_output(worker_output, worker_metadata))
-            except Empty:
-                pass
-        else:
-            time.sleep(self.loop_pause)
-
-    def prepare_worker_output(self, output: str, metadata: dict) -> Tuple[np.ndarray, dict]:
-        """
-        Method for preparing worker output.
-        :param output: Worker output.
-        :param metadata: Worker metadata.
-        :return: Refined output and metadata.
-        """
-        cfg.LOGGER.info(f"Fetched worker output: '{output}'.")
-        cfg.LOGGER.info(f"Synthesizing output...")
-        synthesizer_output, synthesizer_metadata = self.synthesizer.synthesize(output)
-        return synthesizer_output, synthesizer_metadata
-    
-    def handle_output(self, timeout: float | None = None) -> None:
-        """
-        Acquires and reroutes generated output based.
-        :param timeout: Timeout for blocking methods.
-        """  
-        if not self.pause_output.is_set():
-            try:
-                worker_output, worker_metadata = self.queues["worker_out"].get(block=True, timeout=timeout)
-                self.pause_output.set()
-                cfg.LOGGER.info(f"Outputting synthesized response...")
-                play_wave(worker_output, worker_metadata)
-                self.pause_output.clear()
-            except Empty:
-                pass
-        else:
-            time.sleep(self.loop_pause)
-
-    def loop(self, task: str = "output", parameters: dict | None = None) -> None:
-        """
-        Method for looping task.
-        :param task: Task out of "input", "worker" and "output".
-        :param parameters: Parameters for the method call.
-            Defaults to None.
-        """
-        parameters = {} if parameters is None else parameters
-        method = {
-            "input": self.handle_input,
-            "worker": self.handle_work,
-            "output": self.handle_output
-        }[task]
-        while not self.stop.is_set():
-            method(**parameters)
-
-    def queues_are_busy(self) -> bool:
-        """
-        Returns queue status:
-        :return: True, if any queue contains elements, else False.
-        """
-        return any(self.queues[queue].qsize() > 0 for queue in self.queues)
-
-    def pipeline_is_busy(self) -> bool:
-        """
-        Returns pipeline status:
-        :return: True, if pipeline is busy, else False.
-        """
-        return (self.queues_are_busy() or
-                any(self.threads[thread].is_alive() for thread in self.threads))
-    
-    def interrupt(self) -> None:
-        """
-        Method for interrupting conversation on the assistant side.
-        """
-        self.pause_worker.set()
-        while self.pause_output.is_set():
-            time.sleep(self.loop_pause/16)
-        self.pause_output.set()
-        with self.queues["worker_out"].mutex:
-            self.queues["worker_out"].queue.clear()
-            self.queues["worker_out"].not_full.notify_all()
-        self.pause_worker.clear()
-        self.pause_output.clear()
 
     def _run_nonblocking_conversation(self, loop: bool, stream: bool = False) -> None:
         """
@@ -668,158 +511,6 @@ class ModularConversationHandler(object):
         ])
 
 
-class ConversationHandlerSession(object):
-    """
-    Represents a conversation handler session.
-    """
-    transcriber_supported_backends: List[str] = Transcriber.supported_backends
-    synthesizer_supported_backends: List[str] = Synthesizer.supported_backends
-
-    def __init__(self,
-        working_directory: str | None = None,
-        loop_pause: float = .1,
-        transcriber_backend: str | None = None,
-        transcriber_model_path: str | None = None,
-        transcriber_model_parameters: dict | None = None,
-        transcriber_transcription_parameters: dict | None = None,
-        synthesizer_backend: str | None = None,
-        synthesizer_model_path: str | None = None,
-        synthesizer_model_parameters: dict | None = None,
-        synthesizer_synthesis_parameters: dict | None = None,
-        speechrecorder_input_device_index: int | None = None,
-        speechrecorder_recognizer_parameters: dict | None = None,
-        speechrecorder_microphone_parameters: dict | None = None,
-        speechrecorder_loop_pause: float = .1 
-    ) -> None:
-        """
-        Initiation method.
-        :param working_directory: Working directory.
-        :param loop_pause: Conversation handler loop pause.
-        :param transcriber_backend: Transcriber backend.
-        :param transcriber_model_path: Transcriber model path.
-        :param transcriber_model_parameters: Transcriber model parameters.
-        :param transcriber_transcription_parameters: Transcription parameters.
-        :param synthesizer_backend: Synthesizer backend.
-        :param synthesizer_model_path: Synthesizer model path.
-        :param synthesizer_model_parameters: Synthesizer model parameters.
-        :param synthesizer_synthesis_parameters: Synthesizer synthesis parameters.
-        :param speechrecorder_input_device_index: Speech Recorder input device index.
-        :param speechrecorder_recognizer_parameters: Speech Recorder recognizer parameters.
-        :param speechrecorder_microphone_parameters: Speech Recorder microphone parameters.
-        :param speechrecorder_loop_pause: Speech Recorder loop pause.
-        """
-        self.working_directory = os.path.join(
-            cfg.PATHS.DATA_PATH, uuid4()
-        ) if working_directory is None else working_directory
-        self.loop_pause = 0.1 if loop_pause is None else loop_pause
-        self.transcriber_backend = Transcriber.supported_backends[
-            0] if transcriber_backend is None else transcriber_backend
-        self.transcriber_model_path = transcriber_model_path
-        self.transcriber_model_parameters = transcriber_model_parameters
-        self.transcriber_transcription_parameters = transcriber_transcription_parameters
-        self.synthesizer_backend = synthesizer_backend
-        self.synthesizer_model_path = synthesizer_model_path
-        self.synthesizer_model_parameters = synthesizer_model_parameters
-        self.synthesizer_synthesis_parameters = synthesizer_synthesis_parameters
-        self.speechrecorder_input_device_index = speechrecorder_input_device_index
-        self.speechrecorder_recognizer_parameters = speechrecorder_recognizer_parameters
-        self.speechrecorder_microphone_parameters = speechrecorder_microphone_parameters
-        self.speechrecorder_loop_pause = speechrecorder_loop_pause
-
-    @classmethod
-    def from_dict(cls, parameters: dict) -> Any:
-        """
-        Returns session instance from dict.
-        :param parameters: Session parameters dictionary.
-        :returns: VoiceAssistantSession instance.
-        """
-        return cls(**parameters)
-    
-    @classmethod
-    def from_file(cls, file_path: str) -> Any:
-        """
-        Returns session instance from a json file.
-        :param file_path: Path to json file.
-        :returns: VoiceAssistantSession instance.
-        """
-        return cls(**load_json(file_path))
-    
-    @classmethod
-    def from_handler(cls, handler: ConversationHandler) -> Any:
-        """
-        Returns session instance from a json file.
-        :param file_path: Path to json file.
-        :returns: VoiceAssistantSession instance.
-        """
-        return cls(**{
-            "working_directory": handler.working_directory,
-            "loop_pause": handler.loop_pause,
-            "transcriber_backend": handler.transcriber.backend,
-            "transcriber_model_path": handler.transcriber.model_path,
-            "transcriber_model_parameters": handler.transcriber.model_parameters,
-            "transcriber_transcription_parameters": handler.transcriber.transcription_parameters,
-            "synthesizer_backend": handler.synthesizer.backend,
-            "synthesizer_model_path": handler.synthesizer.model_path,
-            "synthesizer_model_parameters": handler.synthesizer.model_parameters,
-            "synthesizer_synthesis_parameters": handler.synthesizer.synthesis_parameters,
-            "speechrecorder_input_device_index": handler.speech_recorder.input_device_index,
-            "speechrecorder_recognizer_parameters": handler.speech_recorder.recognizer_parameters,
-            "speechrecorder_microphone_parameters": handler.speech_recorder.microphone_parameters,
-            "speechrecorder_loop_pause": handler.speech_recorder.loop_pause,
-        })
-    
-    def to_dict(self) -> dict:
-        """
-        Returns a parameter dictionary for later instantiation.
-        :returns: Parameter dictionary.
-        """
-        return {
-            "working_directory": self.working_directory,
-            "loop_pause": self.loop_pause,
-            "transcriber_backend": self.transcriber_backend,
-            "transcriber_model_path": self.transcriber_model_path,
-            "transcriber_model_parameters": self.transcriber_model_parameters,
-            "transcriber_transcription_parameters": self.transcriber_transcription_parameters,
-            "synthesizer_backend": self.synthesizer_backend,
-            "synthesizer_model_path": self.synthesizer_model_path,
-            "synthesizer_model_parameters": self.synthesizer_model_parameters,
-            "synthesizer_synthesis_parameters": self.synthesizer_synthesis_parameters,
-            "speechrecorder_input_device_index": self.speechrecorder_input_device_index,
-            "speechrecorder_recognizer_parameters": self.speechrecorder_recognizer_parameters,
-            "speechrecorder_microphone_parameters": self.speechrecorder_microphone_parameters,
-            "speechrecorder_loop_pause": self.speechrecorder_loop_pause,
-        }
-
-    def spawn_conversation_handler(self, worker_function: Callable) -> ConversationHandler:
-        """
-        Spawns a conversation handler based on the session parameters
-        :param worker_function: Worker function.
-        """
-        return ConversationHandler(
-            working_directory=self.working_directory,
-            speech_recorder=SpeechRecorder(
-                input_device_index=self.speechrecorder_input_device_index,
-                recognizer_parameters=self.speechrecorder_recognizer_parameters,
-                microphone_parameters=self.speechrecorder_microphone_parameters,
-                loop_pause=self.speechrecorder_loop_pause
-            ),
-            transcriber=Transcriber(
-                backend=self.transcriber_backend,
-                model_path=self.transcriber_model_path,
-                model_parameters=self.transcriber_model_parameters,
-                transcription_parameters=self.transcriber_transcription_parameters
-            ),
-            synthesizer=Synthesizer(
-                backend=self.synthesizer_backend,
-                model_path=self.synthesizer_model_path,
-                model_parameters=self.synthesizer_model_parameters,
-                synthesis_parameters=self.synthesizer_synthesis_parameters
-            ),
-            worker_function=worker_function,
-            loop_pause=self.loop_pause
-        )
-
-
 class BasicVoiceAssistant(object):
     """
     Represents a basic voice assistant.
@@ -914,30 +605,3 @@ class BasicVoiceAssistant(object):
                     """while True:
                         print(self.handler.report())
                         time.sleep(3)"""
-
-
-class AgenticVoiceAssistant(BasicVoiceAssistant):
-    """
-    Represents a basic voice assistant.
-    """
-
-    def __init__(self,
-                 handler_session: ConversationHandlerSession,
-                 agent_model: Agent) -> None:
-        """
-        Initiation method.
-        :param handler_session: Conversation handler session.
-        :param agent_model: Agent model to handle interaction.
-        """
-        self.session = handler_session
-        self.agent_model = agent_model
-        self.handler = None
-
-    def setup(self) -> None:
-        """
-        Method for setting up conversation handler.
-        """
-        if self.handler is None:
-            self.handler = self.session.spawn_conversation_handler(worker_function=self.agent_model.interact)
-        else:
-            self.handler.reset()
