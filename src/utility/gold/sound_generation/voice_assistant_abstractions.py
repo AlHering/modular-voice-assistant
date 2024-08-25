@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from inspect import getfullargspec
 from uuid import uuid4
+from pydantic import BaseModel
 from typing import Any, Union, Tuple, List, Optional, Callable, Dict
 import os
 import gc
@@ -390,64 +391,41 @@ class ConversationHandler(object):
         ])
 
 
-class ConversationHandlerSession(object):
+class ConversationHandlerSession(BaseModel):
     """
     Represents a conversation handler session.
     """
-    transcriber_supported_backends: List[str] = Transcriber.supported_backends
-    synthesizer_supported_backends: List[str] = Synthesizer.supported_backends
+    working_directory: str | None = None
+    loop_pause: float = .1
+    transcriber_backend: str | None = None
+    transcriber_model_path: str | None = None
+    transcriber_model_parameters: dict | None = None
+    transcriber_transcription_parameters: dict | None = None
+    synthesizer_backend: str | None = None
+    synthesizer_model_path: str | None = None
+    synthesizer_model_parameters: dict | None = None
+    synthesizer_synthesis_parameters: dict | None = None
+    speechrecorder_input_device_index: int | None = None
+    speechrecorder_recognizer_parameters: dict | None = None
+    speechrecorder_microphone_parameters: dict | None = None
+    speechrecorder_loop_pause: float = .1 
 
-    def __init__(self,
-        working_directory: str | None = None,
-        loop_pause: float = .1,
-        transcriber_backend: str | None = None,
-        transcriber_model_path: str | None = None,
-        transcriber_model_parameters: dict | None = None,
-        transcriber_transcription_parameters: dict | None = None,
-        synthesizer_backend: str | None = None,
-        synthesizer_model_path: str | None = None,
-        synthesizer_model_parameters: dict | None = None,
-        synthesizer_synthesis_parameters: dict | None = None,
-        speechrecorder_input_device_index: int | None = None,
-        speechrecorder_recognizer_parameters: dict | None = None,
-        speechrecorder_microphone_parameters: dict | None = None,
-        speechrecorder_loop_pause: float = .1 
-    ) -> None:
+    @classmethod
+    def get_transcriber_backends(cls) -> List[str]:
         """
-        Initiation method.
-        :param working_directory: Working directory.
-        :param loop_pause: Conversation handler loop pause.
-        :param transcriber_backend: Transcriber backend.
-        :param transcriber_model_path: Transcriber model path.
-        :param transcriber_model_parameters: Transcriber model parameters.
-        :param transcriber_transcription_parameters: Transcription parameters.
-        :param synthesizer_backend: Synthesizer backend.
-        :param synthesizer_model_path: Synthesizer model path.
-        :param synthesizer_model_parameters: Synthesizer model parameters.
-        :param synthesizer_synthesis_parameters: Synthesizer synthesis parameters.
-        :param speechrecorder_input_device_index: Speech Recorder input device index.
-        :param speechrecorder_recognizer_parameters: Speech Recorder recognizer parameters.
-        :param speechrecorder_microphone_parameters: Speech Recorder microphone parameters.
-        :param speechrecorder_loop_pause: Speech Recorder loop pause.
+        Returns supported transcriber backends.
+        :returns: List of supported backends.
         """
-        self.working_directory = os.path.join(
-            cfg.PATHS.DATA_PATH, uuid4()
-        ) if working_directory is None else working_directory
-        self.loop_pause = 0.1 if loop_pause is None else loop_pause
-        self.transcriber_backend = Transcriber.supported_backends[
-            0] if transcriber_backend is None else transcriber_backend
-        self.transcriber_model_path = transcriber_model_path
-        self.transcriber_model_parameters = transcriber_model_parameters
-        self.transcriber_transcription_parameters = transcriber_transcription_parameters
-        self.synthesizer_backend = synthesizer_backend
-        self.synthesizer_model_path = synthesizer_model_path
-        self.synthesizer_model_parameters = synthesizer_model_parameters
-        self.synthesizer_synthesis_parameters = synthesizer_synthesis_parameters
-        self.speechrecorder_input_device_index = speechrecorder_input_device_index
-        self.speechrecorder_recognizer_parameters = speechrecorder_recognizer_parameters
-        self.speechrecorder_microphone_parameters = speechrecorder_microphone_parameters
-        self.speechrecorder_loop_pause = speechrecorder_loop_pause
-
+        return Transcriber.supported_backends
+    
+    @classmethod
+    def get_synthesizer_backends(cls) -> List[str]:
+        """
+        Returns supported transcriber backends.
+        :returns: List of supported backends.
+        """
+        return Synthesizer.supported_backends
+    
     @classmethod
     def from_dict(cls, parameters: dict) -> Any:
         """
