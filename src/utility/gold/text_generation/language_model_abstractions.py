@@ -19,6 +19,28 @@ import json
 """
 Abstractions
 """
+
+
+class LanguageModelConfig(BaseModel):
+    """
+    Language model config class.
+    """
+    backend: str
+    model_path: str
+    model_file: str | None = None
+    model_parameters: dict | None = None
+    tokenizer_path: str | None = None
+    tokenizer_parameters: dict | None = None
+    embeddings_path: str | None = None
+    embeddings_parameters: dict | None = None
+    config_path: str | None = None
+    config_parameters: dict | None = None
+    encoding_parameters: dict | None = None
+    embedding_parameters: dict | None = None
+    generating_parameters: dict | None = None
+    decoding_parameters: dict | None = None
+
+
 class LanguageModelInstance(object):
     """
     Language model class.
@@ -101,6 +123,15 @@ class LanguageModelInstance(object):
             config_path=config_path,
             config_parameters=config_parameters
         )
+
+    @classmethod
+    def from_configuration(cls, config: LanguageModelConfig) -> Any:
+        """
+        Returns a language model instance from configuration.
+        :param config: Language model configuration.
+        :return: Language model instance.
+        """
+        return cls(**config.model_dump())
 
     """
     Generation methods
@@ -273,15 +304,10 @@ class ChatModelInstance(object):
     def from_configuration(cls, config: ChatModelConfig) -> Any:
         """
         Returns a chat model instance from configuration.
-        :param config: Persona configuration.
-        :return: Persona instance.
+        :param config: Chat model configuration.
+        :return: Chat model instance.
         """
-        return cls(language_model_instance=config.language_model_instance,
-                   chat_parameters=config.chat_parameters,
-                   system_prompt=config.system_prompt,
-                   prompt_maker=config.prompt_maker,
-                   use_history=config.use_history,
-                   history=config.history)
+        return cls(**config.model_dump())
 
     """
     Generation methods
@@ -497,16 +523,10 @@ class RemoteChatModelInstance(ChatModelInstance):
     def from_configuration(cls, config: RemoteChatModelConfig) -> Any:
         """
         Returns a remote chat model instance from configuration.
-        :param config: Persona configuration.
-        :return: Persona instance.
+        :param config: Remote chat configuration.
+        :return: Remote chat instance.
         """
-        return cls(api_base=config.api_base,
-                   api_token=config.api_token,
-                   chat_parameters=config.chat_parameters,
-                   system_prompt=config.system_prompt,
-                   prompt_maker=config.prompt_maker,
-                   use_history=config.use_history,
-                   history=config.history)
+        return cls(**config.model_dump())
 
 
     """
