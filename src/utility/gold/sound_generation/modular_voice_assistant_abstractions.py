@@ -8,8 +8,10 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from inspect import getfullargspec
+from pydantic import BaseModel, Field
+from logging import Logger
 from uuid import uuid4
-from typing import Any, Union, Tuple, List, Optional, Callable, Dict
+from typing import Any, Union, Tuple, List, Optional, Callable, Dict, Generator
 import os
 import gc
 import time
@@ -25,7 +27,7 @@ from datetime import datetime as dt
 from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent, Lock
 from queue import Empty, Queue as TQueue
-from ..text_generation.language_model_abstractions import LanguageModelInstance, ChatModelInstance
+from ..text_generation.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
 from ..text_generation.agent_abstractions import ToolArgument, AgentTool
 from ..text_generation.agent_abstractions import Agent
 from ...bronze.concurrency_utility import PipelineComponentThread, timeout
@@ -56,10 +58,286 @@ def setup_prompt_session(bindings: KeyBindings = None) -> PromptSession:
     )
 
 
-class ConversationHandler(object):
+
+def create_default_metadata() -> List[dict]:
     """
-    Represents a conversation handler for handling audio based interaction.
-    A conversation handler manages the following components:
+    Creates a default VA package dictionary.
+    :return: Default VA package dictionary
+    """
+    return [{"created": get_timestamp()}]
+
+
+class VAPackage(BaseModel):
+    """
+    Voice assistant package for exchanging data between modules.
+    """
+    content: Any
+    metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
+
+
+class VAModule(ABC):
+    """
+    Voice assistant module.
+    """
+    def __init__(self, 
+                 interrupt: TEvent | None = None,
+                 pause: TEvent | None = None,
+                 loop_pause: float = 0.1,
+                 input_timeout: float | None = None, 
+                 input_queue: TQueue | None = None,
+                 output_queue: TQueue | None = None,
+                 stream_result: bool = False,
+                 logger: Logger | None = None) -> None:
+        """
+        Initiates an instance.
+        :param interrupt: Interrupt event.
+        :param pause: Pause event.
+        :param loop_pause: Time to wait between looped runs.
+        :param input_timeout: Time to wait for inputs in a single run.
+        :param input_queue: Input queue.
+        :param output_queue: Output queue.
+        :param stream_result: Flag for declaring, whether to handle the result as a generator object.
+            Defaults to None.
+        :param logger: Logger.
+        """
+        self.interrupt = TEvent() if interrupt is None else interrupt
+        self.pause = TEvent() if pause is None else pause
+        self.loop_pause = loop_pause
+        self.input_timeout = input_timeout
+        self.input_queue = TQueue() if input_queue is None else input_queue
+        self.output_queue = TQueue() if output_queue is None else output_queue
+        self.stream_result = stream_result
+        self.logger = logger
+
+    def _flush_queue(self, queue: TQueue) -> None:
+        """
+        Flushes queue.
+        :param queue: Queue to flush.
+        """
+        with queue.mutex:
+            queue.clear()
+            queue.notify_all()
+
+    def flush_inputs(self) -> None:
+        """
+        Flushes input queue.
+        """
+        self._flush_queue(self.input_queue)
+        
+
+    def flush_outputs(self) -> None:
+        """
+        Flushes output queue.
+        """
+        self._flush_queue(self.output_queue)
+    
+    def log_info(self, text: str) -> None:
+        """
+        Logs info, if logger is available.
+        :param text: Text content to log.
+        """
+        if self.logger is not None:
+            self.logger.info(text)
+
+    def to_thread(self) -> Thread:
+        """
+        Returns a thread for handling module operations.
+        """
+        thread = Thread(target=self.loop)
+        thread.daemon = True
+        return thread
+
+    def loop(self) -> None:
+        """
+        Module looping method.
+        """
+        while not self.interrupt.is_set():
+            result = self.run()
+            if result is not None:
+                if self.stream_result:
+                    for elem in result:
+                        self.output_queue.put(elem)
+                else:
+                    self.output_queue.put(result)
+            time.sleep(self.loop_pause)
+
+    @abstractmethod
+    def run(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+        """
+        Module runner method.
+        :returns: Voice assistant package, a package generator in case of streaming or None.
+        """
+        pass
+
+
+class SpeechRecorderModule(VAModule):
+    """
+    Speech recorder module.
+    """
+    def __init__(self, 
+                 speech_recorder: SpeechRecorder, 
+                 *args: Any | None, 
+                 **kwargs: Any | None) -> None:
+        """
+        Initiates an instance.
+        :param speech_recorder: Speech recorder instance.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
+        """
+        super().__init__(*args, **kwargs)
+        self.speech_recorder = speech_recorder
+
+    def run(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+        """
+        Module runner method.
+        :returns: Voice assistant package, a package generator in case of streaming or None.
+        """
+        if not self.pause.is_set():
+            recorder_output, recorder_metadata = self.speech_recorder.record_single_input()
+            self.log_info(f"Got voice input.")
+            return VAPackage(content=recorder_output, metadata_stack=[recorder_metadata])
+        
+
+class WaveOutputModule(VAModule):
+    """
+    Wave output module.
+    """
+    def __init__(self, 
+                 handler_method: Callable, 
+                 streamed_handler_method: Callable | None = None,
+                 *args: Any | None, 
+                 **kwargs: Any | None) -> None:
+        """
+        Initiates an instance.
+        :param handler_method: Handler method.
+        :param streamed_handler_method: Handler method for streamed responses.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
+        """
+        super().__init__(*args, **kwargs)
+        self.handler_method = handler_method
+        self.streamed_handler_method = streamed_handler_method
+
+    def run(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+        """
+        Module runner method.
+        :returns: Voice assistant package, a package generator in case of streaming or None.
+        """
+        if not self.pause.is_set():
+            try:
+                input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
+                self.log_info(f"Received input:\n'{input_package.content}'")
+                if self.stream_result:
+                    for response_tuple in self.streamed_handler_method(input_package.content):
+                        self.log_info(f"Received response part\n'{response_tuple[0]}'.")
+                        yield VAPackage(content=response_tuple[0], metadata_stack=input_package.metadata_stack + [response_tuple[1]])
+                else:
+                    response, response_metadata = self.handler_method(input_package.content)
+                    self.log_info(f"Received response\n'{response}'.")             
+                    return VAPackage(content=response, metadata_stack=input_package.metadata_stack + [response_metadata])
+            except Empty:
+                pass
+        
+
+class BasicHandlerModule(VAModule):
+    """
+    Basic handler module.
+    """
+    def __init__(self, 
+                 handler_method: Callable, 
+                 streamed_handler_method: Callable | None = None,
+                 *args: Any | None, 
+                 **kwargs: Any | None) -> None:
+        """
+        Initiates an instance.
+        :param handler_method: Handler method.
+        :param streamed_handler_method: Handler method for streamed responses.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
+        """
+        super().__init__(*args, **kwargs)
+        self.handler_method = handler_method
+        self.streamed_handler_method = streamed_handler_method
+
+    def run(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+        """
+        Module runner method.
+        :returns: Voice assistant package, a package generator in case of streaming or None.
+        """
+        if not self.pause.is_set():
+            try:
+                input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
+                self.pause.set()
+                cfg.LOGGER.info(f"Outputting wave response...")
+                play_wave(input_package.content, input_package.metadata_stack[-1])
+                self.pause.clear()
+            except Empty:
+                pass
+
+
+class TranscriberModule(BasicHandlerModule):
+    """
+    Transcriber module.
+    """
+    def __init__(self, 
+                 transcriber: Transcriber, 
+                 *args: Any | None, 
+                 **kwargs: Any | None) -> None:
+        """
+        Initiates an instance.
+        :param transcriber: Transciber instance.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
+        """
+        super().__init__(handler_method=transcriber.transcribe,
+                         *args, 
+                         **kwargs)
+
+
+class ChatModelModule(BasicHandlerModule):
+    """
+    Chat model module.
+    """
+    def __init__(self, 
+                 chat_model: ChatModelInstance | RemoteChatModelInstance, 
+                 *args: Any | None, 
+                 **kwargs: Any | None) -> None:
+        """
+        Initiates an instance.
+        :param chat_model: Chat model instance.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
+        """
+        super().__init__(handler_method=chat_model.chat,
+                         streamed_handler_method=chat_model.chat_stream,
+                         *args, 
+                         **kwargs)
+
+
+class SynthesizerModule(BasicHandlerModule):
+    """
+    Synthesizer module.
+    """
+    def __init__(self, 
+                 synthesizer: Synthesizer, 
+                 *args: Any | None, 
+                 **kwargs: Any | None) -> None:
+        """
+        Initiates an instance.
+        :param synthesizer: Synthesizerinstance.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
+        """
+        super().__init__(handler_method=synthesizer.synthesize,
+                         *args, 
+                         **kwargs)
+
+
+class ModularConversationHandler(object):
+
+    """
+    Represents a modular conversation handler for handling audio based interaction.
+    A conversation handler manages the following modules:
         - speech_recorder: A recorder for spoken input.
         - transcriber: A transcriber to transcribe spoken input into text.
         - worker: A worker to compute an output for the given user input.
