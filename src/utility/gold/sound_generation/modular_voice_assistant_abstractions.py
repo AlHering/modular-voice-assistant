@@ -160,7 +160,7 @@ class VAModule(ABC):
 
     def to_thread(self) -> Thread:
         """
-        Returns a thread for handling module operations.
+        Returns a thread for running module process in loop.
         """
         thread = Thread(target=self.loop)
         thread.daemon = True
@@ -168,24 +168,30 @@ class VAModule(ABC):
 
     def loop(self) -> None:
         """
-        Module looping method.
+        Starts processing cycle loop.
         """
         while not self.interrupt.is_set():
-            result = self.run()
-            if result is not None:
-                if self.stream_result:
-                    for elem in result:
-                        self.output_queue.put(elem)
-                        self.sent.append(elem.uuid)
-                else:
-                    self.output_queue.put(result)
-                    self.sent.append(result.uuid)
+            self.run()
             time.sleep(self.loop_pause)
+        
+    def run(self) -> None:
+        """
+        Runs a single processing cycle..
+        """
+        result = self.run()
+        if result is not None:
+            if self.stream_result:
+                for elem in result:
+                    self.output_queue.put(elem)
+                    self.sent.append(elem.uuid)
+            else:
+                self.output_queue.put(result)
+                self.sent.append(result.uuid)
 
     @abstractmethod
-    def run(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+    def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
         """
-        Module runner method.
+        Module processing method.
         :returns: Voice assistant package, a package generator in case of streaming or None.
         """
         pass
@@ -208,9 +214,9 @@ class SpeechRecorderModule(VAModule):
         super().__init__(*args, **kwargs)
         self.speech_recorder = speech_recorder
 
-    def run(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+    def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
         """
-        Module runner method.
+        Module processing method.
         :returns: Voice assistant package, a package generator in case of streaming or None.
         """
         if not self.pause.is_set():
@@ -239,9 +245,9 @@ class WaveOutputModule(VAModule):
         self.handler_method = handler_method
         self.streamed_handler_method = streamed_handler_method
 
-    def run(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+    def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
         """
-        Module runner method.
+        Module processing method.
         :returns: Voice assistant package, a package generator in case of streaming or None.
         """
         if not self.pause.is_set():
@@ -281,9 +287,9 @@ class BasicHandlerModule(VAModule):
         self.handler_method = handler_method
         self.streamed_handler_method = streamed_handler_method
 
-    def run(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+    def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
         """
-        Module runner method.
+        Module processing method.
         :returns: Voice assistant package, a package generator in case of streaming or None.
         """
         if not self.pause.is_set():
@@ -453,32 +459,42 @@ class ModularConversationHandler(object):
         self.setup_components()
         cfg.LOGGER.info("Setup is done.")
 
-    def _run_interaction_threads(self) -> None:
+    def _run_nonblocking_conversation(self, loop: bool) -> None:
         """
-        Runs interaction threads.
+        Runs a non-blocking conversation.
+        :param loop: Delcares, whether to loop conversation or stop after a single interaction.
         """
-        for thread in self.threads:
+        for thread in self.worker_threads + self.input_threads:
             thread.start()   
+        if not loop:
+            while self.module_set.input_modules[0].output_queue.qsize() == 0:
+                time.sleep(self.loop_pause/16)
+            self.module_set.input_modules[0].pause.set()
+            while self.module_set.worker_modules[-1].output_queue.qsize() == 0:
+                time.sleep(self.loop_pause/16)
+            while self.module_set.output_modules[-1].input_queue.qsize() > 0 or self.module_set.output_modules[-1].pause.is_set():
+                time.sleep(self.loop_pause/16)
+            self.reset()
     
-    def _run_single_interaction(self) -> None:
+    def _run_blocking_conversation(self, loop: bool) -> None:
         """
-        Runs a single interaction cycle.
+        Runs a blocking conversation.
+        :param loop: Delcares, whether to loop conversation or stop after a single interaction.
         """
-        for thread, index in enumerate(self.threads):
-            thread.start()
-            module: VAModule = self.modules[index]
-            module.pause.clear()
-            while not module.queues_are_busy():
-                time.sleep(module.loop_pause//16)
-            while module.queues_are_busy():
-                time.sleep(module.loop_pause//16)
-            module.pause.set()
+        while not self.stop.is_set():
+            for module in self.module_set.input_modules:
+                module.run()
+            for module in self.module_set.worker_modules:
+                module.run()
+            while any(module.queues_are_busy() for module in self.module_set.output_modules):
+                time.sleep(.12)
+            if not loop:
+                self.stop.set()
         self.reset()
 
     def run_conversation(self, 
                          blocking: bool = True, 
                          loop: bool = True, 
-                         stream: bool = False,
                          greeting: str = "Hello there, how may I help you today?") -> None:
         """
         Runs conversation.
@@ -486,21 +502,20 @@ class ModularConversationHandler(object):
             Defaults to True.
         :param loop: Delcares, whether to loop conversation or stop after a single interaction.
             Defaults to True.
-        :param stream: Declares, whether worker function streams response.
-            Defaults to False.
         :param greeting: Assistant greeting.
             Defaults to "Hello there, how may I help you today?".
         """
         cfg.LOGGER.info(f"Starting conversation loop...")
-        if self.response_queue is not None:
-            response_queue
-        self.queues["worker_out"].put(self.prepare_worker_output(greeting, {}))
-        self.handle_output()
+        for thread in self.output_threads:
+            thread.start()
+        if self.module_set.output_modules:
+            self.module_set.output_modules[0].input_queue.put(VAPackage(content=greeting))
+
         try:
             if not blocking:
-                self._run_nonblocking_conversation(loop=loop, stream=stream)
+                self._run_nonblocking_conversation(loop=loop)
             else:
-                self._run_blocking_conversation(loop=loop, stream=stream)
+                self._run_blocking_conversation(loop=loop)
         except KeyboardInterrupt:
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
             self.stop_components()
