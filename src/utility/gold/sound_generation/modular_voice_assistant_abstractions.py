@@ -230,8 +230,6 @@ class WaveOutputModule(VAModule):
     Wave output module.
     """
     def __init__(self, 
-                 handler_method: Callable, 
-                 streamed_handler_method: Callable | None = None,
                  *args: Any | None, 
                  **kwargs: Any | None) -> None:
         """
@@ -242,8 +240,6 @@ class WaveOutputModule(VAModule):
         :param kwargs: Arbitrary keyword arguments.
         """
         super().__init__(*args, **kwargs)
-        self.handler_method = handler_method
-        self.streamed_handler_method = streamed_handler_method
 
     def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
         """
@@ -253,16 +249,11 @@ class WaveOutputModule(VAModule):
         if not self.pause.is_set():
             try:
                 input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
+                self.pause.set()
                 self.received.append(input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
-                if self.stream_result:
-                    for response_tuple in self.streamed_handler_method(input_package.content):
-                        self.log_info(f"Received response part\n'{response_tuple[0]}'.")
-                        yield VAPackage(content=response_tuple[0], metadata_stack=input_package.metadata_stack + [response_tuple[1]])
-                else:
-                    response, response_metadata = self.handler_method(input_package.content)
-                    self.log_info(f"Received response\n'{response}'.")             
-                    return VAPackage(content=response, metadata_stack=input_package.metadata_stack + [response_metadata])
+                play_wave(input_package.content, input_package.metadata_stack[-1])
+                self.pause.clear()
             except Empty:
                 pass
         
@@ -296,10 +287,15 @@ class BasicHandlerModule(VAModule):
             try:
                 input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
                 self.received.append(input_package.uuid)
-                self.pause.set()
-                cfg.LOGGER.info(f"Outputting wave response...")
-                play_wave(input_package.content, input_package.metadata_stack[-1])
-                self.pause.clear()
+                self.log_info(f"Received input:\n'{input_package.content}'")
+                if self.stream_result:
+                    for response_tuple in self.streamed_handler_method(input_package.content):
+                        self.log_info(f"Received response part\n'{response_tuple[0]}'.")
+                        yield VAPackage(uuid=input_package.uuid, content=response_tuple[0], metadata_stack=input_package.metadata_stack + [response_tuple[1]])
+                else:
+                    response, response_metadata = self.handler_method(input_package.content)
+                    self.log_info(f"Received response\n'{response}'.")             
+                    return VAPackage(uuid=input_package.uuid, content=response, metadata_stack=input_package.metadata_stack + [response_metadata])
             except Empty:
                 pass
 
@@ -521,3 +517,120 @@ class ModularConversationHandler(object):
             self.stop_components()
 
 
+class BasicVoiceAssistant(object):
+    """
+    Represents a basic voice assistant.
+    """
+
+    def __init__(self,
+                 working_directory: str,
+                 speech_recorder: SpeechRecorder,
+                 transcriber: Transcriber,
+                 chat_model: ChatModelInstance,
+                 synthesizer: Synthesizer,
+                 stream: bool = False) -> None:
+        """
+        Initiation method.
+        :param working_directory: Working directory.
+        :param speech_recorder: Speech Recorder.
+        :param transcriber: Transcriber.
+        :param chat_model: Chat model to handle interaction.
+        :param synthesizer: Synthesizer.
+        :param stream: Declares, whether chat model should stream its response.
+            Defaults to False.
+        """
+        self.working_directory = working_directory
+        self.speech_recorder = speech_recorder
+        self.transcriber = transcriber
+        self.chat_model = chat_model
+        self.synthesizer = synthesizer
+        self.stream = stream
+
+        self.module_set = BaseModuleSet()
+        self.module_set.input_modules.append(
+            SpeechRecorderModule(speech_recorder=self.speech_recorder))
+        self.module_set.input_modules.append(
+            TranscriberModule(transcriber=self.transcriber, 
+                              input_queue=self.module_set.input_modules[0].output_queue))
+        self.module_set.worker_modules.append(
+            ChatModelModule(chat_model=self.chat_model,
+                            input_queue=self.module_set.input_modules[-1].output_queue,
+                            stream_result=self.stream)
+        )
+        self.module_set.output_modules.append(
+            SynthesizerModule(synthesizer=self.synthesizer,
+                              input_queue=self.module_set.worker_modules[-1].output_queue)
+        )
+        self.module_set.output_modules.append(
+            WaveOutputModule(input_queue=self.module_set.output_modules[-1].output_queue)
+        )
+
+        self.conversation_kwargs = {}
+        if self.chat_model.history[-1]["role"] == "assistant":
+            self.conversation_kwargs["greeting"] = chat_model.history[-1]["content"]
+
+        self.handler = None
+
+    def setup(self) -> None:
+        """
+        Method for setting up conversation handler.
+        """
+        if self.handler is None:
+            self.handler = ModularConversationHandler(working_directory=self.working_directory,
+                                                      module_set=self.module_set)
+        else:
+            self.handler.reset()
+
+    def stop(self) -> None:
+        """
+        Method for stopping conversation handler.
+        """
+        self.handler.stop_components()
+
+    def run_conversation(self, blocking: bool = True) -> None:
+        """
+        Method for running a looping conversation.
+        :param blocking: Flag which declares whether or not to wait for each conversation step.
+            Defaults to True.
+        """
+        self.handler.run_conversation(blocking=blocking, **self.conversation_kwargs)
+
+    def run_interaction(self, blocking: bool = True) -> None:
+        """
+        Method for running an conversational interaction.
+        :param blocking: Flag which declares whether or not to wait for each conversation step.
+            Defaults to True.
+        """
+        self.handler.run_conversation(blocking=blocking, loop=False, **self.conversation_kwargs)
+
+    def run_terminal_conversation(self) -> None:
+        """
+        Runs conversation loop with terminal input.
+        """
+        stop = TEvent()
+        bindings = KeyBindings()
+
+        @bindings.add("c-c")
+        @bindings.add("c-d")
+        def exit_session(event: KeyPressEvent) -> None:
+            """
+            Function for exiting session.
+            :param event: Event that resulted in entering the function.
+            """
+            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
+            self.handler.reset()
+            print_formatted_text(HTML("<b>Bye...</b>"))
+            event.app.exit()
+            stop.set()
+
+        session = setup_prompt_session(bindings)
+        cfg.LOGGER.info(f"Starting conversation loop...")
+        self.module_set.input_modules[0].pause.set()
+        self.handler.run_conversation(blocking=False, loop=True, **self.conversation_kwargs)
+        
+        while not stop.is_set():
+            with patch_stdout():
+                user_input = session.prompt(
+                    "User: ")
+                if user_input is not None:
+                    self.module_set.worker_modules[0].input_queue.put(VAPackage(content=user_input))
