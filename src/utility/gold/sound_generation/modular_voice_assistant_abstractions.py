@@ -67,10 +67,19 @@ def create_default_metadata() -> List[dict]:
     return [{"created": get_timestamp()}]
 
 
+def create_uuid() -> str:
+    """
+    Creates an UUID for a VA package.
+    :return: UUID as string.
+    """
+    return str(uuid4())
+
+
 class VAPackage(BaseModel):
     """
     Voice assistant package for exchanging data between modules.
     """
+    uuid: str = Field(default_factory=create_uuid)
     content: Any
     metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
 
@@ -108,6 +117,9 @@ class VAModule(ABC):
         self.output_queue = TQueue() if output_queue is None else output_queue
         self.stream_result = stream_result
         self.logger = logger
+
+        self.received = []
+        self.sent = []
 
     def _flush_queue(self, queue: TQueue) -> None:
         """
@@ -164,8 +176,10 @@ class VAModule(ABC):
                 if self.stream_result:
                     for elem in result:
                         self.output_queue.put(elem)
+                        self.sent.append(elem.uuid)
                 else:
                     self.output_queue.put(result)
+                    self.sent.append(result.uuid)
             time.sleep(self.loop_pause)
 
     @abstractmethod
@@ -233,6 +247,7 @@ class WaveOutputModule(VAModule):
         if not self.pause.is_set():
             try:
                 input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
+                self.received.append(input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
                 if self.stream_result:
                     for response_tuple in self.streamed_handler_method(input_package.content):
@@ -274,6 +289,7 @@ class BasicHandlerModule(VAModule):
         if not self.pause.is_set():
             try:
                 input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
+                self.received.append(input_package.uuid)
                 self.pause.set()
                 cfg.LOGGER.info(f"Outputting wave response...")
                 play_wave(input_package.content, input_package.metadata_stack[-1])
