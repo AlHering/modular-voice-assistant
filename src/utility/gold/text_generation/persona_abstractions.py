@@ -6,9 +6,10 @@
 ****************************************************
 """
 from typing import List, Any, Union
+from datetime import datetime as dt
 from pydantic import BaseModel
-from .language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
-from .knowledgebase_abstractions import MemoryMetadata, MemoryEntry, Memory
+from .language_model_abstractions import ChatModelInstance, RemoteChatModelInstance, ChatModelConfig, RemoteChatModelConfig
+from .knowledgebase_abstractions import MemoryMetadata, MemoryEntry, Memory, ChromaKnowledgebase
 
 
 class PersonaConfiguration(BaseModel):
@@ -16,8 +17,10 @@ class PersonaConfiguration(BaseModel):
     Persona configuration dataclass.
     """
     persona_description: str
+    chat_model_config: Union[ChatModelConfig, RemoteChatModelConfig]
     conversation_example: str | None = None
-    memories: List[MemoryEntry] | None = None
+    welcome_message: str | None = None
+    memory: Memory | None = None
 
 
 class Persona(object): 
@@ -26,21 +29,38 @@ class Persona(object):
     """
     def __init__(self, 
                  persona_description: str,
-                 chat_model_instance: Union[ChatModelInstance, RemoteChatModelInstance],
+                 chat_model_config: Union[ChatModelConfig, RemoteChatModelConfig],
                  conversation_example: str | None = None,
-                 memories: List[MemoryEntry] | None = None) -> None:
+                 welcome_message: str | None = None,
+                 memory: Memory | None = None) -> None:
         """
         Initiation method.
         :param persona_description: Persona character description.
-        :param chat_model_instance: Chat model instance.
+        :param chat_model_config: (Remote) chat model config.
         :param conversation_example: An conversation example.
-        :param memories: List of memories to initate the Persona with.
-        :param remote: Flag that declares, whether to use an 
+        :param welcome_message: Welcome message, put into the chat model history after the system prompt. 
+        :param memory: Memory.
         """
         self.persona_description = persona_description
+        self.chat_model_config = chat_model_config
         self.conversation_example = conversation_example
-        self.memories = memories
+        self.welcome_message = welcome_message
+
+        self.chat_model_config.system_prompt = f"{self.persona_description}.\n{self.conversation_example if self.conversation_example else ''}"
+        if isinstance(self.chat_model_config, ChatModelConfig):
+            self.chat_model = ChatModelInstance.from_configuration(config=self.chat_model_config)
+        elif isinstance(self.chat_model_config, RemoteChatModelConfig):
+            self.chat_model = RemoteChatModelConfig.from_configuration(config=self.chat_model_config)
         
+        if self.welcome_message is not None:
+            self.chat_model.history.append({
+                "role": "assistant", 
+                "content": self.welcome_message, 
+                "metadata": {"intitated": dt.now()}
+            })
+
+        self.memory = memory
+
     @classmethod
     def from_configuration(cls, config: PersonaConfiguration) -> Any:
         """
@@ -48,6 +68,4 @@ class Persona(object):
         :param config: Persona configuration.
         :return: Persona instance.
         """
-        return cls(description=config.persona_description,
-                   conversation_example=config.conversation_example,
-                   memories=config.memories)
+        return cls(**config.model_dump())
