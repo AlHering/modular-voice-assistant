@@ -711,9 +711,15 @@ class Memory(object):
     Consolidation functionality
     """
 
-    def consolidate(self) -> None:
+    def consolidate_by_time(self) -> None:
         """
-        Method for consolidating memory.
+        Method for consolidating memory by time deltas.
+        """
+        pass
+
+    def consolidate_by_similarity(self) -> None:
+        """
+        Method for consolidating memory by similarity.
         """
         pass
 
