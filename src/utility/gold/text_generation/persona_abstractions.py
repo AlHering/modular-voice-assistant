@@ -5,7 +5,7 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from typing import List, Any, Union
+from typing import List, Any, Union, Optional
 from datetime import datetime as dt
 from pydantic import BaseModel
 from .language_model_abstractions import ChatModelInstance, RemoteChatModelInstance, ChatModelConfig, RemoteChatModelConfig
@@ -60,6 +60,20 @@ class Persona(object):
             })
 
         self.memory = memory
+
+    def talk(self, text: str = None) -> Optional[str]:
+        """
+        Prompts a response of the persona wrapped language model.
+        :param text: Optional text content.
+        :return: Text response.
+        """
+        pass
+
+    def consolidate(self) -> None:
+        """
+        Consolidates memory.
+        """
+        pass
 
     @classmethod
     def from_configuration(cls, config: PersonaConfiguration) -> Any:
