@@ -7,11 +7,12 @@
 ****************************************************
 """
 import traceback
+from pydantic import BaseModel, Field
 from typing import List, Any, Callable, Optional, Type, Union, Tuple
 from uuid import uuid4
 from datetime import datetime as dt
-from .language_model_abstractions import LanguageModelInstance, ChatModelInstance, RemoteChatModelInstance
-from .knowledgebase_abstractions import MemoryMetadata, MemoryEntry, Memory
+from .language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
+from .knowledgebase_abstractions import Knowledgebase, Document
 from ..filter_mask import FilterMask
 
 
@@ -123,38 +124,224 @@ class AgentTool(object):
         return self.func(**{arg.name: arg.value for arg in self.arguments})
 
 
-class AgentMemoryEntry(object):
+def create_memory_timestamp() -> str:
     """
-    Class, representing an agent's memory entry.
+    Returns memory timestamp.
+    :return: Ctime formated timestamp.
     """
-    def __init__(
-            self,
-            id: Union[int, str],
-            timestamp: dt,
-            content: str,
-            embedding: List[float],
-            importance: int = -1,
-            layer: int = 0,
-            metadata: dict = {}) -> None:
+    return dt.ctime(dt.now())
+
+
+class MemoryMetadata(BaseModel):
+    """
+    Represents a memory entry metadata.
+    """
+    timestamp: str = Field(default_factory=create_memory_timestamp)
+    importance: int = -1
+    layer: int = 0
+
+
+class MemoryEntry(BaseModel):
+    """
+    Represents a memory entry.
+    """
+    id: Union[int, str]
+    content: str
+    embedding: List[float] | None = None
+    metadata: MemoryMetadata = MemoryMetadata()
+
+
+class Memory(object):
+    """
+    Represents a knowledgebase based memory.
+    """
+    def __init__(self, knowledgebase: Knowledgebase, memories: List[MemoryEntry] | None = None) -> None:
         """
         Initiation method.
-        :param id: The ID of the entry.
-        :param timestamp: Timestamp of creation.
-        :param content: Textual content of the memory.
-        :param embedding: Embedded content.
-        :param importance: Memory importance. The higher the number, the more important the memory.
-        :param layer: Memorization layer. Level one means an atomic memory. This number is incremented with
-            every iteration of memory condensation (concatenation and summarization of multiple entries).
-        :param metadata: Metadata for additional storage. Examples would be agents in a multi-agent-system or
-            entity relationships.
+        :param knowledgebase: Knowledgebase for managing memories.
+        :param memories: List of memory entries for initialization.
+            Defaults to None.
         """
-        self.id = id
-        self.timestamp = timestamp
-        self.content = content
-        self.embedding = embedding
-        self.importance = importance
-        self.layer = layer
-        self.metadata = metadata
+        self.knowledgebase = knowledgebase
+        self._initiate_memory(memories=memories)
+
+    @classmethod
+    def from_knowledgebase(cls, knowledgebase: Knowledgebase) -> Any:
+        """
+        Returns session instance from a json file.
+        :param file_path: Path to json file.
+        :returns: VoiceAssistantSession instance.
+        """
+        return cls(knowledgebase=knowledgebase)
+
+    def _initiate_memory(self, memories: List[MemoryEntry] | None = None) -> None:
+        """
+        Method for initiating memories.
+        :param memories: List of memory entries for initialization.
+            Defaults to None.
+        """
+        if memories is not None:
+            for memory in memories:
+                self.add_memory(memory)
+
+    """
+    Conversion functionality
+    """
+
+    def memory_to_document(self, memory: MemoryEntry) -> Document:
+        """
+        Method for converting memory entries to documents.
+        :param memory: Memory entry.
+        :return: Document.
+        """
+        return Document(
+            id=memory.id,
+            content=memory.content,
+            metadata=memory.metadata.model_dump(),
+            embedding=memory.embedding
+        )
+    
+    def document_to_memory(self, document: Document, importance: int = -1, layer: int = 0) -> MemoryEntry:
+        """
+        Method for converting documents to memory entries. Importance and layer can be used to organize memories.
+        It is recommendet, to use negative integers for custom memory types (like factual knowledge from books).
+        It is further recommended, to consolidate similar lower layer memories into higher layer memories every now and then, 
+        and afterwards respectively retrieve memories from higher to lower layer.
+        :param document: Document.
+        :param importance: Document importance.
+            Defaults to -1.
+        :param layer: Memory layer.
+            Defaults to 0. 
+        :return: Memory entry.
+        """
+        return MemoryEntry(
+            id=document.id,
+            content=document.content,
+            metadata=MemoryMetadata(
+                importance=document.metadata.get("importance", importance),
+                layer=document.metadata.get("layer", layer)
+            ),
+            embedding=document.embedding
+        )
+    
+    """
+    Insertion functionality
+    """
+
+    def memorize(self, content: str) -> None:
+        """
+        Method for memorizing something.
+        This method should be used for memory model agnostic usage.
+        :param content: Memory content.
+        """
+        self.add_memory(MemoryEntry(
+            id=str(uuid4()),
+            content=content,
+            metadata=MemoryMetadata()
+        ))
+
+    def remember(self, 
+                 reference: str, 
+                 max_retrievals: int = 4,
+                 min_importance: int | None = None, 
+                 min_layer: int | None = None,
+                 max_importance: int | None = None, 
+                 max_layer: int | None = None) -> Optional[List[Tuple[str, dict]]]:
+        """
+        Method for remembering something.
+        This method should be used for memory model agnostic usage.
+        Importance and layer can be used to filtre for specific memories.
+        It is recommendet, to use negative integers for custom memory types (like factual knowledge from books).
+        It is further recommended, to consolidate similar lower layer memories into higher layer memories every now and then, 
+        and afterwards respectively retrieve memories from higher to lower layer.
+        :param reference: Recall reference.
+        :param max_retrievals: Maximum number of retrieved memories.
+        :param min_importance: Minimum importance of the memory.
+            Defaults to None.
+        :param min_layer: Minimum layer of the memory.
+            Defaults to None.
+        :param max_importance: Maximum importance of the memory.
+            Defaults to None.
+        :param max_layer: Maximum layer of the memory.
+            Defaults to None.
+        :return: Memories as list of memory texts and metadata entriess.
+        """
+        filtermask = []
+        
+        if min_importance is not None:
+            filtermask.append(["importance", ">=", min_importance])
+        if min_layer is not None:
+            filtermask.append(["layer", ">=", min_layer])
+        if max_importance is not None:
+            filtermask.append(["importance", "<=", max_importance])
+        if max_layer is not None:
+            filtermask.append(["layer", "<=", max_layer])
+
+        if filtermask:
+            memories = self.retrieve_memories_by_similarity(
+                    reference=reference,
+                    filtermasks=[filtermask],
+                    retrieval_parameters={"n_results": max_retrievals,
+                                          "include": ["embeddings", "metadatas", "documents", "distances"]})
+        else:
+            memories = self.retrieve_memories_by_similarity(
+                    reference=reference,
+                    retrieval_parameters={"n_results": max_retrievals,
+                                          "include": ["embeddings", "metadatas", "documents", "distances"]})
+        return [(memory.content, memory.metadata.model_dump()) for memory in memories]
+
+    def add_memory(self, memory: MemoryEntry) -> None:
+        """
+        Method to add a memory.
+        :param memory: Memory to add.
+        """
+        self.knowledgebase.embed_documents(
+            documents=[Document(
+                id=memory.id,
+                content=memory.content,
+                metadata=memory.metadata.model_dump(),
+                embedding=memory.embedding
+            )]
+        )
+
+    """
+    Retrieval functionality
+    """
+
+    def retrieve_all_memories(self) -> List[MemoryEntry]:
+        """
+        Method to retrieve all memories.
+        :return: List of memories.
+        """
+        return [self.document_to_memory(doc) for doc in self.knowledgebase.get_all_documents()]
+
+    def retrieve_memories_by_similarity(self, reference: str, filtermasks: List[FilterMask] | None = None, retrieval_parameters: dict | None = None) -> List[MemoryEntry]:
+        """
+        Method for retrieving memories by similarity.
+        :param reference: Reference for similarity search.
+        :param filtermasks: List of filtermasks for additional filering.
+            Defaults to None.
+        :param retrieval_parameters: Keyword arguments for retrieval.
+            Defaults to None.
+        """
+        return [self.document_to_memory(doc) for doc in
+            self.knowledgebase.retrieve_documents(query=reference, filtermasks=filtermasks, retrieval_parameters=retrieval_parameters)]
+
+    """
+    Consolidation functionality
+    """
+
+    def consolidate_by_time(self) -> None:
+        """
+        Method for consolidating memory by time deltas.
+        """
+        pass
+
+    def consolidate_by_similarity(self) -> None:
+        """
+        Method for consolidating memory by similarity.
+        """
+        pass
 
 
 class Agent(object):
@@ -163,7 +350,7 @@ class Agent(object):
     """
 
     def __init__(self,
-                 llm: ChatModelInstance,
+                 llm: ChatModelInstance | RemoteChatModelInstance,
                  tools: List[AgentTool] = None,
                  memory: Memory = None) -> None:
         """
@@ -304,4 +491,6 @@ class Agent(object):
             "content": answer,
             "metadata": metadata
         }) 
+
+
 
