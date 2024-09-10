@@ -564,6 +564,10 @@ class Memory(object):
             for memory in memories:
                 self.add_memory(memory)
 
+    """
+    Conversion functionality
+    """
+
     def memory_to_document(self, memory: MemoryEntry) -> Document:
         """
         Method for converting memory entries to documents.
@@ -593,16 +597,22 @@ class Memory(object):
         return MemoryEntry(
             id=document.id,
             content=document.content,
-            metadata=MemoryMetadata(**document.metadata),
+            metadata=MemoryMetadata(
+                importance=document.metadata.get("importance", importance),
+                layer=document.metadata.get("layer", layer)
+            ),
             embedding=document.embedding
         )
+    
+    """
+    Insertion functionality
+    """
 
-    def memorize(self, content: str, metadata: dict) -> None:
+    def memorize(self, content: str) -> None:
         """
         Method for memorizing something.
         This method should be used for memory model agnostic usage.
         :param content: Memory content.
-        :param metadata: Metadata for memory.
         """
         self.add_memory(MemoryEntry(
             id=str(uuid4()),
@@ -674,6 +684,10 @@ class Memory(object):
             )]
         )
 
+    """
+    Retrieval functionality
+    """
+
     def retrieve_all_memories(self) -> List[MemoryEntry]:
         """
         Method to retrieve all memories.
@@ -692,6 +706,17 @@ class Memory(object):
         """
         return [self.document_to_memory(doc) for doc in
             self.knowledgebase.retrieve_documents(query=reference, filtermasks=filtermasks, retrieval_parameters=retrieval_parameters)]
+
+    """
+    Consolidation functionality
+    """
+
+    def consolidate(self) -> None:
+        """
+        Method for consolidating memory.
+        """
+        pass
+
 
 """
 Templates
