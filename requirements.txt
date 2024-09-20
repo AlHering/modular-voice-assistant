@@ -12,7 +12,7 @@ openai-whisper==20231117
 faster-whisper==1.0.2
 SpeechRecognition==3.10.4
 pyttsx3==2.90
-coqui-tts[all]==0.24.1
+coqui-tts[all]
 
 urllib3==2.2.1
 requests==2.32.3
