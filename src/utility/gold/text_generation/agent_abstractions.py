@@ -139,6 +139,7 @@ class MemoryMetadata(BaseModel):
     timestamp: str = Field(default_factory=create_memory_timestamp)
     importance: int = -1
     layer: int = 0
+    sources: List[Union[int, str]] = []
 
 
 class MemoryEntry(BaseModel):
