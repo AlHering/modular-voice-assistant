@@ -418,9 +418,9 @@ class ModularConversationHandler(object):
                 res.extend(threads)
         return threads
 
-    def stop_components(self) -> None:
+    def stop_modules(self) -> None:
         """
-        Stops process components.
+        Stops process modules.
         """
         self.stop.set()
         for module in self.module_set.get_all():
@@ -432,9 +432,9 @@ class ModularConversationHandler(object):
             except RuntimeError:
                 pass
 
-    def setup_components(self) -> None:
+    def setup_modules(self) -> None:
         """
-        Sets up components.
+        Sets up modules.
         """
         self.stop = TEvent()
         for module in self.module_set.get_all():
