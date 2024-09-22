@@ -358,7 +358,7 @@ class SynthesizerModule(BasicHandlerModule):
                          **kwargs)
         
 
-class BaseModuleSet(BaseModel):
+class BaseModuleSet(object):
     """
     Base module set.
     """
@@ -405,7 +405,7 @@ class ModularConversationHandler(object):
         self.output_threads = None
         self.additional_threads = None
         self.stop = None
-        self.setup_components()
+        self.setup_modules()
 
     def get_all_threads(self) -> List[Thread]:
         """
@@ -450,9 +450,9 @@ class ModularConversationHandler(object):
         Sets up and resets handler. 
         """
         cfg.LOGGER.info("(Re)setting Conversation Handler...")
-        self.stop_components()
+        self.stop_modules()
         gc.collect()
-        self.setup_components()
+        self.setup_modules()
         cfg.LOGGER.info("Setup is done.")
 
     def _run_nonblocking_conversation(self, loop: bool) -> None:
@@ -514,7 +514,7 @@ class ModularConversationHandler(object):
                 self._run_blocking_conversation(loop=loop)
         except KeyboardInterrupt:
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
-            self.stop_components()
+            self.stop_modules()
 
 
 class BasicVoiceAssistant(object):
@@ -585,7 +585,7 @@ class BasicVoiceAssistant(object):
         """
         Method for stopping conversation handler.
         """
-        self.handler.stop_components()
+        self.handler.stop_modules()
 
     def run_conversation(self, blocking: bool = True) -> None:
         """
