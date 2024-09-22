@@ -159,6 +159,7 @@ cython_debug/
 
 # Custom additions
 *_venv/
+*-venv/
 data/
 src_prototype/
 docs/literature/
