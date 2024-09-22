@@ -8,7 +8,7 @@
 """
 import traceback
 import copy
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Tuple, Any, Callable, Optional, Union, Dict, Generator
 from datetime import datetime as dt
 from ...bronze.string_utility import SENTENCE_CHUNK_STOPS
@@ -25,6 +25,8 @@ class LanguageModelConfig(BaseModel):
     """
     Language model config class.
     """
+    model_config: ConfigDict = ConfigDict(protected_namespaces=())
+
     backend: str
     model_path: str
     model_file: str | None = None
@@ -241,7 +243,7 @@ class ChatModelConfig(BaseModel):
     """
     Chat model configuration class.
     """
-    language_model_instance: LanguageModelInstance
+    language_model_config: LanguageModelConfig
     chat_parameters: dict | None = None
     system_prompt: str | None = None
     prompt_maker: Callable | None = None
@@ -255,7 +257,7 @@ class ChatModelInstance(object):
     """
 
     def __init__(self,
-                 language_model_instance: LanguageModelInstance,
+                 language_model: LanguageModelConfig | LanguageModelInstance,
                  chat_parameters: dict | None = None,
                  system_prompt: str | None = None,
                  prompt_maker: Callable | None = None,
@@ -263,7 +265,7 @@ class ChatModelInstance(object):
                  history: List[Dict[str, Union[str, dict]]] | None = None) -> None:
         """
         Initiation method.
-        :param LanguageModelInstance: Language model instance.
+        :param language_model: Language model config or instance.
         :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
             model backend.
@@ -277,7 +279,7 @@ class ChatModelInstance(object):
         :param history: Interaction history as list of {"role": <role>, "content": <message>, "metadata": <metadata>}-dictionaries.
             Defaults to None.
         """
-        self.language_model_instance = language_model_instance
+        self.language_model_instance = language_model if isinstance(language_model, LanguageModelInstance) else LanguageModelInstance.from_configuration(language_model)
         self.chat_parameters = self.language_model_instance.generating_parameters if chat_parameters is None else chat_parameters
         self.system_prompt = system_prompt
         if prompt_maker is None:
