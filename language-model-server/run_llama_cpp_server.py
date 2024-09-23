@@ -123,10 +123,6 @@ def get_valid_config_path(config_path: str | None) -> str | None:
             if os.path.exists(rel_path):
                 return rel_path
 
-    
-
-    if os.path.exists(config_path) and config_path.lower().endswith(".json"):
-
 
 """
 Main functionality
