@@ -178,8 +178,8 @@ def terminate_llamacpp_server_subprocess(process: subprocess.Popen) -> None:
 """
 Click-based entrypoint
 """
-@click.Command()
-@click.Option("--config_path", default=None, help="Path to json configuration file for the LlamaCPP server.")
+@click.command()
+@click.option("--config_path", default=None, help="Path to json configuration file for the LlamaCPP server.")
 def run_llama_server(config_path: str) -> None:
     """Runner program for LlamaCPP Server."""
     config_path = get_valid_config_path(config_path=config_path)
