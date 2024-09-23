@@ -5,6 +5,7 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
+from __future__ import annotations
 import os
 import sys
 import json
@@ -16,35 +17,14 @@ import time
 from uuid import uuid4
 from typing import Union
 from llama_cpp.server.settings import ConfigFileSettings
+from dotenv import dotenv_values
 
 
-DEFAULT_CONFIG = {
-    "host": "0.0.0.0",
-    #"host": "192.168.178.124",
-    "port": 8123,
-    "models": [
-        {
-            "model": "/mnt/Workspaces/Resources/machine_learning/text_generation/models/text_generation_models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
-            "model_alias": "llama3.1-8B-i1",
-            "chat_format": "chatml",
-            "n_gpu_layers": -1,
-            "offload_kqv": True,
-#            "n_ctx": 131072,
-            "n_ctx": 65536,
-            "flash_attn": True,
-            "use_mlock": False
-        },
-        {
-            "model": "/mnt/Workspaces/Resources/machine_learning/text_generation/models/text_generation_models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
-            "model_alias": "llama-3",
-            "chat_format": "chatml",
-            "n_gpu_layers": 22,
-            "offload_kqv": True,
-            "n_ctx": 8192,
-            "use_mlock": False
-        }
-    ]
-}
+"""
+Environment file
+"""
+ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
+ENV = dotenv_values(ENV_PATH) if os.path.exists(ENV_PATH) else {}
 
 
 def save_json(data: dict, path: str) -> None:
@@ -65,6 +45,51 @@ def load_json(path: str) -> dict:
     """
     with open(path, "r", encoding="utf-8") as in_file:
         return json.load(in_file)
+        
+
+MODEL_CONFIGS = [
+    {
+        "model": "/mnt/Workspaces/Resources/machine_learning/text_generation/models/text_generation_models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
+        "model_alias": "llama3.1-8B-i1",
+        "chat_format": "chatml",
+        "n_gpu_layers": -1,
+        "offload_kqv": True,
+#            "n_ctx": 131072,
+        "n_ctx": 65536,
+        "flash_attn": True,
+        "use_mlock": False
+    },
+    {
+        "model": "/mnt/Workspaces/Resources/machine_learning/text_generation/models/text_generation_models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
+        "model_alias": "llama-3",
+        "chat_format": "chatml",
+        "n_gpu_layers": 22,
+        "offload_kqv": True,
+        "n_ctx": 8192,
+        "use_mlock": False
+    }
+]
+
+
+def get_default_model_configs() -> list:
+    """
+    Returns default model configs.
+    :return: List of model dictionaries.
+    """
+    try:
+        model_config = load_json(ENV.get("MODEL_CONFIG"))
+        if isinstance(model_config, dict) and "models" in model_config:
+            model_config = model_config["models"]
+    except:
+        model_config = MODEL_CONFIGS
+    return model_config
+
+
+SERVER_CONFIG = {
+    "host": ENV.get("HOST", "0.0.0.0"),
+    "port": int(ENV.get("PORT", "8123")),
+    "models": get_default_model_configs()
+}
 
 
 def load_llamacpp_server_subprocess(config: Union[dict, str], wait_for_startup: bool = True) -> subprocess.Popen:
@@ -117,7 +142,7 @@ def terminate_llamacpp_server_subprocess(process: subprocess.Popen) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        process = load_llamacpp_server_subprocess(DEFAULT_CONFIG)
+        process = load_llamacpp_server_subprocess(SERVER_CONFIG)
     elif os.path.exists(sys.argv[1]) and sys.argv[1].lower().endswith(".json"):
         process = load_llamacpp_server_subprocess(sys.argv[1])
     else:
