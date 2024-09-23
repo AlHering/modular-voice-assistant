@@ -472,15 +472,7 @@ class ModularConversationHandler(object):
         :param loop: Delcares, whether to loop conversation or stop after a single interaction.
         """
         for thread in self.worker_threads + self.input_threads:
-            thread.start()   
-
-        def report_loop():
-            while True:
-                time.sleep(10)
-                print(self.report())
-        thread = Thread(target=report_loop)
-        thread.daemon = True
-        thread.start()          
+            thread.start()         
         if not loop:
             while self.module_set.input_modules[0].output_queue.qsize() == 0 and self.module_set.input_modules[-1].output_queue.qsize() == 0:
                 time.sleep(self.loop_pause/16)
@@ -510,7 +502,8 @@ class ModularConversationHandler(object):
     def run_conversation(self, 
                          blocking: bool = True, 
                          loop: bool = True, 
-                         greeting: str = "Hello there, how may I help you today?") -> None:
+                         greeting: str = "Hello there, how may I help you today?",
+                         report: bool = False) -> None:
         """
         Runs conversation.
         :param blocking: Declares, whether or not to wait for each step.
@@ -519,8 +512,12 @@ class ModularConversationHandler(object):
             Defaults to True.
         :param greeting: Assistant greeting.
             Defaults to "Hello there, how may I help you today?".
+        :param report: Flag for logging reports.
         """
         cfg.LOGGER.info(f"Starting conversation loop...")
+        if report:
+            self.run_report_thread()
+
         for thread in self.output_threads:
             thread.start()
         if self.module_set.output_modules:
@@ -535,30 +532,35 @@ class ModularConversationHandler(object):
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
             self.stop_modules()
 
-    def report(self) -> str:
+    def run_report_thread(self) -> None:
         """
-        Returns report.
-        :return: Conversation handler report.
+        Runs a thread for logging reports.
         """ 
-        module_info = "\n".join([
-            "==========================================================",
-            f"#                    {get_timestamp()}                   ",
-            f"#                    {self}                              ",
-            f"#                Running: {not self.stop.is_set()}       ",
-            "=========================================================="
-        ])
-        for threads in ["input_threads", "worker_threads", "output_threads", "additional_threads"]:
-            for thread_index, thread in enumerate(getattr(self, threads)):
-                module = getattr(self.module_set, f"{threads.split('_')[0]}_modules")[thread_index]
-                module_info += f"\n\t[{type(module).__name__}] Thread '{thread}: {thread.is_alive()}'"
-                module_info += f"\n\t\t Inputs: {module.input_queue.qsize()}'"
-                module_info += f"\n\t\t Outputs: {module.output_queue.qsize()}'"
-                module_info += f"\n\t\t Received: {module.received}'"
-                module_info += f"\n\t\t Sent: {module.sent}'"
-                module_info += f"\n\t\t Pause: {module.pause.is_set()}'"
-                module_info += f"\n\t\t Interrupt: {module.interrupt.is_set()}'"
-        return module_info
-
+        def log_report(wait_time: float = 10.0) -> None:
+            while not self.stop.is_set():
+                module_info = "\n".join([
+                    "==========================================================",
+                    f"#                    {get_timestamp()}                   ",
+                    f"#                    {self}                              ",
+                    f"#                Running: {not self.stop.is_set()}       ",
+                    "=========================================================="
+                ])
+                for threads in ["input_threads", "worker_threads", "output_threads", "additional_threads"]:
+                    for thread_index, thread in enumerate(getattr(self, threads)):
+                        module = getattr(self.module_set, f"{threads.split('_')[0]}_modules")[thread_index]
+                        module_info += f"\n\t[{type(module).__name__}] Thread '{thread}: {thread.is_alive()}'"
+                        module_info += f"\n\t\t Inputs: {module.input_queue.qsize()}'"
+                        module_info += f"\n\t\t Outputs: {module.output_queue.qsize()}'"
+                        module_info += f"\n\t\t Received: {module.received}'"
+                        module_info += f"\n\t\t Sent: {module.sent}'"
+                        module_info += f"\n\t\t Pause: {module.pause.is_set()}'"
+                        module_info += f"\n\t\t Interrupt: {module.interrupt.is_set()}'"
+                cfg.LOGGER.info(module_info)
+                time.sleep(wait_time)
+        thread = Thread(target=log_report)
+        thread.daemon = True
+        thread.start()    
+        
 
 
 class BasicVoiceAssistant(object):
