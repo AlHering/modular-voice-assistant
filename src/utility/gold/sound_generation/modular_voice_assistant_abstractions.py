@@ -156,6 +156,7 @@ class VAModule(ABC):
         :param text: Text content to log.
         """
         if self.logger is not None:
+            text = f"[{type(self).__name__}] " + text
             self.logger.info(text)
 
     def to_thread(self) -> Thread:
@@ -176,15 +177,18 @@ class VAModule(ABC):
         
     def run(self) -> None:
         """
-        Runs a single processing cycle..
+        Runs a single processing cycle.
         """
-        result = self.run()
+        result = self.process()
         if result is not None:
-            if self.stream_result:
+            print(f"##Forwarding result {result}")
+            if self.stream_result or isinstance(result, Generator):
+                print(f"##Is streamed {result}")
                 for elem in result:
                     self.output_queue.put(elem)
                     self.sent.append(elem.uuid)
             else:
+                print(f"##Not streamed {result}")
                 self.output_queue.put(result)
                 self.sent.append(result.uuid)
 
@@ -234,8 +238,6 @@ class WaveOutputModule(VAModule):
                  **kwargs: Any | None) -> None:
         """
         Initiates an instance.
-        :param handler_method: Handler method.
-        :param streamed_handler_method: Handler method for streamed responses.
         :param args: Arbitrary arguments.
         :param kwargs: Arbitrary keyword arguments.
         """
@@ -246,9 +248,11 @@ class WaveOutputModule(VAModule):
         Module processing method.
         :returns: Voice assistant package, a package generator in case of streaming or None.
         """
+        print(f"Wave pause: {self.pause.is_set()}")
         if not self.pause.is_set():
             try:
                 input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
+                print(f"Wave output got {input_package.content}")
                 self.pause.set()
                 self.received.append(input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
@@ -274,6 +278,8 @@ class BasicHandlerModule(VAModule):
         :param args: Arbitrary arguments.
         :param kwargs: Arbitrary keyword arguments.
         """
+        if kwargs.get("stream_result") and streamed_handler_method is None:
+            raise ValueError(f"Streaming mode is set for {type(self).__name__} but no streamed handler method is given.")
         super().__init__(*args, **kwargs)
         self.handler_method = handler_method
         self.streamed_handler_method = streamed_handler_method
@@ -296,6 +302,7 @@ class BasicHandlerModule(VAModule):
                     response, response_metadata = self.handler_method(input_package.content)
                     self.log_info(f"Received response\n'{response}'.")             
                     return VAPackage(uuid=input_package.uuid, content=response, metadata_stack=input_package.metadata_stack + [response_metadata])
+                self.sent.append(input_package.uuid)
             except Empty:
                 pass
 
@@ -389,15 +396,18 @@ class ModularConversationHandler(object):
 
     def __init__(self, 
                  working_directory: str,
-                 module_set: BaseModuleSet) -> None:
+                 module_set: BaseModuleSet,
+                 loop_pause: float = 0.1) -> None:
         """
         Initiation method.
         :param working_directory: Directory for productive files.
         :param module_set: Module set.
+        :param loop_pause: Loop pause.
         """
         cfg.LOGGER.info("Initiating Conversation Handler...")
         self.working_directory = working_directory
         os.makedirs(self.working_directory, exist_ok=True)
+        self.loop_pause = loop_pause
 
         self.module_set = module_set
         self.input_threads = None
@@ -453,7 +463,7 @@ class ModularConversationHandler(object):
         self.stop_modules()
         gc.collect()
         self.setup_modules()
-        cfg.LOGGER.info("Setup is done.")
+        cfg.LOGGER.info("Reset is done.")
 
     def _run_nonblocking_conversation(self, loop: bool) -> None:
         """
@@ -462,8 +472,16 @@ class ModularConversationHandler(object):
         """
         for thread in self.worker_threads + self.input_threads:
             thread.start()   
+
+        def report_loop():
+            while True:
+                time.sleep(10)
+                print(self.report())
+        thread = Thread(target=report_loop)
+        thread.daemon = True
+        thread.start()          
         if not loop:
-            while self.module_set.input_modules[0].output_queue.qsize() == 0:
+            while self.module_set.input_modules[0].output_queue.qsize() == 0 and self.module_set.input_modules[-1].output_queue.qsize() == 0:
                 time.sleep(self.loop_pause/16)
             self.module_set.input_modules[0].pause.set()
             while self.module_set.worker_modules[-1].output_queue.qsize() == 0:
@@ -516,6 +534,31 @@ class ModularConversationHandler(object):
             cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
             self.stop_modules()
 
+    def report(self) -> str:
+        """
+        Returns report.
+        :return: Conversation handler report.
+        """ 
+        module_info = "\n".join([
+            "==========================================================",
+            f"#                    {get_timestamp()}                   ",
+            f"#                    {self}                              ",
+            f"#                Running: {not self.stop.is_set()}       ",
+            "=========================================================="
+        ])
+        for threads in ["input_threads", "worker_threads", "output_threads", "additional_threads"]:
+            for thread_index, thread in enumerate(getattr(self, threads)):
+                module = getattr(self.module_set, f"{threads.split('_')[0]}_modules")[thread_index]
+                module_info += f"\n\t[{type(module).__name__}] Thread '{thread}: {thread.is_alive()}'"
+                module_info += f"\n\t\t Inputs: {module.input_queue.qsize()}'"
+                module_info += f"\n\t\t Outputs: {module.output_queue.qsize()}'"
+                module_info += f"\n\t\t Received: {module.received}'"
+                module_info += f"\n\t\t Sent: {module.sent}'"
+                module_info += f"\n\t\t Pause: {module.pause.is_set()}'"
+                module_info += f"\n\t\t Interrupt: {module.interrupt.is_set()}'"
+        return module_info
+
+
 
 class BasicVoiceAssistant(object):
     """
@@ -548,21 +591,27 @@ class BasicVoiceAssistant(object):
 
         self.module_set = BaseModuleSet()
         self.module_set.input_modules.append(
-            SpeechRecorderModule(speech_recorder=self.speech_recorder))
+            SpeechRecorderModule(speech_recorder=self.speech_recorder, 
+                                 logger=cfg.LOGGER))
         self.module_set.input_modules.append(
             TranscriberModule(transcriber=self.transcriber, 
-                              input_queue=self.module_set.input_modules[0].output_queue))
+                              input_queue=self.module_set.input_modules[-1].output_queue, 
+                              logger=cfg.LOGGER))
         self.module_set.worker_modules.append(
             ChatModelModule(chat_model=self.chat_model,
                             input_queue=self.module_set.input_modules[-1].output_queue,
-                            stream_result=self.stream)
+                            stream_result=self.stream, 
+                            logger=cfg.LOGGER)
         )
         self.module_set.output_modules.append(
             SynthesizerModule(synthesizer=self.synthesizer,
-                              input_queue=self.module_set.worker_modules[-1].output_queue)
+                              input_queue=self.module_set.worker_modules[-1].output_queue,
+                              stream_result=self.stream, 
+                              logger=cfg.LOGGER)
         )
         self.module_set.output_modules.append(
-            WaveOutputModule(input_queue=self.module_set.output_modules[-1].output_queue)
+            WaveOutputModule(input_queue=self.module_set.output_modules[-1].output_queue, 
+                             logger=cfg.LOGGER)
         )
 
         self.conversation_kwargs = {}
@@ -624,7 +673,6 @@ class BasicVoiceAssistant(object):
             stop.set()
 
         session = setup_prompt_session(bindings)
-        cfg.LOGGER.info(f"Starting conversation loop...")
         self.module_set.input_modules[0].pause.set()
         self.handler.run_conversation(blocking=False, loop=True, **self.conversation_kwargs)
         
@@ -633,4 +681,4 @@ class BasicVoiceAssistant(object):
                 user_input = session.prompt(
                     "User: ")
                 if user_input is not None:
-                    self.module_set.worker_modules[0].input_queue.put(VAPackage(content=user_input))
+                    self.module_set.input_modules[-1].output_queue.put(VAPackage(content=user_input))
