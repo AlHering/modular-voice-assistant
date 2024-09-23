@@ -14,6 +14,7 @@ import signal
 import subprocess
 import requests
 import time
+import click
 from uuid import uuid4
 from typing import Union
 from llama_cpp.server.settings import ConfigFileSettings
@@ -27,6 +28,9 @@ ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
 ENV = dotenv_values(ENV_PATH) if os.path.exists(ENV_PATH) else {}
 
 
+"""
+IO helper functions
+"""
 def save_json(data: dict, path: str) -> None:
     """
     Function for saving dict data to path.
@@ -45,8 +49,11 @@ def load_json(path: str) -> dict:
     """
     with open(path, "r", encoding="utf-8") as in_file:
         return json.load(in_file)
-        
 
+
+"""
+Configuration construction
+"""
 MODEL_CONFIGS = [
     {
         "model": "/mnt/Workspaces/Resources/machine_learning/text_generation/models/text_generation_models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
@@ -92,6 +99,9 @@ SERVER_CONFIG = {
 }
 
 
+"""
+Main functionality
+"""
 def load_llamacpp_server_subprocess(config: Union[dict, str], wait_for_startup: bool = True) -> subprocess.Popen:
     """
     Function for loading llamacpp-based server subprocess.
@@ -140,17 +150,28 @@ def terminate_llamacpp_server_subprocess(process: subprocess.Popen) -> None:
     process.wait()
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        process = load_llamacpp_server_subprocess(SERVER_CONFIG)
-    elif os.path.exists(sys.argv[1]) and sys.argv[1].lower().endswith(".json"):
-        process = load_llamacpp_server_subprocess(sys.argv[1])
+"""
+Click-based entrypoint
+"""
+@click.Command()
+@click.Option("--config_path", default=None, help="Path to json configuration file for the LlamaCPP server.")
+def run_llama_server(config_path: str) -> None:
+    """Runner program for LlamaCPP Server."""
+    if config_path is not None:
+        if os.path.exists(config_path) and config_path.lower().endswith(".json"):
+            process = load_llamacpp_server_subprocess(config_path)
+        else:
+            print(f"Could not load '{config_path}' as JSON file.")
+            exit(1)
     else:
-        print(f"Could not load '{sys.argv[1]}' as JSON file.")
-        exit(1)
+        process = load_llamacpp_server_subprocess(SERVER_CONFIG)
     try:
         while True:
             time.sleep(1)
     except:
         pass
     terminate_llamacpp_server_subprocess(process=process)
+
+
+if __name__ == "__main__":
+    run_llama_server()
