@@ -95,7 +95,6 @@ class VAModule(ABC):
                  input_timeout: float | None = None, 
                  input_queue: TQueue | None = None,
                  output_queue: TQueue | None = None,
-                 stream_result: bool = False,
                  logger: Logger | None = None) -> None:
         """
         Initiates an instance.
@@ -105,8 +104,6 @@ class VAModule(ABC):
         :param input_timeout: Time to wait for inputs in a single run.
         :param input_queue: Input queue.
         :param output_queue: Output queue.
-        :param stream_result: Flag for declaring, whether to handle the result as a generator object.
-            Defaults to None.
         :param logger: Logger.
         """
         self.interrupt = TEvent() if interrupt is None else interrupt
@@ -115,11 +112,10 @@ class VAModule(ABC):
         self.input_timeout = input_timeout
         self.input_queue = TQueue() if input_queue is None else input_queue
         self.output_queue = TQueue() if output_queue is None else output_queue
-        self.stream_result = stream_result
         self.logger = logger
 
-        self.received = []
-        self.sent = []
+        self.received = {}
+        self.sent = {}
 
     def _flush_queue(self, queue: TQueue) -> None:
         """
@@ -174,6 +170,17 @@ class VAModule(ABC):
         while not self.interrupt.is_set():
             self.run()
             time.sleep(self.loop_pause)
+
+    def add_uuid(self, store: dict, uuid: str) -> None:
+        """
+        Adds a UUID to the sent dictionary.
+        :param store: UUID dictionary to add UUID to.
+        :param uuid: UUID to add.
+        """
+        if uuid in store:
+            store[uuid] += 1
+        else:
+            store[uuid] = 1
         
     def run(self) -> None:
         """
@@ -181,16 +188,15 @@ class VAModule(ABC):
         """
         result = self.process()
         if result is not None:
-            print(f"##Forwarding result {result}")
-            if self.stream_result or isinstance(result, Generator):
-                print(f"##Is streamed {result}")
+            if isinstance(result, VAPackage):
+                self.output_queue.put(result)
+                self.add_uuid(self.sent, elem.uuid)
+            elif isinstance(result, Generator):
+                elem = None
                 for elem in result:
                     self.output_queue.put(elem)
-                    self.sent.append(elem.uuid)
-            else:
-                print(f"##Not streamed {result}")
-                self.output_queue.put(result)
-                self.sent.append(result.uuid)
+                if elem is not None:
+                    self.add_uuid(self.sent, elem.uuid)
 
     @abstractmethod
     def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
@@ -248,13 +254,12 @@ class WaveOutputModule(VAModule):
         Module processing method.
         :returns: Voice assistant package, a package generator in case of streaming or None.
         """
-        print(f"Wave pause: {self.pause.is_set()}")
         if not self.pause.is_set():
             try:
                 input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
                 print(f"Wave output got {input_package.content}")
                 self.pause.set()
-                self.received.append(input_package.uuid)
+                self.add_uuid(self.received, input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
                 play_wave(input_package.content, input_package.metadata_stack[-1])
                 self.pause.clear()
@@ -268,21 +273,16 @@ class BasicHandlerModule(VAModule):
     """
     def __init__(self, 
                  handler_method: Callable, 
-                 streamed_handler_method: Callable | None = None,
                  *args: Any | None, 
                  **kwargs: Any | None) -> None:
         """
         Initiates an instance.
         :param handler_method: Handler method.
-        :param streamed_handler_method: Handler method for streamed responses.
         :param args: Arbitrary arguments.
         :param kwargs: Arbitrary keyword arguments.
         """
-        if kwargs.get("stream_result") and streamed_handler_method is None:
-            raise ValueError(f"Streaming mode is set for {type(self).__name__} but no streamed handler method is given.")
         super().__init__(*args, **kwargs)
         self.handler_method = handler_method
-        self.streamed_handler_method = streamed_handler_method
 
     def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
         """
@@ -292,20 +292,20 @@ class BasicHandlerModule(VAModule):
         if not self.pause.is_set():
             try:
                 input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
-                self.received.append(input_package.uuid)
+                self.add_uuid(self.received, input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
-                if self.stream_result:
-                    for response_tuple in self.streamed_handler_method(input_package.content):
-                        self.log_info(f"Received response part\n'{response_tuple[0]}'.")
-                        yield VAPackage(uuid=input_package.uuid, content=response_tuple[0], metadata_stack=input_package.metadata_stack + [response_tuple[1]])
-                else:
-                    response, response_metadata = self.handler_method(input_package.content)
-                    self.log_info(f"Received response\n'{response}'.")             
-                    return VAPackage(uuid=input_package.uuid, content=response, metadata_stack=input_package.metadata_stack + [response_metadata])
-                self.sent.append(input_package.uuid)
+                if input_package.content:
+                    result = self.handler_method(input_package.content)
+                    if isinstance(result, Generator):
+                        for response_tuple in result:
+                            self.log_info(f"Received response shard\n'{response_tuple[0]}'.")   
+                            yield VAPackage(uuid=input_package.uuid, content=response_tuple[0], metadata_stack=input_package.metadata_stack + [response_tuple[1]])
+                    else:
+                        self.log_info(f"Received response\n'{result[0]}'.")             
+                        yield VAPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
             except Empty:
                 pass
-
+            
 
 class TranscriberModule(BasicHandlerModule):
     """
@@ -332,16 +332,17 @@ class ChatModelModule(BasicHandlerModule):
     """
     def __init__(self, 
                  chat_model: ChatModelInstance | RemoteChatModelInstance, 
+                 stream: bool = True,
                  *args: Any | None, 
                  **kwargs: Any | None) -> None:
         """
         Initiates an instance.
         :param chat_model: Chat model instance.
+        :param stream: Flag for declaring streaming behaviour.
         :param args: Arbitrary arguments.
         :param kwargs: Arbitrary keyword arguments.
         """
-        super().__init__(handler_method=chat_model.chat,
-                         streamed_handler_method=chat_model.chat_stream,
+        super().__init__(handler_method=chat_model.chat_stream if stream else chat_model.chat,
                          *args, 
                          **kwargs)
 
@@ -600,15 +601,14 @@ class BasicVoiceAssistant(object):
         self.module_set.worker_modules.append(
             ChatModelModule(chat_model=self.chat_model,
                             input_queue=self.module_set.input_modules[-1].output_queue,
-                            stream_result=self.stream, 
                             logger=cfg.LOGGER)
         )
         self.module_set.output_modules.append(
             SynthesizerModule(synthesizer=self.synthesizer,
                               input_queue=self.module_set.worker_modules[-1].output_queue,
-                              stream_result=self.stream, 
                               logger=cfg.LOGGER)
         )
+        print(type(self.module_set.output_modules[-1]))
         self.module_set.output_modules.append(
             WaveOutputModule(input_queue=self.module_set.output_modules[-1].output_queue, 
                              logger=cfg.LOGGER)
