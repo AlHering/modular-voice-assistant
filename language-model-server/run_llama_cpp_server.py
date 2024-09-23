@@ -25,6 +25,7 @@ from dotenv import dotenv_values
 Environment file
 """
 WORK_DIR = os.path.dirname(__file__)
+CONFIG_DIR = os.path.join(WORK_DIR, "configs")
 MODEL_DIR = os.path.join(WORK_DIR, "models")
 ENV_PATH = os.path.join(WORK_DIR, ".env")
 ENV = dotenv_values(ENV_PATH) if os.path.exists(ENV_PATH) else {}
@@ -106,6 +107,27 @@ SERVER_CONFIG = {
 }
 
 
+def get_valid_config_path(config_path: str | None) -> str | None:
+    """
+    Returns valid config path.
+    :param config_path: Base config path.
+    :return: Valid config path or None.
+    """
+    if config_path is not None:
+        if not config_path.lower().endswith(".json"):
+            config_path += ".json"
+        if os.path.exists(config_path):
+            return config_path
+        else:
+            rel_path = os.path.join(CONFIG_DIR, config_path)
+            if os.path.exists(rel_path):
+                return rel_path
+
+    
+
+    if os.path.exists(config_path) and config_path.lower().endswith(".json"):
+
+
 """
 Main functionality
 """
@@ -164,13 +186,12 @@ Click-based entrypoint
 @click.Option("--config_path", default=None, help="Path to json configuration file for the LlamaCPP server.")
 def run_llama_server(config_path: str) -> None:
     """Runner program for LlamaCPP Server."""
-    if config_path is not None:
-        if os.path.exists(config_path) and config_path.lower().endswith(".json"):
-            process = load_llamacpp_server_subprocess(config_path)
-        else:
-            print(f"Could not load '{config_path}' as JSON file.")
-            exit(1)
+    config_path = get_valid_config_path(config_path=config_path)
+    if config_path:
+        print(f"Valid config path given: {config_path}.")
+        process = load_llamacpp_server_subprocess(config_path)
     else:
+        print(f"No valid config path given, using default configuration.")
         process = load_llamacpp_server_subprocess(SERVER_CONFIG)
     try:
         while True:
