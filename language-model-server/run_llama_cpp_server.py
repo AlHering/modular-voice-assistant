@@ -24,7 +24,9 @@ from dotenv import dotenv_values
 """
 Environment file
 """
-ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
+WORK_DIR = os.path.dirname(__file__)
+MODEL_DIR = os.path.join(WORK_DIR, "models")
+ENV_PATH = os.path.join(WORK_DIR, ".env")
 ENV = dotenv_values(ENV_PATH) if os.path.exists(ENV_PATH) else {}
 
 
@@ -56,7 +58,7 @@ Configuration construction
 """
 MODEL_CONFIGS = [
     {
-        "model": "/mnt/Workspaces/Resources/machine_learning/text_generation/models/text_generation_models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
+        "model": "/llama-cpp-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
         "model_alias": "llama3.1-8B-i1",
         "chat_format": "chatml",
         "n_gpu_layers": -1,
@@ -67,7 +69,7 @@ MODEL_CONFIGS = [
         "use_mlock": False
     },
     {
-        "model": "/mnt/Workspaces/Resources/machine_learning/text_generation/models/text_generation_models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
+        "model": "/llama-cpp-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
         "model_alias": "llama-3",
         "chat_format": "chatml",
         "n_gpu_layers": 22,
@@ -84,12 +86,17 @@ def get_default_model_configs() -> list:
     :return: List of model dictionaries.
     """
     try:
-        model_config = load_json(ENV.get("MODEL_CONFIG"))
-        if isinstance(model_config, dict) and "models" in model_config:
-            model_config = model_config["models"]
+        model_configs = load_json(ENV.get("MODEL_CONFIG"))
+        if isinstance(model_configs, dict) and "models" in model_configs:
+            model_configs = model_configs["models"]
     except:
-        model_config = MODEL_CONFIGS
-    return model_config
+        model_configs = MODEL_CONFIGS
+    for model_config in model_configs:
+        if not os.path.exists(model_config["model"]):
+            rel_path = os.path.join(MODEL_DIR, model_config["model"])
+            if os.path.exists(rel_path):
+                model_config["model"] = rel_path
+    return model_configs
 
 
 SERVER_CONFIG = {
