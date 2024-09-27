@@ -135,16 +135,16 @@ def load_llamacpp_server_subprocess(config: Union[dict, str], wait_for_startup: 
         Defaults to True.
     :return: Subprocess instance.
     """
-    python_exectuable = os.environ.get("VIRTUAL_ENV")
-    python_exectuable = os.path.realpath(sys.executable) if python_exectuable is None else f"{python_exectuable}/bin/python"
+    python_executable = os.environ.get("VIRTUAL_ENV")
+    python_executable = os.path.realpath(sys.executable) if python_executable is None else f"{python_executable}/bin/python"
     if isinstance(config, str) and os.path.exists(config):
         data = load_json(config)
-        cmd = "{python_exectuable} -m llama_cpp.server --config_file {config}"
+        cmd = f"{python_executable} -m llama_cpp.server --config_file {config}"
     else:
         data = config
         temp_config_path = os.path.realpath(os.path.join(os.path.dirname(__file__), f"{uuid4()}.json"))
         save_json(config, temp_config_path)
-        cmd = f"{python_exectuable} -m llama_cpp.server --config_file {temp_config_path} & (sleep 5 && rm {temp_config_path})"
+        cmd = f"{python_executable} -m llama_cpp.server --config_file {temp_config_path} & (sleep 5 && rm {temp_config_path})"
     process = subprocess.Popen(cmd, shell=True)
     
     if wait_for_startup:
