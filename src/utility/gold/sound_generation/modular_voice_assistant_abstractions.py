@@ -257,7 +257,6 @@ class WaveOutputModule(VAModule):
         if not self.pause.is_set():
             try:
                 input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
-                print(f"Wave output got {input_package.content}")
                 self.pause.set()
                 self.add_uuid(self.received, input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
@@ -574,7 +573,8 @@ class BasicVoiceAssistant(object):
                  transcriber: Transcriber,
                  chat_model: ChatModelInstance,
                  synthesizer: Synthesizer,
-                 stream: bool = False) -> None:
+                 stream: bool = False,
+                 report: bool = False) -> None:
         """
         Initiation method.
         :param working_directory: Working directory.
@@ -583,7 +583,7 @@ class BasicVoiceAssistant(object):
         :param chat_model: Chat model to handle interaction.
         :param synthesizer: Synthesizer.
         :param stream: Declares, whether chat model should stream its response.
-            Defaults to False.
+        :param report: Flag for running report thread.
         """
         self.working_directory = working_directory
         self.speech_recorder = speech_recorder
@@ -602,6 +602,7 @@ class BasicVoiceAssistant(object):
                               logger=cfg.LOGGER))
         self.module_set.worker_modules.append(
             ChatModelModule(chat_model=self.chat_model,
+                            stream=stream,
                             input_queue=self.module_set.input_modules[-1].output_queue,
                             logger=cfg.LOGGER)
         )
@@ -610,7 +611,6 @@ class BasicVoiceAssistant(object):
                               input_queue=self.module_set.worker_modules[-1].output_queue,
                               logger=cfg.LOGGER)
         )
-        print(type(self.module_set.output_modules[-1]))
         self.module_set.output_modules.append(
             WaveOutputModule(input_queue=self.module_set.output_modules[-1].output_queue, 
                              logger=cfg.LOGGER)
@@ -619,7 +619,7 @@ class BasicVoiceAssistant(object):
         self.conversation_kwargs = {}
         if self.chat_model.history[-1]["role"] == "assistant":
             self.conversation_kwargs["greeting"] = chat_model.history[-1]["content"]
-
+        self.conversation_kwargs["report"] = report
         self.handler = None
 
     def setup(self) -> None:
