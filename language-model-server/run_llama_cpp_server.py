@@ -184,10 +184,10 @@ def run_llama_server(config: str) -> None:
     """Runner program for LlamaCPP Server."""
     config_path = get_valid_config_path(config_path=config)
     if config_path:
-        print(f"Valid config path given: {config_path}.")
+        print(f"\nValid config path given: {config_path}.")
         process = load_llamacpp_server_subprocess(config_path)
     else:
-        print(f"No valid config path given, using default configuration.")
+        print(f"\nNo valid config path given, using default configuration.")
         process = load_llamacpp_server_subprocess(SERVER_CONFIG)
     try:
         while True:
