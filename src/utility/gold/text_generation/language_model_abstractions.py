@@ -487,10 +487,10 @@ class RemoteChatModelInstance(ChatModelInstance):
         self.api_base = api_base
         self.api_token = api_token
         self.request_headers = {} if self.api_token is None else {
-            "Authorization": f"Bearer {self.api_token}"
+            "Authorization": f"Bearer {self.api_token}",
         }
 
-        self.chat_parameters = chat_parameters
+        self.chat_parameters = chat_parameters or {}
         self.system_prompt = system_prompt
         if prompt_maker is None:
             def prompt_maker(history: List[Dict[str, Union[str, dict]]]) -> str:
@@ -544,7 +544,7 @@ class RemoteChatModelInstance(ChatModelInstance):
             model backend.
         :return: Response and metadata.
         """
-        chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
+        chat_parameters = chat_parameters or {}
         if not self.use_history:
             self.history = [self.history[0]]
         self.history.append({"role": "user", "content": prompt})
@@ -553,7 +553,8 @@ class RemoteChatModelInstance(ChatModelInstance):
         metadata = {}
         answer = ""
 
-        json_payload = copy.deepcopy(chat_parameters)
+        json_payload = copy.deepcopy(self.chat_parameters)
+        json_payload.update(chat_parameters)
         json_payload["messages"] = self.history
 
         response = requests.post(self.chat_completions_endpoint, headers=self.request_headers, json=json_payload)
@@ -580,7 +581,7 @@ class RemoteChatModelInstance(ChatModelInstance):
         :param minium_yielded_characters: Minimum yielded alphabetic characters, defaults to 10.
         :return: Response and metadata stream.
         """
-        chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
+        chat_parameters = chat_parameters or {}
         chat_parameters["stream"] = True
         if not self.use_history:
             self.history = [self.history[0]]
@@ -590,11 +591,14 @@ class RemoteChatModelInstance(ChatModelInstance):
         metadata = {}
         answer = ""
 
-        json_payload = copy.deepcopy(chat_parameters)
+        json_payload = copy.deepcopy(self.chat_parameters)
+        json_payload.update(chat_parameters)
         json_payload["messages"] = self.history
 
         response = requests.post(self.chat_completions_endpoint, headers=self.request_headers, json=json_payload, stream=True)
         if response.status_code != 200:
+            json_payload.pop("messages")
+            json_payload["prompt"] = full_prompt
             response = requests.post(self.completions_endpoint, headers=self.request_headers, json=json_payload, stream=True)
         if response.status_code != 200:
             return answer, metadata
@@ -605,12 +609,19 @@ class RemoteChatModelInstance(ChatModelInstance):
         for encoded_chunk in response.iter_lines():
             if encoded_chunk:
                 decoded_chunk = encoded_chunk.decode("utf-8")
-                chunk = json.loads(decoded_chunk)
-                chunks.append(chunk)
-                delta = chunk["choices"][0]["delta"]
+                if decoded_chunk.startswith("data: "):
+                    decoded_chunk = decoded_chunk[6:]
+                if decoded_chunk.startswith(" ping -"):
+                    delta = {"content": ""}
+                elif decoded_chunk != "[DONE]":
+                    chunk = json.loads(decoded_chunk)
+                    chunks.append(chunk)
+                    delta = chunk["choices"][0]["delta"]
+                else:
+                    delta = {}
                 if "content" in delta:
                     sentence += delta["content"]
-                    if delta["content"][-1] in SENTENCE_CHUNK_STOPS:
+                    if delta["content"] and delta["content"][-1] in SENTENCE_CHUNK_STOPS:
                         answer += sentence
                         if len([elem for elem in sentence if elem.isalpha()]) >= minium_yielded_characters:
                             yield sentence, chunk
@@ -621,7 +632,6 @@ class RemoteChatModelInstance(ChatModelInstance):
                     yield sentence, chunk
         if self.use_history:
             self.history.append({"role": "assistant", "content": answer, "metadata": metadata})
-        return answer, metadata
 
     """
     Addtional endpoint wrappers
