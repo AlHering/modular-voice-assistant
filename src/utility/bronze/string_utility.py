@@ -140,7 +140,7 @@ def extract_all_matches(pattern: str, text: str) -> Optional[List[str]]:
         return None
 
 
-def extract_matches_between_bounds(start_bound: str, end_bound: str, text: str) -> Optional[List[str]]:
+def extract_matches_between_bounds(start_bound: str, end_bound: str, text: str) -> List[str]:
     """
     Function for extracting all matches of a pattern from a text.
     :param start_bound: Left bound of searched pattern.
@@ -148,13 +148,8 @@ def extract_matches_between_bounds(start_bound: str, end_bound: str, text: str) 
     :param text: Text to extract pattern matches from.
     :return: First match of pattern between given boundaries in text.
     """
-    search = re.findall(re.compile(escape_regular_chars(
+    return re.findall(re.compile(escape_regular_chars(
         start_bound) + "(.+?)" + escape_regular_chars(end_bound)), text)
-    print(search)
-    if search:
-        return search
-    else:
-        return None
 
 
 def escape_regular_chars(text: str) -> str:
