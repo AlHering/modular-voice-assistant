@@ -152,7 +152,7 @@ def extract_matches_between_bounds(start_bound: str, end_bound: str, text: str) 
         start_bound) + "(.+?)" + escape_regular_chars(end_bound)), text)
     print(search)
     if search:
-        return [elem[1] for elem in search]
+        return search
     else:
         return None
 
