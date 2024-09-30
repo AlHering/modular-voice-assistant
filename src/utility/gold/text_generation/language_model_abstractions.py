@@ -427,10 +427,9 @@ class ChatModelInstance(object):
                         if len([elem for elem in sentence if elem.isalpha()]) >= minium_yielded_characters:
                             yield sentence, chunk
                             sentence = ""
-                elif not delta:
-                    answer += sentence
-                    metadata = {"chunks": chunks}
-                    yield sentence, chunk
+            answer += sentence
+            metadata = {"chunks": chunks}
+            yield sentence, chunk
         elif self.language_model_instance.backend == "exllamav2":
             answer, metadata = self.language_model_instance.generate(full_prompt)
         
@@ -614,9 +613,13 @@ class RemoteChatModelInstance(ChatModelInstance):
                     decoded_chunk = decoded_chunk[6:]
                 if not decoded_chunk.startswith(" ping -"):
                     if decoded_chunk != "[DONE]":
-                        chunk = json.loads(decoded_chunk)
-                        chunks.append(chunk)
-                        delta = chunk["choices"][0]["delta"]
+                        try:
+                            chunk = json.loads(decoded_chunk)
+                            chunks.append(chunk)
+                            delta = chunk["choices"][0]["delta"]
+                        except json.decoder.JSONDecodeError:
+                            print(f"Loading as json did not work for '{encoded_chunk.decode('utf-8')}->{decoded_chunk}'")
+                            delta = {"content": ""}
                     else:
                         delta = {}
                     if "content" in delta:
@@ -626,11 +629,11 @@ class RemoteChatModelInstance(ChatModelInstance):
                                 yield sentence, chunk
                                 answer += sentence
                                 sentence = ""
-                    elif not delta:
-                        if not answer.endswith(sentence):
-                            answer += sentence
-                        metadata = {"chunks": chunks}
-                        yield sentence, chunk
+        print(f"Answer: '{answer}', Sentence: '{sentence}'")
+        if not answer.endswith(sentence):
+            answer += sentence
+        metadata = {"chunks": chunks}
+        yield sentence, chunk
         if self.use_history:
             self.history.append({"role": "assistant", "content": answer, "metadata": metadata})
 
