@@ -13,6 +13,7 @@ from logging import Logger
 from uuid import uuid4
 from typing import Any, Union, Tuple, List, Optional, Callable, Dict, Generator
 import os
+import re
 import gc
 import time
 import numpy as np
@@ -28,10 +29,8 @@ from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent, Lock
 from queue import Empty, Queue as TQueue
 from ..text_generation.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
-from ..text_generation.agent_abstractions import ToolArgument, AgentTool
-from ..text_generation.agent_abstractions import Agent
-from ...bronze.concurrency_utility import PipelineComponentThread, timeout
 from ...bronze.time_utility import get_timestamp
+from ...bronze.string_utility import separate_pattern_from_text, extract_matches_between_bounds, remove_multiple_spaces, EMOJI_PATTERN
 from ...bronze.json_utility import load as load_json
 from ...silver.file_system_utility import safely_create_path
 from ...bronze.pyaudio_utility import play_wave
@@ -561,6 +560,21 @@ class ModularConversationHandler(object):
         thread.start()    
         
 
+def clean_worker_output(text: str) -> Tuple[str, dict]:
+    """
+    Cleanes worker output from emojis and emotional hints.
+    :param text: Worker output.
+    :return: Cleaned text and metadata.
+    """
+    metadata = {"full_text": text}
+    metadata["text_without_emojis"], metadata["emojis"] = separate_pattern_from_text(text=text, pattern=EMOJI_PATTERN)
+    metadata["emotional_hints"] = extract_matches_between_bounds(start_bound="\*", end_bound="\*", text=metadata["text_without_emojis"])
+    metadata["text_without_emotional_hints"] = metadata["text_without_emojis"]
+    if metadata["emotional_hints"]:
+        for hint in metadata["emotional_hints"]:
+            metadata["text_without_emotional_hints"] = metadata["text_without_emotional_hints"].replace(hint, "")
+    return remove_multiple_spaces(text=metadata["text_without_emotional_hints"]), metadata
+
 
 class BasicVoiceAssistant(object):
     """
@@ -574,6 +588,7 @@ class BasicVoiceAssistant(object):
                  chat_model: ChatModelInstance,
                  synthesizer: Synthesizer,
                  stream: bool = False,
+                 forward_logging: bool = False,
                  report: bool = False) -> None:
         """
         Initiation method.
@@ -583,6 +598,7 @@ class BasicVoiceAssistant(object):
         :param chat_model: Chat model to handle interaction.
         :param synthesizer: Synthesizer.
         :param stream: Declares, whether chat model should stream its response.
+        :param forward_logging: Flag for forwarding logger to modules.
         :param report: Flag for running report thread.
         """
         self.working_directory = working_directory
@@ -592,28 +608,35 @@ class BasicVoiceAssistant(object):
         self.synthesizer = synthesizer
         self.stream = stream
 
+        forward_logging = cfg.LOGGER if forward_logging else None
+
         self.module_set = BaseModuleSet()
         self.module_set.input_modules.append(
             SpeechRecorderModule(speech_recorder=self.speech_recorder, 
-                                 logger=cfg.LOGGER))
+                                 logger=forward_logging))
         self.module_set.input_modules.append(
             TranscriberModule(transcriber=self.transcriber, 
                               input_queue=self.module_set.input_modules[-1].output_queue, 
-                              logger=cfg.LOGGER))
+                              logger=forward_logging))
         self.module_set.worker_modules.append(
             ChatModelModule(chat_model=self.chat_model,
                             stream=stream,
                             input_queue=self.module_set.input_modules[-1].output_queue,
-                            logger=cfg.LOGGER)
+                            logger=forward_logging)
+        )
+        self.module_set.worker_modules.append(
+            BasicHandlerModule(handler_method=clean_worker_output
+                               input_queue=self.module_set.input_modules[-1].output_queue,
+                               logger=forward_logging)
         )
         self.module_set.output_modules.append(
             SynthesizerModule(synthesizer=self.synthesizer,
                               input_queue=self.module_set.worker_modules[-1].output_queue,
-                              logger=cfg.LOGGER)
+                              logger=forward_logging)
         )
         self.module_set.output_modules.append(
             WaveOutputModule(input_queue=self.module_set.output_modules[-1].output_queue, 
-                             logger=cfg.LOGGER)
+                             logger=forward_logging)
         )
 
         self.conversation_kwargs = {}
