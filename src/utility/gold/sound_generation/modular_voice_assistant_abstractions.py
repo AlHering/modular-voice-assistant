@@ -625,7 +625,7 @@ class BasicVoiceAssistant(object):
                             logger=forward_logging)
         )
         self.module_set.worker_modules.append(
-            BasicHandlerModule(handler_method=clean_worker_output
+            BasicHandlerModule(handler_method=clean_worker_output,
                                input_queue=self.module_set.input_modules[-1].output_queue,
                                logger=forward_logging)
         )
