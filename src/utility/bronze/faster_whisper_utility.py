@@ -55,7 +55,7 @@ def normalize_audio_for_whisper(audio_input: Union[str, np.ndarray, torch.Tensor
         return audio_input
 
 
-def transcribe(audio_input: Union[str, np.ndarray, torch.Tensor], model: faster_whisper.WhisperModel = None, transcription_parameters: dict | None = None) -> Tuple[str, List[dict]]:
+def transcribe(audio_input: Union[str, np.ndarray, torch.Tensor], model: faster_whisper.WhisperModel = None, transcription_parameters: dict | None = None) -> Tuple[str, dict]:
     """
     Transcribes wave file or waveform with faster whisper.
     :param audio_input: Wave file path or waveform.
@@ -80,4 +80,4 @@ def transcribe(audio_input: Union[str, np.ndarray, torch.Tensor], model: faster_
         segment.update(metadata)
     fulltext = " ".join([segment["text"].strip() for segment in segment_metadatas])
     
-    return fulltext, segment_metadatas
+    return fulltext, {"segments": segment_metadatas}
