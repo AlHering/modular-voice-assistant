@@ -324,7 +324,9 @@ class ChatModelInstance(object):
             model backend.
         :return: Response and metadata.
         """
-        chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
+        acc_parameters = copy.deepcopy(self.chat_parameters)
+        if chat_parameters:
+            acc_parameters.update(chat_parameters)
         if not self.use_history:
             self.history = [self.history[0]]
         self.history.append({"role": "user", "content": prompt})
@@ -344,7 +346,7 @@ class ChatModelInstance(object):
                     self.history, 
                     **chat_encoding_kwargs).to(self.language_model_instance.model.device)
             output_tokens = self.language_model_instance.model.generate(
-                **input_tokens, **chat_parameters)[0]
+                **input_tokens, **acc_parameters)[0]
             metadata = self.language_model_instance.tokenizer.decode(
                 output_tokens, 
                 **self.language_model_instance.decoding_parameters)
@@ -354,7 +356,7 @@ class ChatModelInstance(object):
         elif self.language_model_instance.backend == "llamacpp":
             metadata = self.language_model_instance.model.create_chat_completion(
                 messages=self.history,
-                **chat_parameters
+                **acc_parameters
             )
             answer = metadata["choices"][0]["message"].get("content", "")
         elif self.language_model_instance.backend == "exllamav2":
@@ -378,8 +380,10 @@ class ChatModelInstance(object):
         :param minium_yielded_characters: Minimum yielded alphabetic characters, defaults to 10.
         :return: Response and metadata stream.
         """
-        chat_parameters = self.chat_parameters if chat_parameters is None else chat_parameters
-        chat_parameters["stream"] = True
+        acc_parameters = copy.deepcopy(self.chat_parameters)
+        if chat_parameters:
+            acc_parameters.update(chat_parameters)
+        acc_parameters["stream"] = True
         if not self.use_history:
             self.history = [self.history[0]]
         self.history.append({"role": "user", "content": prompt})
@@ -399,7 +403,7 @@ class ChatModelInstance(object):
                     self.history, 
                     **chat_encoding_kwargs).to(self.language_model_instance.model.device)
             output_tokens = self.language_model_instance.model.generate(
-                **input_tokens, **chat_parameters)[0]
+                **input_tokens, **acc_parameters)[0]
             metadata = self.language_model_instance.tokenizer.decode(
                 output_tokens, 
                 **self.language_model_instance.decoding_parameters)
@@ -409,7 +413,7 @@ class ChatModelInstance(object):
         elif self.language_model_instance.backend == "llamacpp":
             stream = self.language_model_instance.model.create_chat_completion(
                 messages=self.history,
-                **chat_parameters
+                **acc_parameters
             )
             chunks = []
             sentence = ""
@@ -438,8 +442,6 @@ class ChatModelInstance(object):
             })
         return answer, metadata
 
-
-    
 
 class RemoteChatModelConfig(BaseModel):
     """
@@ -529,7 +531,6 @@ class RemoteChatModelInstance(ChatModelInstance):
         :return: Remote chat instance.
         """
         return cls(**config.model_dump())
-
 
     """
     Generation methods
