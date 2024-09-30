@@ -101,7 +101,7 @@ def clean_html_codec(text: str) -> str:
     return text
 
 
-def separate_patterns_from_text(text: str, pattern: re.Pattern) -> Tuple[str, list]:
+def separate_pattern_from_text(text: str, pattern: re.Pattern) -> Tuple[str, list]:
     """
     Separates a pattern from a text.
     :param text: Text to separate pattern from.
