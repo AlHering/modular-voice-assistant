@@ -611,15 +611,14 @@ class RemoteChatModelInstance(ChatModelInstance):
                 decoded_chunk = encoded_chunk.decode("utf-8")
                 if decoded_chunk.startswith("data: "):
                     decoded_chunk = decoded_chunk[6:]
-                if not decoded_chunk.startswith(" ping -"):
+                if not (decoded_chunk.startswith(" ping -") or decoded_chunk.startswith(": ping -")):
                     if decoded_chunk != "[DONE]":
                         try:
                             chunk = json.loads(decoded_chunk)
                             chunks.append(chunk)
                             delta = chunk["choices"][0]["delta"]
                         except json.decoder.JSONDecodeError:
-                            print(f"Loading as json did not work for '{encoded_chunk.decode('utf-8')}->{decoded_chunk}'")
-                            delta = {"content": ""}
+                            delta = {}
                     else:
                         delta = {}
                     if "content" in delta:
@@ -629,9 +628,7 @@ class RemoteChatModelInstance(ChatModelInstance):
                                 yield sentence, chunk
                                 answer += sentence
                                 sentence = ""
-        print(f"Answer: '{answer}', Sentence: '{sentence}'")
-        if not answer.endswith(sentence):
-            answer += sentence
+        answer += sentence
         metadata = {"chunks": chunks}
         yield sentence, chunk
         if self.use_history:
