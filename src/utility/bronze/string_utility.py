@@ -101,14 +101,15 @@ def clean_html_codec(text: str) -> str:
     return text
 
 
-def separate_emojis_from_text(text: str) -> Tuple[str, list]:
+def separate_patterns_from_text(text: str, pattern: re.Pattern) -> Tuple[str, list]:
     """
-    Separates emojis from a text.
-    :param text: Text to clean.
-    :return: Cleaned text and list of extracted emojis.
+    Separates a pattern from a text.
+    :param text: Text to separate pattern from.
+    :param pattern: Extract pattern.
+    :return: Cleaned text and list of extracted elements.
     """
-    emojis = re.findall(EMOJI_PATTERN, text)
-    return re.sub(EMOJI_PATTERN, "", text), emojis
+    extracted_elements = re.findall(pattern, text)
+    return re.sub(pattern, "", text), extracted_elements
 
 
 def extract_first_match(pattern: str, text: str) -> Optional[str]:
