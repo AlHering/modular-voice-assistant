@@ -98,7 +98,8 @@ class VAModule(ABC):
                  input_timeout: float | None = None, 
                  input_queue: TQueue | None = None,
                  output_queue: TQueue | None = None,
-                 logger: Logger | None = None) -> None:
+                 logger: Logger | None = None,
+                 name: str | None = None) -> None:
         """
         Initiates an instance.
         :param interrupt: Interrupt event.
@@ -108,6 +109,7 @@ class VAModule(ABC):
         :param input_queue: Input queue.
         :param output_queue: Output queue.
         :param logger: Logger.
+        :param name: A name to distinguish log messages.
         """
         self.interrupt = TEvent() if interrupt is None else interrupt
         self.pause = TEvent() if pause is None else pause
@@ -116,6 +118,7 @@ class VAModule(ABC):
         self.input_queue = TQueue() if input_queue is None else input_queue
         self.output_queue = TQueue() if output_queue is None else output_queue
         self.logger = logger
+        self.name = name or str(self)
 
         self.received = {}
         self.sent = {}
@@ -166,7 +169,7 @@ class VAModule(ABC):
         :param text: Text content to log.
         """
         if self.logger is not None:
-            text = f"[{type(self).__name__}] " + text
+            text = f"[{type(self).__name__}<{self.name}>] " + text
             self.logger.info(text)
 
     def to_thread(self) -> Thread:
@@ -185,27 +188,32 @@ class VAModule(ABC):
             self.run()
             time.sleep(self.loop_pause)
         
-    def run(self) -> None:
+    def run(self) -> bool:
         """
         Runs a single processing cycle.
+        :returns: True if an element was forwarded, else False. 
+            (Note, that a module does not have to forward an element.)
         """
         result = self.process()
         if result is not None:
             if isinstance(result, VAPackage):
                 self.output_queue.put(result)
                 self.add_uuid(self.sent, elem.uuid)
+                return True
             elif isinstance(result, Generator):
                 elem = None
                 for elem in result:
                     self.output_queue.put(elem)
                 if elem is not None:
                     self.add_uuid(self.sent, elem.uuid)
+                    return True
+        return False
 
     @abstractmethod
     def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
         """
         Module processing method.
-        :returns: Voice assistant package, a package generator in case of streaming or None.
+        :returns: Voice assistant package, a package generator or None.
         """
         pass
 
@@ -252,7 +260,7 @@ class SpeechRecorderModule(VAModule):
         if not self.pause.is_set():
             recorder_output, recorder_metadata = self.speech_recorder.record_single_input()
             self.log_info(f"Got voice input.")
-            return VAPackage(content=recorder_output, metadata_stack=[recorder_metadata])
+            yield VAPackage(content=recorder_output, metadata_stack=[recorder_metadata])
         
 
 class WaveOutputModule(VAModule):
@@ -310,14 +318,16 @@ class BasicHandlerModule(VAModule):
     def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
         """
         Module processing method.
-        :returns: Voice assistant package, a package generator in case of streaming or None.
+        :returns: Voice assistant package, package generator or None.
         """
         if not self.pause.is_set():
             try:
                 input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
                 self.add_uuid(self.received, input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
-                if input_package.content:
+                valid_input = (isinstance(input_package.content, np.ndarray) and input_package.content.size > 0) or input_package.content
+
+                if valid_input:
                     result = self.handler_method(input_package.content)
                     if isinstance(result, Generator):
                         for response_tuple in result:
@@ -471,11 +481,16 @@ class ModularConversationHandler(object):
         """
         while not self.stop.is_set():
             for module in self.module_set.input_modules:
-                module.run()
+                print("Starting ", module.name)
+                while not module.run():
+                    print(f"Waiting for {module.name}")
+                    time.sleep(1)
+                
             for module in self.module_set.worker_modules:
-                module.run()
+                while module.run():
+                    time.sleep(self.loop_pause//16)
             while any(module.queues_are_busy() for module in self.module_set.output_modules):
-                time.sleep(.12)
+                time.sleep(self.loop_pause//16)
             if not loop:
                 self.stop.set()
         self.reset()
@@ -529,7 +544,7 @@ class ModularConversationHandler(object):
                 for threads in ["input_threads", "worker_threads", "output_threads", "additional_threads"]:
                     for thread_index, thread in enumerate(getattr(self, threads)):
                         module = getattr(self.module_set, f"{threads.split('_')[0]}_modules")[thread_index]
-                        module_info += f"\n\t[{type(module).__name__}] Thread '{thread}: {thread.is_alive()}'"
+                        module_info += f"\n\t[{type(module).__name__}<{module.name}>] Thread '{thread}: {thread.is_alive()}'"
                         module_info += f"\n\t\t Inputs: {module.input_queue.qsize()}'"
                         module_info += f"\n\t\t Outputs: {module.output_queue.qsize()}'"
                         module_info += f"\n\t\t Received: {module.received}'"
@@ -595,31 +610,37 @@ class BasicVoiceAssistant(object):
 
         self.module_set = BaseModuleSet()
         self.module_set.input_modules.append(
-            BasicHandlerModule(handler_method=self.speech_recorder.record_single_input, 
-                               logger=forward_logging))
+            SpeechRecorderModule(speech_recorder=self.speech_recorder, 
+                               logger=forward_logging,
+                               name="SpeechRecorder"))
         self.module_set.input_modules.append(
             BasicHandlerModule(handler_method=self.transcriber.transcribe, 
                               input_queue=self.module_set.input_modules[-1].output_queue, 
-                              logger=forward_logging))
+                              logger=forward_logging,
+                              name="Transcriber"))
         self.module_set.worker_modules.append(
             BasicHandlerModule(handler_method=self.chat_model.chat_stream if stream else self.chat_model.chat,
                             input_queue=self.module_set.input_modules[-1].output_queue,
-                            logger=forward_logging)
+                            logger=forward_logging,
+                            name="Chat")
         )
         self.module_set.output_modules.append(
             BasicHandlerModule(handler_method=clean_worker_output,
                                input_queue=self.module_set.worker_modules[-1].output_queue,
-                               logger=forward_logging)
+                               logger=forward_logging,
+                               name="Cleaner")
         )
         self.module_set.output_modules.append(
             BasicHandlerModule(handler_method=self.synthesizer.synthesize,
                               input_queue=self.module_set.worker_modules[-1].output_queue if len(
                                   self.module_set.output_modules) == 0 else self.module_set.output_modules[-1].output_queue,
-                              logger=forward_logging)
+                              logger=forward_logging,
+                              name="Synthesizer")
         )
         self.module_set.output_modules.append(
             WaveOutputModule(input_queue=self.module_set.output_modules[-1].output_queue, 
-                             logger=forward_logging)
+                             logger=forward_logging,
+                             name="WaveOutput")
         )
 
         self.conversation_kwargs = {}
