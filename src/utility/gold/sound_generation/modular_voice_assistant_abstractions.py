@@ -33,6 +33,7 @@ from ...bronze.time_utility import get_timestamp
 from ...bronze.string_utility import separate_pattern_from_text, extract_matches_between_bounds, remove_multiple_spaces, EMOJI_PATTERN
 from ...bronze.json_utility import load as load_json
 from ...silver.file_system_utility import safely_create_path
+from ...bronze.commandline_utility import silence_stderr
 from ...bronze.pyaudio_utility import play_wave
 from .sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
@@ -282,7 +283,8 @@ class WaveOutputModule(VAModule):
                 self.pause.set()
                 self.add_uuid(self.received, input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
-                play_wave(input_package.content, input_package.metadata_stack[-1])
+                with silence_stderr():
+                    play_wave(input_package.content, input_package.metadata_stack[-1])
                 self.pause.clear()
             except Empty:
                 pass
