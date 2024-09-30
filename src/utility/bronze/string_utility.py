@@ -85,7 +85,7 @@ def remove_multiple_spaces(text: str) -> str:
     :param text: Text to remove multiple spaces from.
     :return: Text with single spaces.
     """
-    return " ".join(text.split(" "))
+    return " ".join([elem for elem in text.split(" ") if elem])
 
 
 def clean_html_codec(text: str) -> str:
