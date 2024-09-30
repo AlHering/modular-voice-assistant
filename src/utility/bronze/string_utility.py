@@ -7,7 +7,7 @@
 """
 import os
 import re
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 # list of symbols
 SYMBOLS = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~'"
@@ -15,6 +15,26 @@ REGULAR_SYMBOLS = "!$()*+-.?[]^{|}"
 FOLDER_RESERVED = "<>:/\\|?*"
 SENTENCE_CHUNK_STOPS = "!.,?:;\n"
 HTML_CODEC_DICT = {}
+# Taken from https://stackoverflow.com/a/58356570 and slightly adjusted
+EMOJI_PATTERN = re.compile("["
+    u"\U0001F600-\U0001F64F"  # emoticons
+    u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+    u"\U0001F680-\U0001F6FF"  # transport & map symbols
+    u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+#    u"\U00002500-\U00002BEF"  # chinese char
+#    u"\U00002702-\U000027B0"
+    u"\U000024C2-\U0001F251"
+    u"\U0001f926-\U0001f937"
+    u"\U00010000-\U0010ffff"
+    u"\u2640-\u2642" 
+    u"\u2600-\u2B55"
+    u"\u200d"
+    u"\u23cf"
+    u"\u23e9"
+    u"\u231a"
+    u"\ufe0f"  # dingbats
+    u"\u3030"
+"]+", re.UNICODE)
 
 
 def clean_mutation(text: str) -> str:
@@ -79,6 +99,16 @@ def clean_html_codec(text: str) -> str:
             for elem in HTML_CODEC_DICT[codec]:
                 text = text.replace(elem, HTML_CODEC_DICT[codec][elem])
     return text
+
+
+def separate_emojis_from_text(text: str) -> Tuple[str, list]:
+    """
+    Separates emojis from a text.
+    :param text: Text to clean.
+    :return: Cleaned text and list of extracted emojis.
+    """
+    emojis = re.findall(EMOJI_PATTERN, text)
+    return re.sub(EMOJI_PATTERN, "", text), emojis
 
 
 def extract_first_match(pattern: str, text: str) -> Optional[str]:
