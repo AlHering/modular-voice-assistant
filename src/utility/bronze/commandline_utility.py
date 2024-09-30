@@ -5,10 +5,13 @@
 *            (c) 2023 Alexander Hering             *
 ****************************************************
 """
-from typing import Union, List, Optional
+import os
+import sys
+from typing import Union, List, Optional, Generator, Any
 import re
 import subprocess
 from subprocess import PIPE
+import contextlib
 
 
 def download_with_wget(download_link: str, target_path: str, continue_download: bool = True,
@@ -72,3 +75,21 @@ def issue_cli_command(command: Union[str, List[str]], success_pattern: str = r'.
     if re.match(success_pattern, lines[-1]):
         return True
     return None
+
+
+@contextlib.contextmanager
+def silence_stderr() -> Generator[Any, Any, Any]:
+    """
+    Function for silencing stderr.
+    Taken from https://stackoverflow.com/a/36966379.
+    """
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    old_stderr = os.dup(2)
+    sys.stderr.flush()
+    os.dup2(devnull, 2)
+    os.close(devnull)
+    try:
+        yield
+    finally:
+        os.dup2(old_stderr, 2)
+        os.close(old_stderr)
