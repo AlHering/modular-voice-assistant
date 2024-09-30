@@ -568,7 +568,7 @@ def clean_worker_output(text: str) -> Tuple[str, dict]:
     """
     metadata = {"full_text": text}
     metadata["text_without_emojis"], metadata["emojis"] = separate_pattern_from_text(text=text, pattern=EMOJI_PATTERN)
-    metadata["emotional_hints"] = extract_matches_between_bounds(start_bound="\*", end_bound="\*", text=metadata["text_without_emojis"])
+    metadata["emotional_hints"] = [f"*{hint}*" for hint in extract_matches_between_bounds(start_bound=r"*", end_bound=r"*", text=metadata["text_without_emojis"])]
     metadata["text_without_emotional_hints"] = metadata["text_without_emojis"]
     if metadata["emotional_hints"]:
         for hint in metadata["emotional_hints"]:
@@ -624,14 +624,15 @@ class BasicVoiceAssistant(object):
                             input_queue=self.module_set.input_modules[-1].output_queue,
                             logger=forward_logging)
         )
-        self.module_set.worker_modules.append(
+        self.module_set.output_modules.append(
             BasicHandlerModule(handler_method=clean_worker_output,
-                               input_queue=self.module_set.input_modules[-1].output_queue,
+                               input_queue=self.module_set.worker_modules[-1].output_queue,
                                logger=forward_logging)
         )
         self.module_set.output_modules.append(
             SynthesizerModule(synthesizer=self.synthesizer,
-                              input_queue=self.module_set.worker_modules[-1].output_queue,
+                              input_queue=self.module_set.worker_modules[-1].output_queue if len(
+                                  self.module_set.output_modules) == 0 else self.module_set.output_modules[-1].output_queue,
                               logger=forward_logging)
         )
         self.module_set.output_modules.append(
