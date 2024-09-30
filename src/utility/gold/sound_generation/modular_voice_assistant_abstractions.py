@@ -161,7 +161,7 @@ class VAModule(ABC):
         Returns queue status.
         :return: True, if any queue contains elements, else False.
         """
-        return self.input_queue.qsize() > 0 or self.output_queue.qsize > 0
+        return self.input_queue.qsize() > 0 or self.output_queue.qsize() > 0
     
     def log_info(self, text: str) -> None:
         """
@@ -479,15 +479,13 @@ class ModularConversationHandler(object):
         Runs a blocking conversation.
         :param loop: Delcares, whether to loop conversation or stop after a single interaction.
         """
+        # TODO: Trace inputs via VAPackage UUIDs
         while not self.stop.is_set():
             for module in self.module_set.input_modules:
-                print("Starting ", module.name)
                 while not module.run():
-                    print(f"Waiting for {module.name}")
-                    time.sleep(1)
-                
+                    time.sleep(self.loop_pause//16)
             for module in self.module_set.worker_modules:
-                while module.run():
+                while not module.run():
                     time.sleep(self.loop_pause//16)
             while any(module.queues_are_busy() for module in self.module_set.output_modules):
                 time.sleep(self.loop_pause//16)
