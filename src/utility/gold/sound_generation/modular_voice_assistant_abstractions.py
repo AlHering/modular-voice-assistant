@@ -39,7 +39,7 @@ from .sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
 def setup_prompt_session(bindings: KeyBindings = None) -> PromptSession:
     """
-    Function for setting up prompt session.
+    Function for setting up a command line prompt session.
     :param bindings: Key bindings.
         Defaults to None.
     :return: Prompt session.
@@ -60,7 +60,7 @@ def setup_prompt_session(bindings: KeyBindings = None) -> PromptSession:
 
 def create_default_metadata() -> List[dict]:
     """
-    Creates a default VA package dictionary.
+    Creates a default VA package metadata stack.
     :return: Default VA package dictionary
     """
     return [{"created": get_timestamp()}]
@@ -86,6 +86,9 @@ class VAPackage(BaseModel):
 class VAModule(ABC):
     """
     Voice assistant module.
+    A module can be understood as a pipeline component with an input and output queue, which can be wrapped into a thread.
+    It evolves around the central "process"-method which takes an input VAPackage from the input queue and potentially
+    puts an output VAPackage back into the output queue, taking over the input package's UUID and previous metadata stack.
     """
     def __init__(self, 
                  interrupt: TEvent | None = None,
@@ -115,6 +118,17 @@ class VAModule(ABC):
 
         self.received = {}
         self.sent = {}
+
+    def add_uuid(self, store: dict, uuid: str) -> None:
+        """
+        Adds a UUID to the sent dictionary.
+        :param store: UUID dictionary to add UUID to.
+        :param uuid: UUID to add.
+        """
+        if uuid in store:
+            store[uuid] += 1
+        else:
+            store[uuid] = 1
 
     def _flush_queue(self, queue: TQueue) -> None:
         """
@@ -169,17 +183,6 @@ class VAModule(ABC):
         while not self.interrupt.is_set():
             self.run()
             time.sleep(self.loop_pause)
-
-    def add_uuid(self, store: dict, uuid: str) -> None:
-        """
-        Adds a UUID to the sent dictionary.
-        :param store: UUID dictionary to add UUID to.
-        :param uuid: UUID to add.
-        """
-        if uuid in store:
-            store[uuid] += 1
-        else:
-            store[uuid] = 1
         
     def run(self) -> None:
         """
@@ -206,9 +209,25 @@ class VAModule(ABC):
         pass
 
 
+class PassiveVAModule(VAModule):
+    """
+    Passive voice assistant module.
+    This module follows the same functionality as a conventional VAModule but forwards the incoming packages in its recieved state.
+    It can be used for fetching and processing pipeline data without the results being fed back into the module pipeline.
+    """
+    @abstractmethod
+    def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+        """
+        Passive module processing method.
+        :returns: The input data, as taken from the input queue.
+        """
+        pass
+
+
 class SpeechRecorderModule(VAModule):
     """
     Speech recorder module.
+    Records a speech snipped from the user and forwards it as VAPackage.
     """
     def __init__(self, 
                  speech_recorder: SpeechRecorder, 
@@ -226,7 +245,8 @@ class SpeechRecorderModule(VAModule):
     def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
         """
         Module processing method.
-        :returns: Voice assistant package, a package generator in case of streaming or None.
+        :returns: Voice assistant package, containing the recorded audio data and a metadata stack with the
+            recording metadata as first element.
         """
         if not self.pause.is_set():
             recorder_output, recorder_metadata = self.speech_recorder.record_single_input()
@@ -237,6 +257,8 @@ class SpeechRecorderModule(VAModule):
 class WaveOutputModule(VAModule):
     """
     Wave output module.
+    Takes in VAPackages with wave audio data and outputs it. 
+    Note, that the last metadata stack element must be stream parameters for outputting.
     """
     def __init__(self, 
                  *args: Any | None, 
@@ -251,7 +273,8 @@ class WaveOutputModule(VAModule):
     def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
         """
         Module processing method.
-        :returns: Voice assistant package, a package generator in case of streaming or None.
+        Note, that the last metadata stack element must be stream parameters for outputting.
+        Follow the "play_wave"-function for more information.
         """
         if not self.pause.is_set():
             try:
@@ -303,75 +326,22 @@ class BasicHandlerModule(VAModule):
                         yield VAPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
             except Empty:
                 pass
-            
-
-class TranscriberModule(BasicHandlerModule):
-    """
-    Transcriber module.
-    """
-    def __init__(self, 
-                 transcriber: Transcriber, 
-                 *args: Any | None, 
-                 **kwargs: Any | None) -> None:
-        """
-        Initiates an instance.
-        :param transcriber: Transciber instance.
-        :param args: Arbitrary arguments.
-        :param kwargs: Arbitrary keyword arguments.
-        """
-        super().__init__(handler_method=transcriber.transcribe,
-                         *args, 
-                         **kwargs)
-
-
-class ChatModelModule(BasicHandlerModule):
-    """
-    Chat model module.
-    """
-    def __init__(self, 
-                 chat_model: ChatModelInstance | RemoteChatModelInstance, 
-                 stream: bool = True,
-                 *args: Any | None, 
-                 **kwargs: Any | None) -> None:
-        """
-        Initiates an instance.
-        :param chat_model: Chat model instance.
-        :param stream: Flag for declaring streaming behaviour.
-        :param args: Arbitrary arguments.
-        :param kwargs: Arbitrary keyword arguments.
-        """
-        super().__init__(handler_method=chat_model.chat_stream if stream else chat_model.chat,
-                         *args, 
-                         **kwargs)
-
-
-class SynthesizerModule(BasicHandlerModule):
-    """
-    Synthesizer module.
-    """
-    def __init__(self, 
-                 synthesizer: Synthesizer, 
-                 *args: Any | None, 
-                 **kwargs: Any | None) -> None:
-        """
-        Initiates an instance.
-        :param synthesizer: Synthesizerinstance.
-        :param args: Arbitrary arguments.
-        :param kwargs: Arbitrary keyword arguments.
-        """
-        super().__init__(handler_method=synthesizer.synthesize,
-                         *args, 
-                         **kwargs)
-        
+      
 
 class BaseModuleSet(object):
     """
     Base module set.
+    Holds VAModules in four different categories:
+    - input modules resemble a pipeline for inputting user data, e.g. SpeechRecorderModule->TranscriberModule
+    - worker modules resemble a pipeline for processing the ingoing user data, e.g. a ChatModelModule
+    - output modules resemble a pipeline for outputting the results of the worker module pipeline, e.g. SynthesizerModule->WaveOutputModule
+    - additional (passive) modules can be "inserted" into a pipline to branch out operations, which do not reintroduce transformed data back into 
+        the pipeline, e.g. for animating a character alongside the output module pipeline or running additional reporting.
     """
     input_modules: List[VAModule] = []
     worker_modules: List[VAModule] = []
     output_modules: List[VAModule] = []
-    additional_modules: List[VAModule] = []
+    additional_modules: List[PassiveVAModule] = []
 
     @classmethod
     def get_all(cls) -> List[VAModule]:
@@ -612,15 +582,14 @@ class BasicVoiceAssistant(object):
 
         self.module_set = BaseModuleSet()
         self.module_set.input_modules.append(
-            SpeechRecorderModule(speech_recorder=self.speech_recorder, 
-                                 logger=forward_logging))
+            BasicHandlerModule(handler_method=self.speech_recorder.record_single_input, 
+                               logger=forward_logging))
         self.module_set.input_modules.append(
-            TranscriberModule(transcriber=self.transcriber, 
+            BasicHandlerModule(handler_method=self.transcriber.transcribe, 
                               input_queue=self.module_set.input_modules[-1].output_queue, 
                               logger=forward_logging))
         self.module_set.worker_modules.append(
-            ChatModelModule(chat_model=self.chat_model,
-                            stream=stream,
+            BasicHandlerModule(handler_method=self.chat_model.chat_stream if stream else self.chat_model.chat,
                             input_queue=self.module_set.input_modules[-1].output_queue,
                             logger=forward_logging)
         )
@@ -630,7 +599,7 @@ class BasicVoiceAssistant(object):
                                logger=forward_logging)
         )
         self.module_set.output_modules.append(
-            SynthesizerModule(synthesizer=self.synthesizer,
+            BasicHandlerModule(handler_method=self.synthesizer.synthesize,
                               input_queue=self.module_set.worker_modules[-1].output_queue if len(
                                   self.module_set.output_modules) == 0 else self.module_set.output_modules[-1].output_queue,
                               logger=forward_logging)
