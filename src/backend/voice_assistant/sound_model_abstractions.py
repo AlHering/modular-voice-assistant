@@ -11,11 +11,11 @@ from typing import List, Tuple, Any, Union, Dict
 import pyaudio
 import numpy as np
 import time
-from ...src_legacy.utility.bronze.sounddevice_utility import get_input_devices
-from ...src_legacy.utility.bronze.time_utility import get_timestamp
-from ...src_legacy.utility.bronze.whisper_utility import load_whisper_model, transcribe as transcribe_with_whisper
-from ...src_legacy.utility.bronze.faster_whisper_utility import load_faster_whisper_model, transcribe as transcribe_with_faster_whisper
-from ...src_legacy.utility.bronze.coqui_tts_utility import load_coqui_tts_model, synthesize as synthesize_with_coqui_tts, synthesize_to_file as synthesize_with_coqui_tts_to_file
+from src.utility.sounddevice_utility import get_input_devices
+from src.utility.time_utility import get_timestamp
+from src.utility.whisper_utility import load_whisper_model, transcribe as transcribe_with_whisper
+from src.utility.faster_whisper_utility import load_faster_whisper_model, transcribe as transcribe_with_faster_whisper
+from src.utility.coqui_tts_utility import load_coqui_tts_model, synthesize as synthesize_with_coqui_tts, synthesize_to_file as synthesize_with_coqui_tts_to_file
 
 
 class Transcriber(object):
