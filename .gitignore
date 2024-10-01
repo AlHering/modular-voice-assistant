@@ -160,22 +160,21 @@ cython_debug/
 # Custom additions
 *_venv/
 *-venv/
-data/
+data/*
 src_prototype/
 docs/literature/
 docs/api_analysis/
 docs/todo/
 configuration/*.env
-machine_learning_models/text_generation/*
-machine_learning_models/sound_generation/*
-machine_learning_models/image_generation/*
+models/*
+configs/*
 Untitled*.ipynb
 tmp*
 .desktop
 link_local_models.sh
 
 # Exceptions
-!machine_learning_models/text_generation/mount models for text generation here.txt
-!machine_learning_models/sound_generation/mount models for sound generation here.txt
-!machine_learning_models/image_generation/mount models for image generation here.txt
+!models/mount machine learning model folders here.txt
+!configs/mount_configs_folder_here.txt
+!data/mount_data_folder_here.txt
 !src/utility/data/media_types.json
