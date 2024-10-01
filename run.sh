@@ -7,12 +7,12 @@ printf "\n%s\n" "${delimiter}"
  
 if [[ -f "${SCRIPT_DIR}/venv/bin/activate" ]]
 then
-    printf "Starting explorer backend..."
+    printf "Starting backend..."
     source "${SCRIPT_DIR}/venv/bin/activate"
     python run_backend.py &
     sleep 5
-    printf "Starting explorer streamlit frontend..."
-    python run_streamlit_frontend.py &
+    printf "Starting frontend..."
+    python run_frontend.py &
     wait
 else
     printf "\n%s\n" "${delimiter}"
