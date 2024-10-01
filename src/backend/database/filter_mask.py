@@ -8,8 +8,8 @@
 # In-depth documentation can be found under utility/docs/entity_data_interfaces.md
 import copy
 from typing import Union, Any, List
-from ...src_legacy.utility.bronze import dictionary_utility
-from ...src_legacy.utility.bronze import COMPARISON_METHOD_DICTIONARY as CMD
+from src.utility import dictionary_utility
+from src.utility import COMPARISON_METHOD_DICTIONARY as CMD
 
 
 def check_for_wrapped_parameter(root: Any, param_list: List[str]) -> bool:
