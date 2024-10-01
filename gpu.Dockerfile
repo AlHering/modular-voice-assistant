@@ -1,11 +1,11 @@
-FROM nvidia/cuda:11.7.1-devel-ubuntu22.04
+FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
 ENV PYTHONUNBUFFERED 1
 
 # Setting up basic repo 
-ARG DEBIAN_FRONTEND=noninteractive
+ARG DEBIAN_FRONTEND noninteractive
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
-ENV TZ=Europe/Berlin
+ENV TZ Europe/Berlin
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Setting up working directory
@@ -36,10 +36,6 @@ RUN if [ ! -d "venv" ]; \
     then \
     python3.10 -m venv venv; \
     fi
-
-# Access port
-ENV PORT 9090
-EXPOSE $PORT
 
 # Setup
 RUN cd /modular-voice-assistant && /bin/bash install.sh

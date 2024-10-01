@@ -2,8 +2,8 @@ FROM ubuntu:22.04
 ENV PYTHONUNBUFFERED 1
 
 # Setting up basic repo 
-ARG DEBIAN_FRONTEND=noninteractive
-ENV TZ=Europe/Berlin
+ARG DEBIAN_FRONTEND noninteractive
+ENV TZ Europe/Berlin
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Setting up working directory
@@ -33,10 +33,6 @@ RUN if [ ! -d "venv" ]; \
     then \
     python3.10 -m venv venv; \
     fi
-
-# Access port
-ENV PORT 9090
-EXPOSE $PORT
 
 # Setup
 RUN cd /modular-voice-assistant && /bin/bash install.sh
