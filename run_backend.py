@@ -8,6 +8,7 @@
 import os
 import sys
 import json
+import click
 from typing import Tuple, Generator, Union
 from src.configuration import configuration as cfg
 from src.utility import json_utility
@@ -110,3 +111,40 @@ def setup_default_voice_assistant(use_remote_llm: bool = True,
         synthesizer=synthesizer,
         **voice_assistant_parameters
     )
+
+
+def get_valid_config_path(config_path: str | None) -> str | None:
+    """
+    Returns valid config path.
+    :param config_path: Base config path.
+    :return: Valid config path or None.
+    """
+    if config_path is not None:
+        if not config_path.lower().endswith(".json"):
+            config_path += ".json"
+        if os.path.exists(config_path):
+            return config_path
+        else:
+            rel_path = os.path.join(cfg.PATH.CONFIGS, config_path)
+            if os.path.exists(rel_path):
+                return rel_path
+
+
+"""
+Click-based entrypoint
+"""
+@click.command()
+@click.option("--config", default=None, help="Path or name json configuration file for the voice assistant.")
+def run_voice_assistant(config: str) -> None:
+    """Runner program for a voice assistant."""
+    config_path = get_valid_config_path(config_path=config)
+    if config_path:
+        print(f"\nValid config path given: {config_path}.")
+        # TODO: Run configured process
+    else:
+        print(f"\nNo valid config path given, using default configuration.")
+        # TODO: Run default process
+
+
+if __name__ == "__main__":
+    run_voice_assistant()
