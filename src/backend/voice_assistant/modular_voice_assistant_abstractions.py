@@ -6,35 +6,29 @@
 ****************************************************
 """
 from abc import ABC, abstractmethod
-from enum import Enum
-from inspect import getfullargspec
 from pydantic import BaseModel, Field
 from logging import Logger
 from uuid import uuid4
-from typing import Any, Union, Tuple, List, Optional, Callable, Dict, Generator
+from typing import Any, Tuple, List, Callable, Generator
 import os
-import re
 import gc
 import time
 import numpy as np
-import pyaudio
 from prompt_toolkit import PromptSession, HTML, print_formatted_text
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style as PTStyle
-from datetime import datetime as dt
 from src_legacy.configuration import configuration as cfg
-from threading import Thread, Event as TEvent, Lock
+from threading import Thread, Event as TEvent
 from queue import Empty, Queue as TQueue
-from ...src_legacy.utility.gold.text_generation.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
-from ...src_legacy.utility.bronze.time_utility import get_timestamp
-from ...src_legacy.utility.bronze.string_utility import separate_pattern_from_text, extract_matches_between_bounds, remove_multiple_spaces, EMOJI_PATTERN
-from ...src_legacy.utility.bronze.json_utility import load as load_json
-from ...src_legacy.utility.bronze.commandline_utility import silence_stderr
-from ...src_legacy.utility.bronze.pyaudio_utility import play_wave
-from .sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
+from src.backend.voice_assistant.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
+from src.utility.time_utility import get_timestamp
+from src.utility.string_utility import separate_pattern_from_text, extract_matches_between_bounds, remove_multiple_spaces, EMOJI_PATTERN
+from src.utility.commandline_utility import silence_stderr
+from src.utility.pyaudio_utility import play_wave
+from src.backend.voice_assistant.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
 
 def setup_prompt_session(bindings: KeyBindings = None) -> PromptSession:
@@ -580,7 +574,7 @@ class BasicVoiceAssistant(object):
                  working_directory: str,
                  speech_recorder: SpeechRecorder,
                  transcriber: Transcriber,
-                 chat_model: ChatModelInstance,
+                 chat_model: ChatModelInstance | RemoteChatModelInstance,
                  synthesizer: Synthesizer,
                  stream: bool = False,
                  forward_logging: bool = False,
