@@ -14,7 +14,7 @@ import requests
 import time
 from uuid import uuid4
 from typing import Any, Tuple, Union
-from . import json_utility
+from ...src_legacy.utility.bronze import json_utility
 try:
     import llama_cpp_cuda as llama_cpp
 except ImportError:
