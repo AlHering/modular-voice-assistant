@@ -6,28 +6,24 @@
 *            (c) 2023 Alexander Hering             *
 ****************************************************
 """
-import traceback
 import copy
+from abc import ABC, abstractmethod
 from pydantic import BaseModel, ConfigDict
 from typing import List, Tuple, Any, Callable, Optional, Union, Dict, Generator
 from datetime import datetime as dt
-from ....src_legacy.utility.bronze import SENTENCE_CHUNK_STOPS
-from ....src_legacy.utility.gold.text_generation.language_model_instantiation import load_ctransformers_model, load_transformers_model, load_llamacpp_model, load_autogptq_model, load_exllamav2_model, load_langchain_llamacpp_model
+from src.utility.string_utility import SENTENCE_CHUNK_STOPS
 import requests
 import json
 
 """
 Abstractions
 """
-
-
 class LanguageModelConfig(BaseModel):
     """
-    Language model config class.
+    Language model config.
     """
     model_config: ConfigDict = ConfigDict(protected_namespaces=())
 
-    backend: str
     model_path: str
     model_file: str | None = None
     model_parameters: dict | None = None
@@ -43,49 +39,93 @@ class LanguageModelConfig(BaseModel):
     decoding_parameters: dict | None = None
 
 
-class LanguageModelInstance(object):
+class LanguageModelInstance(ABC):
     """
-    Language model class.
+    Abstract language model class.
     """
-    supported_backends: List[str] = ["ctransformers", "transformers",
-                                     "llamacpp", "autogptq", "exllamav2", "langchain_llamacpp"]
+    @classmethod
+    @abstractmethod
+    def from_configuration(cls, config: LanguageModelConfig) -> Any:
+        """
+        Returns a language model instance from configuration.
+        :param config: Language model configuration.
+        :return: Language model instance.
+        """
+        return cls(**config.model_dump())
 
+    """
+    Generation methods
+    """
+    @abstractmethod
+    def tokenize(self,
+                input: str,
+                encoding_parameters: dict | None = None
+                ) -> List[float]:
+        """
+        Method for embedding an input.
+        :param input: Input to embed.
+        :param encoding_parameters: Kwargs for encoding as dictionary.
+            Defaults to None.
+        """
+        pass
+
+    @abstractmethod
+    def embed(self,
+              input: str,
+              encoding_parameters: dict | None = None,
+              embedding_parameters: dict | None = None,
+              ) -> List[float]:
+        """
+        Method for embedding an input.
+        :param input: Input to embed.
+        :param encoding_parameters: Kwargs for encoding as dictionary.
+            Defaults to None.
+        :param embedding_parameters: Kwargs for embedding as dictionary.
+            Defaults to None.
+        """
+        pass
+
+    @abstractmethod
+    def generate(self,
+                 prompt: str,
+                 encoding_parameters: dict | None = None,
+                 generating_parameters: dict | None = None,
+                 decoding_parameters: dict | None = None) -> Tuple[str, Optional[dict]]:
+        """
+        Method for generating a response to a given prompt and conversation history.
+        :param prompt: Prompt.
+        :param encoding_parameters: Kwargs for encoding as dictionary.
+            Defaults to None.
+        :param generating_parameters: Kwargs for generating as dictionary.
+            Defaults to None.
+        :param decoding_parameters: Kwargs for decoding as dictionary.
+            Defaults to None.
+        :return: Tuple of textual answer and metadata.
+        """
+        pass
+
+
+class LlamaCPPModelInstance(object):
+    """
+    Llama CPP based model instance.
+    """
     def __init__(self,
-                 backend: str,
                  model_path: str,
                  model_file: str | None = None,
                  model_parameters: dict | None = None,
-                 tokenizer_path: str | None = None,
-                 tokenizer_parameters: dict | None = None,
-                 embeddings_path: str | None = None,
-                 embeddings_parameters: dict | None = None,
-                 config_path: str | None = None,
-                 config_parameters: dict | None = None,
                  encoding_parameters: dict | None = None,
                  embedding_parameters: dict | None = None,
                  generating_parameters: dict | None = None,
-                 decoding_parameters: dict | None = None
+                 decoding_parameters: dict | None = None,
+                 *args: Any | None,
+                 **kwargs: Any | None
                  ) -> None:
         """
         Initiation method.
-        :param backend: Backend for model loading.
-            Check LanguageModelInstance.supported_backends for supported backends.
         :param model_path: Path to model files.
         :param model_file: Model file to load.
             Defaults to None.
         :param model_parameters: Model loading kwargs as dictionary.
-            Defaults to None.
-        :param tokenizer_path: Tokenizer path.
-            Defaults to None.
-        :param tokenizer_parameters: Tokenizer loading kwargs as dictionary.
-            Defaults to None.
-        :param embeddings_path: Embeddings path.
-            Defaults to None.
-        :param embeddings_parameters: Embeddings loading kwargs as dictionary.
-            Defaults to None.
-        :param config_path: Config path.
-            Defaults to None.
-        :param config_parameters: Config loading kwargs as dictionary.
             Defaults to None.
         :param encoding_parameters: Kwargs for encoding in the generation process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the backend in the 
@@ -99,32 +139,18 @@ class LanguageModelInstance(object):
         :param decoding_parameters: Kwargs for decoding in the generation process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the backend in the 
             different initation methods.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
         """
-        self.backend = backend
-
-        self.encoding_parameters = {} if encoding_parameters is None else encoding_parameters
-        self.embedding_parameters = {} if embedding_parameters is None else embedding_parameters
-        self.generating_parameters = {} if generating_parameters is None else generating_parameters
-        self.decoding_parameters = {} if decoding_parameters is None else decoding_parameters
-
-        self.config, self.tokenizer, self.embeddings, self.model, self.generator = {
-            "ctransformers": load_ctransformers_model,
-            "transformers": load_transformers_model,
-            "llamacpp": load_llamacpp_model,
-            "autogptq": load_autogptq_model,
-            "exllamav2": load_exllamav2_model,
-            "langchain_llamacpp": load_langchain_llamacpp_model
-        }[backend](
+        from src.utility.llama_cpp_python_utility import load_llamacpp_model
+        self.model = load_llamacpp_model(
             model_path=model_path,
             model_file=model_file,
-            model_parameters=model_parameters,
-            tokenizer_path=tokenizer_path,
-            tokenizer_parameters=tokenizer_parameters,
-            embeddings_path=embeddings_path,
-            embeddings_parameters=embeddings_parameters,
-            config_path=config_path,
-            config_parameters=config_parameters
-        )
+            model_parameters=model_parameters)
+        self.encoding_parameters = encoding_parameters or {}
+        self.embedding_parameters = embedding_parameters or {}
+        self.generating_parameters = generating_parameters or {}
+        self.decoding_parameters = decoding_parameters or {}
 
     @classmethod
     def from_configuration(cls, config: LanguageModelConfig) -> Any:
@@ -148,21 +174,10 @@ class LanguageModelInstance(object):
         :param encoding_parameters: Kwargs for encoding as dictionary.
             Defaults to None.
         """
-        # TODO: Implement
-        encoding_parameters = self.encoding_parameters if encoding_parameters is None else encoding_parameters
-
-        if self.backend == "ctransformers":
-            raise NotImplemented("Not yet implemented.")
-        elif self.backend == "langchain_llamacpp":
-            raise NotImplemented("Not yet implemented.")
-        elif self.backend == "transformers":
-            return self.tokenizer.encode(input, **encoding_parameters)
-        elif self.backend == "autogptq":
-            return self.tokenizer.encode(input, **encoding_parameters)
-        elif self.backend == "llamacpp":
-            return self.model.tokenize(input)
-        elif self.backend == "exllamav2":
-            raise NotImplemented("Not yet implemented.")
+        parameters = copy.deepcopy(self.encoding_parameters)
+        if encoding_parameters:
+            parameters.update(encoding_parameters)
+        return self.model.tokenize(input, **parameters)
 
 
     def embed(self,
@@ -178,24 +193,12 @@ class LanguageModelInstance(object):
         :param embedding_parameters: Kwargs for embedding as dictionary.
             Defaults to None.
         """
-        encoding_parameters = self.encoding_parameters if encoding_parameters is None else encoding_parameters
-        embedding_parameters = self.embedding_parameters if embedding_parameters is None else embedding_parameters
-
-        if self.backend == "ctransformers":
-            return self.model.embed(input, **embedding_parameters)
-        elif self.backend == "langchain_llamacpp":
-            return self.embeddings.embed_query(input)
-        elif self.backend == "transformers":
-            input_ids = self.tokenizer.encode(input, **encoding_parameters)
-            return self.model.model.embed_tokens(input_ids)
-        elif self.backend == "autogptq":
-            input_ids = self.tokenizer.encode(input, **encoding_parameters)
-            return self.model.model.embed_tokens(input_ids)
-        elif self.backend == "llamacpp":
-            return self.model.embed(input)
-        elif self.backend == "exllamav2":
-            input_ids = self.tokenizer.encode(input, **encoding_parameters)
-            return self.model.model.embed_tokens(input_ids)
+        parameters = copy.deepcopy(self.embedding_parameters)
+        parameters.update(self.encoding_parameters)
+        for additional_paramters in [encoding_parameters, embedding_parameters]:
+            if additional_paramters:
+                parameters.update(additional_paramters)
+        return self.model.embed(input, **parameters)
 
     def generate(self,
                  prompt: str,
@@ -213,29 +216,14 @@ class LanguageModelInstance(object):
             Defaults to None.
         :return: Tuple of textual answer and metadata.
         """
-        encoding_parameters = self.encoding_parameters if encoding_parameters is None else encoding_parameters
-        generating_parameters = self.generating_parameters if generating_parameters is None else generating_parameters
-        decoding_parameters = self.decoding_parameters if decoding_parameters is None else decoding_parameters
-
-        metadata = {}
-        answer = ""
-
-        if self.backend == "ctransformers" or self.backend == "langchain_llamacpp":
-            metadata = self.model(prompt, **generating_parameters)
-        elif self.backend == "transformers" or self.backend == "autogptq":
-            input_tokens = self.tokenizer(
-                prompt, **encoding_parameters).to(self.model.device)
-            output_tokens = self.model.generate(
-                **input_tokens, **generating_parameters)[0]
-            metadata = self.tokenizer.decode(
-                output_tokens, **decoding_parameters)
-        elif self.backend == "llamacpp":
-            metadata = self.model(prompt, **generating_parameters)
-            answer = metadata["choices"][0]["text"]
-        elif self.backend == "exllamav2":
-            metadata = self.generator.generate_simple(
-                prompt, **generating_parameters)
-
+        parameters = copy.deepcopy(self.encoding_parameters)
+        parameters.update(self.generating_parameters)
+        parameters.update(self.decoding_parameters)
+        for additional_paramters in [encoding_parameters, generating_parameters, decoding_parameters]:
+            if additional_paramters:
+                parameters.update(additional_paramters)
+        metadata = self.model(prompt, **generating_parameters)
+        answer = metadata["choices"][0]["text"]
         return answer, metadata
     
 
@@ -700,25 +688,3 @@ class RemoteChatModelInstance(ChatModelInstance):
             metadata = response.json()
             return metadata["data"]
 
-
-"""
-Templates
-"""
-TEMPLATES = {
-
-}
-
-
-"""
-Interfacing
-"""
-def spawn_language_model_instance(template: str) -> Union[LanguageModelInstance, dict]:
-    """
-    Function for spawning language model instance based on configuration templates.
-    :param template: Instance template.
-    :return: Language model instance if configuration was successful else an error report.
-    """
-    try:
-        return LanguageModelInstance(**TEMPLATES[template])
-    except Exception as ex:
-        return {"exception": ex, "trace": traceback.format_exc()}
