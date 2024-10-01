@@ -20,7 +20,7 @@ from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style as PTStyle
-from src_legacy.configuration import configuration as cfg
+from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent
 from queue import Empty, Queue as TQueue
 from src.backend.voice_assistant.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
