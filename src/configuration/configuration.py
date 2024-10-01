@@ -6,6 +6,7 @@
 ****************************************************
 """
 import os
+import logging
 from dotenv import dotenv_values
 from . import paths as PATHS
 
@@ -20,43 +21,7 @@ ENV = dotenv_values(ENV_PATH) if os.path.exists(ENV_PATH) else {}
 """
 Logger
 """
-
-
-class LOGGER_REPLACEMENT(object):
-    """
-    Logger replacement class.
-    """
-
-    def debug(self, text: str) -> None:
-        """
-        Method replacement for logging.
-        :param text: Text to log.
-        """
-        print(f"[DEBUG] {text}")
-
-    def info(self, text: str) -> None:
-        """
-        Method replacement for logging.
-        :param text: Text to log.
-        """
-        print(f"[INFO] {text}")
-
-    def warning(self, text: str) -> None:
-        """
-        Method replacement for logging.
-        :param text: Text to log.
-        """
-        print(f"[WARNING] {text}")
-
-    def warn(self, text: str) -> None:
-        """
-        Method replacement for logging.
-        :param text: Text to log.
-        """
-        print(f"[WARNING] {text}")
-
-
-LOGGER = LOGGER_REPLACEMENT()
+LOGGER = logging.Logger("[ModularVoiceAssistant]")
 
 
 """
@@ -68,20 +33,14 @@ PROJECT_VERSION = "v0.0.1"
 
 
 """
-Network addresses
+Network addresses and interfaces
 """
-TEXT_GENERATION_BACKEND_HOST = ENV.get("TEXT_GENERATION_BACKEND_HOST", "127.0.0.1")
-TEXT_GENERATION_BACKEND_PORT = ENV.get("TEXT_GENERATION_BACKEND_PORT", "7861")
-TEXT_GENERATION_BACKEND_TITLE =  "Text Generation Backend"
-TEXT_GENERATION_BACKEND_DESCRIPTION = "Backend interface for text generation services."
-TEXT_GENERATION_BACKEND_VERSION = PROJECT_VERSION
-TEXT_GENERATION_BACKEND_ENDPOINT_BASE = "/api/v1"
-VOICE_ASSISTANT_BACKEND_HOST = ENV.get("VOICE_ASSISTANT_BACKEND_HOST", "127.0.0.1")
-VOICE_ASSISTANT_BACKEND_PORT = ENV.get("VOICE_ASSISTANT_BACKEND_PORT", "7862")
-VOICE_ASSISTANT_BACKEND_TITLE =  "Voice Assistant Backend"
-VOICE_ASSISTANT_BACKEND_DESCRIPTION = "Backend interface for voice assistant services."
-VOICE_ASSISTANT_BACKEND_VERSION = PROJECT_VERSION
-VOICE_ASSISTANT_BACKEND_ENDPOINT_BASE = "/api/v1"
+BACKEND_HOST = ENV.get("TEXT_GENERATION_BACKEND_HOST", "127.0.0.1")
+BACKEND_PORT = ENV.get("TEXT_GENERATION_BACKEND_PORT", "7861")
+BACKEND_TITLE =  "Modular Voice Assistant Backend"
+BACKEND_DESCRIPTION = "Backend interface for modular voice assistants."
+BACKEND_VERSION = PROJECT_VERSION
+BACKEND_ENDPOINT_BASE = "/api/v1"
 
 FRONTEND_HOST = ENV.get("FRONTEND_HOST", "127.0.0.1")
 FRONTEND_PORT = ENV.get("FRONTEND_PORT", "8868")
