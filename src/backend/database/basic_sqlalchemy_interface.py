@@ -7,8 +7,8 @@
 """
 import os
 from .filter_mask import FilterMask
-from ...src_legacy.utility.bronze import sqlalchemy_utility
-from ...src_legacy.utility.bronze import time_utility
+from src.utility import sqlalchemy_utility
+from src.utility import time_utility
 from datetime import datetime as dt
 from typing import Optional, Any, List
 
