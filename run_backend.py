@@ -125,7 +125,7 @@ def get_valid_config_path(config_path: str | None) -> str | None:
         if os.path.exists(config_path):
             return config_path
         else:
-            rel_path = os.path.join(cfg.PATH.CONFIGS, config_path)
+            rel_path = os.path.join(cfg.PATHS.CONFIG_PATH, config_path)
             if os.path.exists(rel_path):
                 return rel_path
 
