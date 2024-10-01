@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 ****************************************************
-*             Modular Voice Assistant              *
-*            (c) 2024 Alexander Hering             *
+*           aura-cognitive-architecture            *
+*            (c) 2023 Alexander Hering             *
 ****************************************************
 """
+
