@@ -35,7 +35,7 @@ RUN if [ ! -d "venv" ]; \
     fi
 
 # Setup
-RUN cd /modular-voice-assistant && /bin/bash install.sh
+RUN /bin/bash install.sh
 
 # Command for starting modular-voice-assistant
 CMD ["/bin/bash", "run.sh"]

@@ -2,7 +2,7 @@ FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
 ENV PYTHONUNBUFFERED 1
 
 # Setting up basic repo 
-ARG DEBIAN_FRONTEND=noninteractive
+ARG DEBIAN_FRONTEND noninteractive
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 ENV TZ Europe/Berlin
