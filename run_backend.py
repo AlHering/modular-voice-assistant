@@ -138,12 +138,28 @@ Click-based entrypoint
 def run_voice_assistant(config: str) -> None:
     """Runner program for a voice assistant."""
     config_path = get_valid_config_path(config_path=config)
-    if config_path:
+    if config_path is not None:
         print(f"\nValid config path given: {config_path}.")
-        # TODO: Run configured process
+        config_data = json_utility.load(config_path)
+
+        voice_assistant_parameters = config_data.get("voice_assistant", {})
+        speech_recorder_parameters = config_data.get("speech_recorder", {})
+        transcriber_parameters = config_data.get("transcriber", {})
+        synthesizer_parameters = config_data.get("synthesizer", {})
+        
+        voice_assistant = setup_default_voice_assistant(
+            use_remote_llm=config_data.get("use_remote_llm", True),
+            download_model_files=config_data.get("download_model_files", False),
+            llm_parameters=config_data.get("llm"),
+            speech_recorder_parameters=speech_recorder_parameters,
+            transcriber_parameters=transcriber_parameters,
+            synthesizer_parameters=synthesizer_parameters,
+            voice_assistant_parameters=voice_assistant_parameters
+        )
     else:
         print(f"\nNo valid config path given, using default configuration.")
-        # TODO: Run default process
+        voice_assistant = setup_default_voice_assistant(use_remote_llm=True)
+    voice_assistant.start()
 
 
 if __name__ == "__main__":
