@@ -135,7 +135,8 @@ Click-based entrypoint
 """
 @click.command()
 @click.option("--config", default=None, help="Path or name json configuration file for the voice assistant.")
-def run_voice_assistant(config: str) -> None:
+@click.option("--mode", default=None, help="Interaction mode: (0) conversation, (1) single interaction, (2) terminal based interaction.")
+def run_voice_assistant(config: str, mode:int) -> None:
     """Runner program for a voice assistant."""
     config_path = get_valid_config_path(config_path=config)
     if config_path is not None:
@@ -159,7 +160,12 @@ def run_voice_assistant(config: str) -> None:
     else:
         print(f"\nNo valid config path given, using default configuration.")
         voice_assistant = setup_default_voice_assistant(use_remote_llm=True)
-    voice_assistant.start()
+    if mode == 2:
+        voice_assistant.run_interaction()
+    elif mode == 3:
+        voice_assistant.run_terminal_conversation()
+    else:
+        voice_assistant.run_conversation()
 
 
 if __name__ == "__main__":
