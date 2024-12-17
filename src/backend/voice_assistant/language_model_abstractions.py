@@ -625,7 +625,6 @@ class RemoteChatModelInstance(ChatModelInstance):
     """
     Addtional endpoint wrappers
     """
-
     def get_models(self) -> List[dict] | None:
         """
         Method for retrieving a list of available models.
@@ -636,7 +635,7 @@ class RemoteChatModelInstance(ChatModelInstance):
             metadata = response.json()
             return metadata["data"]
     
-    def embed(self, input: str, embeddings_parameters: dict | None = None) -> List[List[float]] | None:
+    def embed(self, input: str, embeddings_parameters: dict | None = None) -> List[List[float]] | List[float] | None:
         """
         Method for retrieving embeddings.
         :param input: Input to generate embeddings from.
