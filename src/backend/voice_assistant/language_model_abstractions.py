@@ -301,9 +301,94 @@ class ChatModelInstance(object):
 
     """
     Generation methods
-    """
-
+    """    
     def chat(self, prompt: str, chat_parameters: dict | None = None) -> Tuple[str, dict]:
+        """
+        Method for chatting with language model instance.
+        :param prompt: User input.
+        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
+            Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
+            model backend.
+        :return: Response and metadata.
+        """
+        acc_parameters = copy.deepcopy(self.chat_parameters)
+        if chat_parameters:
+            acc_parameters.update(chat_parameters)
+        if not self.use_history:
+            self.history = [self.history[0]]
+        self.history.append({"role": "user", "content": prompt})
+        full_prompt = self.prompt_maker(self.history)
+
+        metadata = {}
+        answer = ""
+        
+        if isinstance(self.language_model_instance, LlamaCPPModelInstance):
+            metadata = self.language_model_instance.model.create_chat_completion(
+                messages=self.history,
+                **acc_parameters
+            )
+            answer = metadata["choices"][0]["message"].get("content", "")
+        
+        if self.use_history:
+            self.history.append({
+                "role": "assistant",
+                "content": answer,
+                "metadata": metadata
+            })
+        return answer, metadata
+    
+    def chat_stream(self, prompt: str, chat_parameters: dict | None = None, minium_yielded_characters: int = 10) -> Generator[Tuple[str, dict], None, None]:
+        """
+        Method for chatting with language model instance via stream.
+        :param prompt: User input.
+        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
+            Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
+            model backend.
+        :param minium_yielded_characters: Minimum yielded alphabetic characters, defaults to 10.
+        :return: Response and metadata stream.
+        """
+        acc_parameters = copy.deepcopy(self.chat_parameters)
+        if chat_parameters:
+            acc_parameters.update(chat_parameters)
+        acc_parameters["stream"] = True
+        if not self.use_history:
+            self.history = [self.history[0]]
+        self.history.append({"role": "user", "content": prompt})
+        full_prompt = self.prompt_maker(self.history)
+
+        metadata = {}
+        answer = ""
+
+        if isinstance(self.language_model_instance, LlamaCPPModelInstance):
+            stream = self.language_model_instance.model.create_chat_completion(
+                messages=self.history,
+                **acc_parameters
+            )
+            chunks = []
+            sentence = ""
+            for chunk in stream:
+                chunks.append(chunk)
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    sentence += delta["content"]
+                    if delta["content"][-1] in SENTENCE_CHUNK_STOPS:
+                        answer += sentence
+                        if len([elem for elem in sentence if elem.isalpha()]) >= minium_yielded_characters:
+                            yield sentence, chunk
+                            sentence = ""
+            answer += sentence
+            metadata = {"chunks": chunks}
+            yield sentence, chunk
+            
+        if self.use_history:
+            self.history.append({
+                "role": "assistant",
+                "content": answer,
+                "metadata": metadata
+            })
+        return answer, metadata
+
+    def legacy_chat(self, prompt: str, chat_parameters: dict | None = None) -> Tuple[str, dict]:
         """
         Method for chatting with language model instance.
         :param prompt: User input.
@@ -358,7 +443,7 @@ class ChatModelInstance(object):
             })
         return answer, metadata
     
-    def chat_stream(self, prompt: str, chat_parameters: dict | None = None, minium_yielded_characters: int = 10) -> Generator[Tuple[str, dict], None, None]:
+    def legacy_chat_stream(self, prompt: str, chat_parameters: dict | None = None, minium_yielded_characters: int = 10) -> Generator[Tuple[str, dict], None, None]:
         """
         Method for chatting with language model instance via stream.
         :param prompt: User input.
