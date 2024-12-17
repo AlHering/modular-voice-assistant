@@ -9,7 +9,7 @@
 import copy
 from typing import Union, Any, List
 from src.utility import dictionary_utility
-from src.utility import COMPARISON_METHOD_DICTIONARY as CMD
+from src.utility.comparison_utility import COMPARISON_METHOD_DICTIONARY as CMD
 
 
 def check_for_wrapped_parameter(root: Any, param_list: List[str]) -> bool:
@@ -125,6 +125,7 @@ class FilterMask(object):
         Method for setting operator dictionary.
         :param operator_dictionary: Operator dictionary.
         """
+        global CMD
         if all(op in operator_dictionary for op in self.operators):
             self.operator_dictionary = operator_dictionary if operator_dictionary is not None else CMD
         else:
