@@ -20,7 +20,7 @@ class BasicSQLAlchemyInterface(object):
 
     def __init__(self, 
                  working_directory: str, 
-                 database_uri: str, 
+                 database_uri: str | None, 
                  population_function: Any = None, 
                  schema: str = "", 
                  handle_objects_as_dicts: bool = False,
@@ -28,7 +28,7 @@ class BasicSQLAlchemyInterface(object):
         """
         Initiation method.
         :param working_directory: Working directory.
-        :param database_uri: Database URI.
+        :param database_uri: Database URI. Defaults to SQLite DB in the working directory.
         :param population_function: A function, taking an engine, schema and a dataclass dictionary (later one can be empty and is to be populated).
             Defaults to None.
         :param handle_objects_as_dicts: Declares, whether to handle (mostly return) objects as dictionaries by default.
@@ -40,7 +40,7 @@ class BasicSQLAlchemyInterface(object):
         self.working_directory = working_directory
         if not os.path.exists(self.working_directory):
             os.makedirs(self.working_directory)
-        self.database_uri = database_uri
+        self.database_uri = database_uri | f"sqlite:///{self.working_directory}/database.db"
         self.population_function = population_function
         self.handle_objects_as_dicts = handle_objects_as_dicts
 
