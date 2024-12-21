@@ -216,7 +216,7 @@ class VAModule(ABC):
 class PassiveVAModule(VAModule):
     """
     Passive voice assistant module.
-    This module follows the same functionality as a conventional VAModule but forwards the incoming packages in its recieved state.
+    This module follows the same functionality as a conventional VAModule but forwards the incoming packages in its received state.
     It can be used for fetching and processing pipeline data without the results being fed back into the module pipeline.
     """
     @abstractmethod
@@ -455,7 +455,7 @@ class ModularConversationHandler(object):
     def _run_nonblocking_conversation(self, loop: bool) -> None:
         """
         Runs a non-blocking conversation.
-        :param loop: Delcares, whether to loop conversation or stop after a single interaction.
+        :param loop: Declares, whether to loop conversation or stop after a single interaction.
         """
         for thread in self.worker_threads + self.input_threads:
             thread.start()         
@@ -472,7 +472,7 @@ class ModularConversationHandler(object):
     def _run_blocking_conversation(self, loop: bool) -> None:
         """
         Runs a blocking conversation.
-        :param loop: Delcares, whether to loop conversation or stop after a single interaction.
+        :param loop: Declares, whether to loop conversation or stop after a single interaction.
         """
         # TODO: Trace inputs via VAPackage UUIDs
         while not self.stop.is_set():
@@ -497,7 +497,7 @@ class ModularConversationHandler(object):
         Runs conversation.
         :param blocking: Declares, whether or not to wait for each step.
             Defaults to True.
-        :param loop: Delcares, whether to loop conversation or stop after a single interaction.
+        :param loop: Declares, whether to loop conversation or stop after a single interaction.
             Defaults to True.
         :param greeting: Assistant greeting.
             Defaults to "Hello there, how may I help you today?".
@@ -518,7 +518,7 @@ class ModularConversationHandler(object):
             else:
                 self._run_blocking_conversation(loop=loop)
         except KeyboardInterrupt:
-            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
+            cfg.LOGGER.info(f"Received keyboard interrupt, shutting down handler ...")
             self.stop_modules()
 
     def run_report_thread(self) -> None:
@@ -553,7 +553,7 @@ class ModularConversationHandler(object):
 
 def clean_worker_output(text: str) -> Tuple[str, dict]:
     """
-    Cleanes worker output from emojis and emotional hints.
+    Cleanse worker output from emojis and emotional hints.
     :param text: Worker output.
     :return: Cleaned text and metadata.
     """
