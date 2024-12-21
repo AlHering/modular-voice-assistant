@@ -1,0 +1,5 @@
+streamlit==1.29.0
+streamlit-code-editor==0.1.10
+streamlit-extras==0.3.6
+json_repair==0.10.1
+barfi==0.7.0
