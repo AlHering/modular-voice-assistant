@@ -113,6 +113,8 @@ class VAModule(ABC):
         self.logger = logger
         self.name = name or str(self)
 
+        self.thread = None
+
         self.received = {}
         self.sent = {}
 
@@ -169,9 +171,9 @@ class VAModule(ABC):
         """
         Returns a thread for running module process in loop.
         """
-        thread = Thread(target=self.loop)
-        thread.daemon = True
-        return thread
+        self.thread = Thread(target=self.loop)
+        self.thread.daemon = True
+        return self.thread
 
     def loop(self) -> None:
         """
@@ -340,7 +342,7 @@ class BaseModuleSet(object):
     - input modules resemble a pipeline for inputting user data, e.g. SpeechRecorderModule->TranscriberModule
     - worker modules resemble a pipeline for processing the ingoing user data, e.g. a ChatModelModule
     - output modules resemble a pipeline for outputting the results of the worker module pipeline, e.g. SynthesizerModule->WaveOutputModule
-    - additional (passive) modules can be "inserted" into a pipline to branch out operations, which do not reintroduce transformed data back into 
+    - additional (passive) modules can be "inserted" into a pipeline to branch out operations, which do not reintroduce transformed data back into 
         the pipeline, e.g. for animating a character alongside the output module pipeline or running additional reporting.
     """
     input_modules: List[VAModule] = []
