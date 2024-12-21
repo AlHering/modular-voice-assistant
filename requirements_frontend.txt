@@ -3,3 +3,5 @@ streamlit-code-editor==0.1.10
 streamlit-extras==0.3.6
 json_repair==0.10.1
 barfi==0.7.0
+stqdm==0.0.5
+pandas==2.2.3
