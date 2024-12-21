@@ -151,7 +151,7 @@ def render_header_buttons(parent_widget: Any,
             object_type=object_type,
             object_data=gather_config(object_type)
         ).get("id")
-        if obj_id in st.session_state[f"{tab_key}_avilable"]:
+        if obj_id in st.session_state[f"{tab_key}_available"]:
             st.info(f"Configuration already found under ID {obj_id}.")
         else:
             st.info(f"Created new configuration with ID {obj_id}.")
@@ -169,8 +169,8 @@ def render_header_buttons(parent_widget: Any,
                     object_id=st.session_state[f"{object_type}_config_selectbox"]
                 ).get("id")
                 st.info(f"Deleted {object_title} configuration {obj_id}.")
-                ids = [st.session_state[f"{tab_key}_avilable"][elem]["id"] 
-                       for elem in st.session_state[f"{tab_key}_avilable"]]
+                ids = [st.session_state[f"{tab_key}_available"][elem]["id"] 
+                       for elem in st.session_state[f"{tab_key}_available"]]
                 deleted_index = ids.index(st.session_state[f"{object_type}_config_selectbox"])
                 if len(ids) > deleted_index+1:
                     st.session_state[f"{tab_key}_overwrite_config_id"] = ids[deleted_index+1]
@@ -189,10 +189,10 @@ def render_config(object_type: str) -> None:
     :param object_type: Target object type.
     """
     tab_key = f"new_{object_type}"
-    st.session_state[f"{tab_key}_avilable"] = {
+    st.session_state[f"{tab_key}_available"] = {
         entry["id"]: entry for entry in backend_interaction.get_objects(object_type=object_type)
         if not entry["inactive"]}
-    options = [">> New <<"] + list(st.session_state[f"{tab_key}_avilable"].keys())
+    options = [">> New <<"] + list(st.session_state[f"{tab_key}_available"].keys())
     default = st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state.get(f"{object_type}_config_selectbox", ">> New <<"))
     
     header_columns = st.columns([.25, .10, .65])
@@ -205,7 +205,7 @@ def render_config(object_type: str) -> None:
         kwargs={"tab_key": tab_key},
         index=options.index(default)
     )
-    st.session_state[f"{tab_key}_current"] = st.session_state[f"{tab_key}_avilable"].get(st.session_state[f"{object_type}_config_selectbox"])
+    st.session_state[f"{tab_key}_current"] = st.session_state[f"{tab_key}_available"].get(st.session_state[f"{object_type}_config_selectbox"])
     
     render_config_inputs(parent_widget=st,
                          tab_key=tab_key,

@@ -55,7 +55,7 @@ class BasicSQLAlchemyInterface(object):
 
     def _setup_database(self) -> None:
         """
-        Internal method for setting up database infastructure.
+        Internal method for setting up database infrastructure.
         """
         if self.logger is not None:
             self.logger.info("Automapping existing structures")
@@ -100,7 +100,7 @@ class BasicSQLAlchemyInterface(object):
 
     def convert_filters(self, entity_type: str, filters: List[FilterMask]) -> list:
         """
-        Method for coverting common FilterMasks to SQLAlchemy-filter expressions.
+        Method for converting common FilterMasks to SQLAlchemy-filter expressions.
         :param entity_type: Entity type.
         :param filters: A list of Filtermasks declaring constraints.
         :return: Filter expressions.
@@ -268,7 +268,7 @@ class BasicSQLAlchemyInterface(object):
                         self.primary_keys[object_type]) == object_id
             ).first()
             if obj:
-                if hasattr(obj, "inanctive") and not force:
+                if hasattr(obj, "inactive") and not force:
                     if hasattr(obj, "updated"):
                         obj.updated = dt.now()
                     obj.inactive = True
