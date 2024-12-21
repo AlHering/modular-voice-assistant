@@ -18,6 +18,7 @@ tqdm==4.66.5
 pydantic==2.9.2
 keyboard==0.13.5
 prompt-toolkit==3.0.47
+sqlalchemy==2.0.36
 
 -f https://download.pytorch.org/whl/torch_stable.html
 torch==2.2.2 +cpu
