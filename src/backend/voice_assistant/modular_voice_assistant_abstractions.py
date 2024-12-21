@@ -688,7 +688,7 @@ class BasicVoiceAssistant(object):
             Function for exiting session.
             :param event: Event that resulted in entering the function.
             """
-            cfg.LOGGER.info(f"Recieved keyboard interrupt, shutting down handler ...")
+            cfg.LOGGER.info(f"Received keyboard interrupt, shutting down handler ...")
             self.handler.reset()
             print_formatted_text(HTML("<b>Bye...</b>"))
             event.app.exit()
