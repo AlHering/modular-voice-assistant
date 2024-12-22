@@ -24,7 +24,7 @@ class VoiceAssistantInterface(object):
         Initiation method.
         :param working_directory: Working directory.
         """
-        self.working_directory = working_directory | os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant_interface")
+        self.working_directory = os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant_interface") if working_directory is None else working_directory
         self.database = BasicSQLAlchemyInterface(
             working_directory=os.path.join(self.working_directory, "database"),
             population_function=populate_data_infrastructure
