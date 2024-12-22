@@ -12,6 +12,7 @@ from src.backend.database.basic_sqlalchemy_interface import BasicSQLAlchemyInter
 from src.backend.database.data_model import populate_data_infrastructure
 from src.backend.voice_assistant.modular_voice_assistant_abstractions_v2 import BasicVoiceAssistant, SpeechRecorder, Transcriber, Synthesizer, ChatModelInstance, RemoteChatModelInstance
 
+
 class VoiceAssistantInterface(object):
     """
     Voice assistant interface.
@@ -24,7 +25,8 @@ class VoiceAssistantInterface(object):
         self.working_directory = working_directory | os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant_interface")
         self.database = BasicSQLAlchemyInterface(
             working_directory=os.path.join(self.working_directory, "database"),
-            population_function=populate_data_infrastructure)
+            population_function=populate_data_infrastructure
+        )
         
         self.current_assistant_config = {
             "speech_recorder": None,
@@ -33,6 +35,19 @@ class VoiceAssistantInterface(object):
             "chat_model": None,
         }
         self.assistant: BasicVoiceAssistant | None = None
+        self.router: APIRouter | None = None
+
+    def setup_router(self) -> None:
+        """
+        Sets up API router.
+        """
+        self.router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
+        self.router.add_api_route(path="/setup", endpoint=self.setup_assistant, methods=["POST"])
+        self.router.add_api_route(path="/assistant/reset", endpoint=self.assistant.setup, methods=["POST"])
+        self.router.add_api_route(path="/assistant/stop", endpoint=self.assistant.stop, methods=["POST"])
+        self.router.add_api_route(path="/assistant/interaction", endpoint=self.assistant.run_interaction, methods=["POST"])
+        self.router.add_api_route(path="/assistant/conversation", endpoint=self.assistant.run_conversation, methods=["POST"])
+        self.router.add_api_route(path="/assistant/inject-prompt", endpoint=self.assistant.inject_prompt, methods=["POST"])
 
     def setup_assistant(self, 
                         speech_recorder_id: int| None = None,
@@ -85,11 +100,11 @@ class VoiceAssistantInterface(object):
             if speech_recorder_id and self.current_assistant_config["speech_recorder"] != speech_recorder_id:
                 self.assistant.speech_recorder = SpeechRecorder(**speech_recorder_config.config)
             if transcriber_id and self.current_assistant_config["transcriber"] != transcriber_id:
-                self.assistant.speech_recorder = SpeechRecorder(**speech_recorder_config.config)
-            if speech_recorder_id and self.current_assistant_config["speech_recorder"] != speech_recorder_id:
-                self.assistant.speech_recorder = SpeechRecorder(**speech_recorder_config.config)
-            if speech_recorder_id and self.current_assistant_config["speech_recorder"] != speech_recorder_id:
-                self.assistant.speech_recorder = SpeechRecorder(**speech_recorder_config.config)
+                self.assistant.speech_recorder = Transcriber(**speech_recorder_config.config)
+            if synthesizer_id and self.current_assistant_config["synthesizer"] != synthesizer_id:
+                self.assistant.synthesizer = Synthesizer(**synthesizer_config.config)
+            if chat_model_id and self.current_assistant_config["chat_model"] != chat_model_id:
+                self.assistant.chat_model = SpeechRecorder(**chat_model_config.config)
             
         self.current_assistant_config = {
             "speech_recorder": speech_recorder_config.id,
@@ -97,5 +112,4 @@ class VoiceAssistantInterface(object):
             "synthesizer": synthesizer_config.id,
             "chat_model": chat_model_config.id,
         }
-            
-
+        self.assistant.setup()
