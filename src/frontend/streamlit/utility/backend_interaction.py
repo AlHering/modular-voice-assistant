@@ -36,20 +36,24 @@ def setup() -> None:
     if "ASSISTANT" in st.session_state:
         st.session_state.pop("ASSISTANT")
     if MODE == "direct":
-        st.session_state["ASSISTANT"] = setup_default_voice_assistant(
-            use_remote_llm=st.session_state.get("use_remote_llm", True),
-            download_model_files=st.session_state.get("download_model_files", True),
-            llm_parameters=st.session_state.get("llm_parameters", True),
-            speech_recorder_parameters=st.session_state.get("speech_recorder_parameters", True),
-            transcriber_parameters=st.session_state.get("transcriber_parameters", True),
-            synthesizer_parameters=st.session_state.get("synthesizer_parameters", True),
-            voice_assistant_parameters=st.session_state.get("voice_assistant_parameters", True)
-        )
         st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant_interface")
         st.session_state["DATABASE"] = BasicSQLAlchemyInterface(
             working_directory=os.path.join(st.session_state["WORKDIR"], "database"),
-            population_function=populate_data_infrastructure
+            population_function=populate_data_infrastructure,
+            default_entries={
+                
+            }
         )
+        st.session_state["ASSISTANT"] = setup_default_voice_assistant(
+            use_remote_llm=st.session_state.get("use_remote_llm", True),
+            download_model_files=st.session_state.get("download_model_files", False),
+            llm_parameters=st.session_state.get("llm_parameters"),
+            speech_recorder_parameters=st.session_state.get("speech_recorder_parameters"),
+            transcriber_parameters=st.session_state.get("transcriber_parameters"),
+            synthesizer_parameters=st.session_state.get("synthesizer_parameters"),
+            voice_assistant_parameters=st.session_state.get("voice_assistant_parameters")
+        )
+        
     else:
         raise NotImplementedError("API mode is not implemented yet.")
 
