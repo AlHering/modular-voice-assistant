@@ -6,7 +6,9 @@
 ****************************************************
 """
 import os
+from typing import List
 from fastapi import APIRouter
+import numpy as np
 from src.configuration import configuration as cfg
 from src.backend.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.backend.database.data_model import populate_data_infrastructure
@@ -113,3 +115,29 @@ class VoiceAssistantInterface(object):
             "chat_model": chat_model_config.id,
         }
         self.assistant.setup()
+
+    def transcribe(self, audio_input: List[int | float] | str, dtype: str | None = None, transcription_parameters: dict | None = None) -> dict:
+        """
+        Transcribes audio to text.
+        :param audio_input: Audio data or wave file path.
+        :param dtype: Dtype in case of audio data input.
+        :param transcription_parameters: Transcription parameters as dictionary.
+            Defaults to None.
+        """
+
+        response = self.assistant.transcriber.transcribe(
+            audio_input=audio_input if isinstance(audio_input, str) else np.asanyarray(audio_input, dtype=dtype), 
+            transcription_parameters=transcription_parameters)
+        return {"transcript": response[0], "metadata": response[1]}
+
+
+    def synthesize(self, text: str, synthesis_parameters: dict | None = None) -> dict:
+        """
+        Synthesizes audio from input text.
+        :param text: Text to synthesize to audio.
+        :param synthesis_parameters: Synthesis parameters as dictionary.
+            Defaults to None.
+        :return: Audio data, dtype and metadata.
+        """
+        response = self.assistant.synthesizer.synthesize(text=text, synthesis_parameters=synthesis_parameters)
+        return {"synthesis": response[0].tolist(), "dtype": str(response[0].dtype), "metadata": response[1]}
