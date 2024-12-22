@@ -52,11 +52,20 @@ def render_pipeline_node_plane(parent_widget: Any, block_entries: Dict[str, List
             new_block = Block(name=" ".join(key.split("_")).title())
             if key != "speech_recorder":
                 new_block.add_input("Input")
-            new_block.add_option("Config", "select")
+            new_block.add_output("Output")
+            items = [">> New <<"]
+            items.extend([str(entry["id"]) for entry in block_entries[key]])
+            new_block.add_option(name="Config", type="select", value=">> New <<", items=items)
+            if key in OBJECT_STRUCTURE:
+                for core_parameter in OBJECT_STRUCTURE[key]["core_parameters"]:
+                    new_block.add_option(name=core_parameter, type="input")
+                for json_parameter in OBJECT_STRUCTURE[key]["json_parameters"]:
+                    new_block.add_option(name=json_parameter, type="input", value="{\n\t\n}")
             blocks.append(new_block)
+        blocks.append(Block(name="Wave Output"))
+        blocks[-1].add_input("Input")
             
-        
-        barfi_result = st_barfi(base_blocks={key: [Block(name=)]})
+        barfi_result = st_barfi(base_blocks=blocks)
         if session_state_key and barfi_result:
             st.session_state[session_state_key] = barfi_result
 
