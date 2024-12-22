@@ -42,7 +42,7 @@ class BasicSQLAlchemyInterface(object):
         self.working_directory = working_directory
         if not os.path.exists(self.working_directory):
             os.makedirs(self.working_directory)
-        self.database_uri = database_uri | f"sqlite:///{self.working_directory}/database.db"
+        self.database_uri = f"sqlite:///{self.working_directory}/database.db" if database_uri is None else database_uri
         self.population_function = population_function
         self.default_entries = default_entries
         self.handle_objects_as_dicts = handle_objects_as_dicts
