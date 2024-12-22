@@ -1,4 +1,4 @@
-streamlit==1.29.0
+streamlit==1.32.0
 streamlit-code-editor==0.1.10
 streamlit-extras==0.3.6
 json_repair==0.10.1
