@@ -20,7 +20,7 @@ class BasicSQLAlchemyInterface(object):
 
     def __init__(self, 
                  working_directory: str, 
-                 database_uri: str | None, 
+                 database_uri: str | None = None, 
                  population_function: Any = None, 
                  default_entries: Dict[str, List[dict]] = None,
                  schema: str = "", 
