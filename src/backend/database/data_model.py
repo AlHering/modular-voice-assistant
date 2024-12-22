@@ -21,7 +21,7 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
     :param model: Model dictionary for holding data classes.
     """
     schema = str(schema)
-    if not schema.endswith("."):
+    if schema and not schema.endswith("."):
         schema += "."
     base = declarative_base()
 
@@ -130,4 +130,4 @@ def get_default_entries() -> dict:
         }
     }
 
-    return {"Config": [transcriber_config, synthesizer_config, chat_model_config]}
+    return {"config": [transcriber_config, synthesizer_config, chat_model_config]}
