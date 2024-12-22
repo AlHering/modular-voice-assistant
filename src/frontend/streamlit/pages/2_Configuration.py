@@ -11,7 +11,7 @@ from requests.exceptions import ConnectionError
 import json
 from time import sleep
 from src.utility.streamlit_utility import render_json_input
-
+from src.frontend.streamlit.utility.backend_interaction import OBJECT_STRUCTURE
 from src.frontend.streamlit.utility.state_cache_handling import wait_for_setup, clear_tab_config
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 
@@ -19,22 +19,6 @@ from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 ###################
 # Main page functionality
 ###################
-OBJECT_STRUCTURE = {
-    "transcriber": {
-        "core_parameters": ["backend", "model_path"],
-        "json_parameters": ["model_parameters", "transcription_parameters"],
-    },
-    "synthesizer": {
-        "core_parameters": ["backend", "model_path"],
-        "json_parameters": ["model_parameters", "synthesis_parameters"],
-    },
-    "speech_recorder": {
-        "core_parameters": ["input_device_index", "loop_pause"],
-        "json_parameters": ["recognizer_parameters", "microphone_parameters"],
-    }
-}
-
-
 def gather_config(object_type: str) -> dict:
     """
     Gathers object config.

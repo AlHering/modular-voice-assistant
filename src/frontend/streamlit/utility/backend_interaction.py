@@ -6,7 +6,7 @@
 ****************************************************
 """
 import os
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Dict
 import json
 from enum import Enum
 from copy import deepcopy
@@ -28,6 +28,20 @@ from src.configuration import configuration as cfg
 #   direct: Controller in session cache
 #
 MODE: str = "direct"
+OBJECT_STRUCTURE = {
+    "transcriber": {
+        "core_parameters": ["backend", "model_path"],
+        "json_parameters": ["model_parameters", "transcription_parameters"],
+    },
+    "synthesizer": {
+        "core_parameters": ["backend", "model_path"],
+        "json_parameters": ["model_parameters", "synthesis_parameters"],
+    },
+    "speech_recorder": {
+        "core_parameters": ["input_device_index", "loop_pause"],
+        "json_parameters": ["recognizer_parameters", "microphone_parameters"],
+    }
+}
 
 
 def setup() -> None:
@@ -60,4 +74,16 @@ def setup() -> None:
         "transcriber": Transcriber,
         "synthesizer": Synthesizer,
         "speech_recorder": SpeechRecorder
+    }
+
+def get_components() -> List[Dict[str, dict]]:
+    """
+    Retrieves available components.
+    :returns: List of components.
+    """
+    return {
+        "transcriber": st.session_state["DATABASE"].get_objects_by_type(object_type="transcriber"),
+        "synthesizer": st.session_state["DATABASE"].get_objects_by_type(object_type="synthesizer"),
+        "speech_recorder": st.session_state["DATABASE"].get_objects_by_type(object_type="speech_recorder"),
+        "chat_model": st.session_state["DATABASE"].get_objects_by_type(object_type="chat_model"),
     }
