@@ -47,7 +47,7 @@ def setup_default_voice_assistant(use_remote_llm: bool = True,
     else:
         llm_parameters = llm_parameters or {
             "model_path": os.path.join(cfg.PATHS.MODEL_PATH, 
-                                       "text_generation_models/mradermacher_Llama-3.1-Storm-8B-i1-GGUF"),
+                                       "text_generation/models/mradermacher_Llama-3.1-Storm-8B-i1-GGUF"),
             "model_file": "Llama-3.1-Storm-8B.i1-Q4_K_M.gguf",
             "model_parameters": {
                 "n_ctx": 4096, 
@@ -72,7 +72,7 @@ def setup_default_voice_assistant(use_remote_llm: bool = True,
     transcriber_parameters = transcriber_parameters or {
         "backend": "faster-whisper",
         "model_path": os.path.join(cfg.PATHS.MODEL_PATH, 
-                                   "sound_generation_models/speech_to_text/faster_whisper_models/Systran_faster-whisper-tiny"),
+                                   "sound_generation/models/speech_to_text/faster_whisper_models/Systran_faster-whisper-tiny"),
         "model_parameters": {
             "device": "cuda",
             "compute_type": "float32",
@@ -82,8 +82,8 @@ def setup_default_voice_assistant(use_remote_llm: bool = True,
     transcriber = Transcriber(**transcriber_parameters)
 
     fallback_synthesizer_model = os.path.join(cfg.PATHS.MODEL_PATH, 
-                                              "sound_generation_models/text_to_speech/coqui_models/tts_models-multilingual-multi-dataset-xtts_v2")
-    fallback_speaker_wav = os.path.join(cfg.PATHS.MODEL_PATH, "sound_generation_models//text_to_speech/coqui_xtts/examples/female.wav")
+                                              "sound_generation/models/text_to_speech/coqui_models/tts_models-multilingual-multi-dataset-xtts_v2")
+    fallback_speaker_wav = os.path.join(cfg.PATHS.MODEL_PATH, "sound_generation/models/text_to_speech/coqui_xtts/examples/female.wav")
     synthesizer_parameters = synthesizer_parameters or {
         "backend": "coqui-tts",
         "model_path": fallback_synthesizer_model,

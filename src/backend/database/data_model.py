@@ -82,7 +82,7 @@ def get_default_entries() -> dict:
         "config": {
             "backend": "faster-whisper",
             "model_path": os.path.join(cfg.PATHS.MODEL_PATH, 
-                                    "sound_generation_models/speech_to_text/faster_whisper_models/Systran_faster-whisper-tiny"),
+                                    "sound_generation/models/speech_to_text/faster_whisper_models/Systran_faster-whisper-tiny"),
             "model_parameters": {
                 "device": "cuda",
                 "compute_type": "float32",
@@ -92,8 +92,8 @@ def get_default_entries() -> dict:
     }
 
     fallback_synthesizer_model = os.path.join(cfg.PATHS.MODEL_PATH, 
-                                              "sound_generation_models/text_to_speech/coqui_models/tts_models-multilingual-multi-dataset-xtts_v2")
-    fallback_speaker_wav = os.path.join(cfg.PATHS.MODEL_PATH, "sound_generation_models//text_to_speech/coqui_xtts/examples/female.wav")
+                                              "sound_generation/models/text_to_speech/coqui_models/tts_models-multilingual-multi-dataset-xtts_v2")
+    fallback_speaker_wav = os.path.join(cfg.PATHS.MODEL_PATH, "sound_generation/models/text_to_speech/coqui_xtts/examples/female.wav")
     synthesizer_config = {
         "id": 2,
         "config_type": "synthesizer",
@@ -116,7 +116,7 @@ def get_default_entries() -> dict:
         "config_type": "chat_model",
         "config": {
             "model_path": os.path.join(cfg.PATHS.MODEL_PATH, 
-                                        "text_generation_models/mradermacher_Llama-3.1-Storm-8B-i1-GGUF"),
+                                        "text_generation/models/mradermacher_Llama-3.1-Storm-8B-i1-GGUF"),
             "model_file": "Llama-3.1-Storm-8B.i1-Q4_K_M.gguf",
             "model_parameters": {
                 "n_ctx": 4096, 
