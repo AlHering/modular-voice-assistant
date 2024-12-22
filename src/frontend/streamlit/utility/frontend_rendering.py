@@ -12,8 +12,8 @@ import streamlit as st
 import random
 import tkinter as tk
 from tkinter import filedialog
-from src_legacy.configuration import configuration as cfg
-from src_legacy.view.streamlit_frontends.voice_assistant.utility.state_cache_handling import clear_tab_config
+from src.configuration import configuration as cfg
+from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config
 import streamlit.components.v1 as st_components
 from code_editor import code_editor
 import json
