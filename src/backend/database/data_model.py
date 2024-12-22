@@ -37,11 +37,33 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
                          comment="Request, sent to the backend.")
         response = Column(JSON, comment="Response, given by the backend.")
         requested = Column(DateTime, server_default=func.now(),
-                           comment="Timestamp of request recieval.")
+                           comment="Timestamp of request receive.")
         responded = Column(DateTime, server_default=func.now(), server_onupdate=func.now(),
-                           comment="Timestamp of reponse transmission.")
+                           comment="Timestamp of response transmission.")
+        
+    class Config(base):
+        """
+        Config class, representing a configuration.
+        """
+        __tablename__ = f"{schema}config"
+        __table_args__ = {
+            "comment": "Config table.", "extend_existing": True}
 
-    for dataclass in [Log]:
+        id = Column(Integer, autoincrement=True, primary_key=True, unique=True, nullable=False,
+                    comment="ID of an instance.")
+        config_type = Column(String, nullable=False,
+                    comment="Target object / type of the configuration.")
+        config = Column(JSON, nullable=False,
+                        comment="Configuration content.")
+        
+        created = Column(DateTime, server_default=func.now(),
+                        comment="Timestamp of creation.")
+        updated = Column(DateTime, server_default=func.now(), onupdate=func.now(),
+                        comment="Timestamp of last update.")
+        inactive = Column(Boolean, nullable=False, default=False,
+                        comment="Inactivity flag.")
+
+    for dataclass in [Log, Config]:
         model[dataclass.__tablename__.replace(schema, "")] = dataclass
 
     base.metadata.create_all(bind=engine)

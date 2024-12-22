@@ -68,23 +68,23 @@ class VoiceAssistantInterface(object):
         """
         speech_recorder_configs = self.database.get_objects_by_filtermasks(
                 object_type="config", 
-                filtermasks=FilterMask(expressions=[["type", "==", "speech_recorder"]] if speech_recorder_id is None else 
-                        [["type", "==", "speech_recorder", ["id", "==", speech_recorder_id]]])
+                filtermasks=FilterMask(expressions=[["config_type", "==", "speech_recorder"]] if speech_recorder_id is None else 
+                        [["config_type", "==", "speech_recorder", ["id", "==", speech_recorder_id]]])
             )
         transcriber_configs = self.database.get_objects_by_filtermasks(
             object_type="config", 
-            filtermasks=FilterMask(expressions=[["type", "==", "transcriber"]] if transcriber_id is None else 
-                    [["type", "==", "transcriber", ["id", "==", transcriber_id]]])
+            filtermasks=FilterMask(expressions=[["config_type", "==", "transcriber"]] if transcriber_id is None else 
+                    [["config_type", "==", "transcriber", ["id", "==", transcriber_id]]])
         )
         synthesizer_configs = self.database.get_objects_by_filtermasks(
             object_type="config", 
-            filtermasks=FilterMask(expressions=[["type", "==", "synthesizer"]] if synthesizer_id is None else 
-                    [["type", "==", "synthesizer", ["id", "==", synthesizer_id]]])
+            filtermasks=FilterMask(expressions=[["config_type", "==", "synthesizer"]] if synthesizer_id is None else 
+                    [["config_type", "==", "synthesizer", ["id", "==", synthesizer_id]]])
         )
         chat_model_configs = self.database.get_objects_by_filtermasks(
             object_type="config", 
-            filtermasks=FilterMask(expressions=[["type", "==", "chat_model"]] if chat_model_id is None else 
-                    [["type", "==", "chat_model", ["id", "==", chat_model_id]]])
+            filtermasks=FilterMask(expressions=[["config_type", "==", "chat_model"]] if chat_model_id is None else 
+                    [["config_type", "==", "chat_model", ["id", "==", chat_model_id]]])
         )
 
         speech_recorder_config = speech_recorder_configs[0]
