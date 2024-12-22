@@ -57,9 +57,9 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
                          comment="Backend for model instantiation.")
         model_path = Column(String, nullable=False,
                             comment="Path of the model folder.")
-        model_parameters = Column(JSON,
+        model_parameters = Column(JSON, default={},
                                   comment="Parameters for the model instantiation.")
-        transcription_parameters = Column(JSON,
+        transcription_parameters = Column(JSON, default={},
                                 comment="Parameters for transcribing.")
 
         created = Column(DateTime, server_default=func.now(),
@@ -83,9 +83,9 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
                          comment="Backend for model instantiation.")
         model_path = Column(String, nullable=False,
                             comment="Path of the model folder.")
-        model_parameters = Column(JSON,
+        model_parameters = Column(JSON, default={},
                                   comment="Parameters for the model instantiation.")
-        synthesis_parameters = Column(JSON,
+        synthesis_parameters = Column(JSON, default={},
                                 comment="Parameters for synthesizing.")
 
         created = Column(DateTime, server_default=func.now(),
@@ -107,9 +107,9 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
                     comment="ID of the speech recorder instance.")
         input_device_index = Column(Integer,
                          comment="Input device index for recording.")
-        recognizer_parameters = Column(JSON,
+        recognizer_parameters = Column(JSON, default={},
                             comment="Parameters for setting up recognizer instances.")
-        microphone_parameters = Column(JSON,
+        microphone_parameters = Column(JSON, default={},
                                   comment="Parameters for setting up microphone instances.")
         loop_pause = Column(Float,
                             comment="Forced pause between recording loops in seconds.")
@@ -135,9 +135,9 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
                          comment="Model folder path.")
         model_file = Column(String,
                          comment="Model file name.")
-        model_parameters = Column(JSON,
+        model_parameters = Column(JSON, default={},
                             comment="Model loading parameters.")
-        generating_parameters = Column(JSON,
+        generating_parameters = Column(JSON, default={},
                                   comment="Generation parameters.")
 
         created = Column(DateTime, server_default=func.now(),
@@ -161,16 +161,13 @@ def get_default_entries() -> dict:
     """
     transcriber_config = {
         "id": 1,
-        "config_type": "transcriber",
-        "config": {
-            "backend": "faster-whisper",
-            "model_path": os.path.join(cfg.PATHS.MODEL_PATH, 
-                                    "sound_generation/models/speech_to_text/faster_whisper_models/Systran_faster-whisper-tiny"),
-            "model_parameters": {
-                "device": "cuda",
-                "compute_type": "float32",
-                "local_files_only": True
-            }
+        "backend": "faster-whisper",
+        "model_path": os.path.join(cfg.PATHS.MODEL_PATH, 
+                                "sound_generation/models/speech_to_text/faster_whisper_models/Systran_faster-whisper-tiny"),
+        "model_parameters": {
+            "device": "cuda",
+            "compute_type": "float32",
+            "local_files_only": True
         }
     }
 
@@ -179,37 +176,31 @@ def get_default_entries() -> dict:
     fallback_speaker_wav = os.path.join(cfg.PATHS.MODEL_PATH, "sound_generation/models/text_to_speech/coqui_xtts/examples/female.wav")
     synthesizer_config = {
         "id": 1,
-        "config_type": "synthesizer",
-        "config": {
-            "backend": "coqui-tts",
-            "model_path": fallback_synthesizer_model,
-            "model_parameters": {
-                "config_path": f"{fallback_synthesizer_model}/config.json",
-                "gpu": True
-            },
-            "synthesis_parameters": {
-                "speaker_wav": fallback_speaker_wav,
-                "language": "en"
-            }
+        "backend": "coqui-tts",
+        "model_path": fallback_synthesizer_model,
+        "model_parameters": {
+            "config_path": f"{fallback_synthesizer_model}/config.json",
+            "gpu": True
+        },
+        "synthesis_parameters": {
+            "speaker_wav": fallback_speaker_wav,
+            "language": "en"
         }
     }
 
     chat_model_config = {
         "id": 1,
-        "config_type": "chat_model",
-        "config": {
-            "model_path": os.path.join(cfg.PATHS.MODEL_PATH, 
+        "model_path": os.path.join(cfg.PATHS.MODEL_PATH, 
                                         "text_generation/models/mradermacher_Llama-3.1-Storm-8B-i1-GGUF"),
-            "model_file": "Llama-3.1-Storm-8B.i1-Q4_K_M.gguf",
-            "model_parameters": {
-                "n_ctx": 4096, 
-                "temperature": 0.8, 
-                "repetition_penalty": 1.6,
-                "n_gpu_layers": 33
-            },
-            "generating_parameters": {
-                "max_tokens": 256
-            }
+        "model_file": "Llama-3.1-Storm-8B.i1-Q4_K_M.gguf",
+        "model_parameters": {
+            "n_ctx": 4096, 
+            "temperature": 0.8, 
+            "repetition_penalty": 1.6,
+            "n_gpu_layers": 33
+        },
+        "generating_parameters": {
+            "max_tokens": 256
         }
     }
 
