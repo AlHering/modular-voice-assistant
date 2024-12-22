@@ -7,7 +7,7 @@
 """
 import os
 from sqlalchemy.orm import relationship, mapped_column, declarative_base
-from sqlalchemy import Engine, Column, String, JSON, ForeignKey, Integer, DateTime, func, Uuid, Text, event, Boolean
+from sqlalchemy import Engine, Column, String, JSON, Float, ForeignKey, Integer, DateTime, func, Uuid, Text, event, Boolean
 from uuid import uuid4, UUID
 from typing import Any
 from src.configuration import configuration as cfg
@@ -43,29 +43,112 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
         responded = Column(DateTime, server_default=func.now(), server_onupdate=func.now(),
                            comment="Timestamp of response transmission.")
         
-    class Config(base):
+    class Transcriber(base):
         """
-        Config class, representing a configuration.
+        Config class, representing a transcriber instance.
         """
-        __tablename__ = f"{schema}config"
+        __tablename__ = f"{schema}transcriber"
         __table_args__ = {
-            "comment": "Config table.", "extend_existing": True}
+            "comment": "Transcriber instance table.", "extend_existing": True}
 
-        id = Column(Integer, autoincrement=True, primary_key=True, unique=True, nullable=False,
-                    comment="ID of an instance.")
-        config_type = Column(String, nullable=False,
-                    comment="Target object / type of the configuration.")
-        config = Column(JSON, nullable=False,
-                        comment="Configuration content.")
-        
+        id = Column(Integer, primary_key=True, unique=True, nullable=False, autoincrement=True,
+                    comment="ID of the model instance.")
+        backend = Column(String, nullable=False,
+                         comment="Backend for model instantiation.")
+        model_path = Column(String, nullable=False,
+                            comment="Path of the model folder.")
+        model_parameters = Column(JSON,
+                                  comment="Parameters for the model instantiation.")
+        transcription_parameters = Column(JSON,
+                                comment="Parameters for transcribing.")
+
         created = Column(DateTime, server_default=func.now(),
-                        comment="Timestamp of creation.")
-        updated = Column(DateTime, server_default=func.now(), onupdate=func.now(),
-                        comment="Timestamp of last update.")
+                         comment="Timestamp of creation.")
+        updated = Column(DateTime, server_default=func.now(), server_onupdate=func.now(),
+                         comment="Timestamp of last update.")
         inactive = Column(Boolean, nullable=False, default=False,
-                        comment="Inactivity flag.")
+                          comment="Inactivity flag.")
+    
+    class Synthesizer(base):
+        """
+        Config class, representing a synthesizer instance.
+        """
+        __tablename__ = f"{schema}synthesizer"
+        __table_args__ = {
+            "comment": "Synthesizer instance table.", "extend_existing": True}
 
-    for dataclass in [Log, Config]:
+        id = Column(Integer, primary_key=True, unique=True, nullable=False, autoincrement=True,
+                    comment="ID of the model instance.")
+        backend = Column(String, nullable=False,
+                         comment="Backend for model instantiation.")
+        model_path = Column(String, nullable=False,
+                            comment="Path of the model folder.")
+        model_parameters = Column(JSON,
+                                  comment="Parameters for the model instantiation.")
+        synthesis_parameters = Column(JSON,
+                                comment="Parameters for synthesizing.")
+
+        created = Column(DateTime, server_default=func.now(),
+                         comment="Timestamp of creation.")
+        updated = Column(DateTime, server_default=func.now(), server_onupdate=func.now(),
+                         comment="Timestamp of last update.")
+        inactive = Column(Boolean, nullable=False, default=False,
+                          comment="Inactivity flag.")
+        
+    class SpeechRecorder(base):
+        """
+        Config class, representing a speech recorder instance.
+        """
+        __tablename__ = f"{schema}speech_recorder"
+        __table_args__ = {
+            "comment": "Speech recorder instance table.", "extend_existing": True}
+
+        id = Column(Integer, primary_key=True, unique=True, nullable=False, autoincrement=True,
+                    comment="ID of the speech recorder instance.")
+        input_device_index = Column(Integer,
+                         comment="Input device index for recording.")
+        recognizer_parameters = Column(JSON,
+                            comment="Parameters for setting up recognizer instances.")
+        microphone_parameters = Column(JSON,
+                                  comment="Parameters for setting up microphone instances.")
+        loop_pause = Column(Float,
+                            comment="Forced pause between recording loops in seconds.")
+
+        created = Column(DateTime, server_default=func.now(),
+                         comment="Timestamp of creation.")
+        updated = Column(DateTime, server_default=func.now(), server_onupdate=func.now(),
+                         comment="Timestamp of last update.")
+        inactive = Column(Boolean, nullable=False, default=False,
+                          comment="Inactivity flag.")
+        
+    class ChatModel(base):
+        """
+        Config class, representing a chat model instance.
+        """
+        __tablename__ = f"{schema}chat_model"
+        __table_args__ = {
+            "comment": "Chat model instance table.", "extend_existing": True}
+
+        id = Column(Integer, primary_key=True, unique=True, nullable=False, autoincrement=True,
+                    comment="ID of the chat model instance.")
+        model_path = Column(String,
+                         comment="Model folder path.")
+        model_file = Column(String,
+                         comment="Model file name.")
+        model_parameters = Column(JSON,
+                            comment="Model loading parameters.")
+        generating_parameters = Column(JSON,
+                                  comment="Generation parameters.")
+
+        created = Column(DateTime, server_default=func.now(),
+                         comment="Timestamp of creation.")
+        updated = Column(DateTime, server_default=func.now(), server_onupdate=func.now(),
+                         comment="Timestamp of last update.")
+        inactive = Column(Boolean, nullable=False, default=False,
+                          comment="Inactivity flag.")
+        
+
+    for dataclass in [Log, Transcriber, Synthesizer, SpeechRecorder, ChatModel]:
         model[dataclass.__tablename__.replace(schema, "")] = dataclass
 
     base.metadata.create_all(bind=engine)
@@ -95,7 +178,7 @@ def get_default_entries() -> dict:
                                               "sound_generation/models/text_to_speech/coqui_models/tts_models-multilingual-multi-dataset-xtts_v2")
     fallback_speaker_wav = os.path.join(cfg.PATHS.MODEL_PATH, "sound_generation/models/text_to_speech/coqui_xtts/examples/female.wav")
     synthesizer_config = {
-        "id": 2,
+        "id": 1,
         "config_type": "synthesizer",
         "config": {
             "backend": "coqui-tts",
@@ -112,7 +195,7 @@ def get_default_entries() -> dict:
     }
 
     chat_model_config = {
-        "id": 3,
+        "id": 1,
         "config_type": "chat_model",
         "config": {
             "model_path": os.path.join(cfg.PATHS.MODEL_PATH, 
@@ -130,4 +213,6 @@ def get_default_entries() -> dict:
         }
     }
 
-    return {"config": [transcriber_config, synthesizer_config, chat_model_config]}
+    return {"transcriber": [transcriber_config],
+            "synthesizer": [synthesizer_config], 
+            "chat_model": [chat_model_config]}
