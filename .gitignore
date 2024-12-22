@@ -174,7 +174,7 @@ tmp*
 link_local_models.sh
 
 # Exceptions
-!models/mount machine learning model folders here.txt
+!models/mount_machine_learning_model_folders_here.txt
 !configs/mount_configs_folder_here.txt
 !data/mount_data_folder_here.txt
 !src/utility/data/media_types.json
