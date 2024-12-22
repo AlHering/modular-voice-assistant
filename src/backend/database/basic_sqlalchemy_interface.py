@@ -10,7 +10,7 @@ from .filter_mask import FilterMask
 from src.utility import sqlalchemy_utility
 from src.utility import time_utility
 from datetime import datetime as dt
-from typing import Optional, Any, List
+from typing import Optional, Any, List, Dict
 
 
 class BasicSQLAlchemyInterface(object):
@@ -22,6 +22,7 @@ class BasicSQLAlchemyInterface(object):
                  working_directory: str, 
                  database_uri: str | None, 
                  population_function: Any = None, 
+                 default_entries: Dict[str, List[dict]] = None,
                  schema: str = "", 
                  handle_objects_as_dicts: bool = False,
                  logger: Any = None) -> None:
@@ -31,6 +32,7 @@ class BasicSQLAlchemyInterface(object):
         :param database_uri: Database URI. Defaults to SQLite DB in the working directory.
         :param population_function: A function, taking an engine, schema and a dataclass dictionary (later one can be empty and is to be populated).
             Defaults to None.
+        :param default_entries: Default entries to populate database with.
         :param handle_objects_as_dicts: Declares, whether to handle (mostly return) objects as dictionaries by default.
             Defaults to False.
         :param logger: Logger instance. 
@@ -42,6 +44,7 @@ class BasicSQLAlchemyInterface(object):
             os.makedirs(self.working_directory)
         self.database_uri = database_uri | f"sqlite:///{self.working_directory}/database.db"
         self.population_function = population_function
+        self.default_entries = default_entries
         self.handle_objects_as_dicts = handle_objects_as_dicts
 
         # Database infrastructure
@@ -93,7 +96,17 @@ class BasicSQLAlchemyInterface(object):
             for object_class in self.model:
                 self.logger.info(
                     f"Object type '{object_class}' currently has {self.get_object_count_by_type(object_class)} registered entries.")
+                
+        if self.logger is not None:
+            self.logger.info(f"Inserting default entries: {self.default_entries}")
+        for object_type in self.default_entries:
+            for entry in self.default_entries[object_type]:
+                if all(key in entry for key in self.primary_keys[object_type]):
+                    self.put_object(object_type=object_type, reference_attributes=self.primary_keys[object_type], object_attributes=entry)
+                else:
+                    self.put_object(object_type=object_type, object_attributes=entry)
 
+                
     """
     Gateway methods
     """
