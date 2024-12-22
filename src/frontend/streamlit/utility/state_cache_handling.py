@@ -9,9 +9,9 @@ import os
 import streamlit as st
 from typing import List, Any
 from time import sleep
-from src_legacy.utility.bronze import json_utility
-from src_legacy.configuration import configuration as cfg
-from src_legacy.view.streamlit_frontends.voice_assistant.utility import backend_interaction
+from src.utility import json_utility
+from src.configuration import configuration as cfg
+from src.frontend.streamlit.utility import backend_interaction
 
 
 def wait_for_setup() -> None:
@@ -22,7 +22,7 @@ def wait_for_setup() -> None:
         while "CACHE" not in st.session_state:
             try:
                 populate_state_cache()
-                backend_interaction.MODE = st.session_state["CACHE"].get("MODE", "default")
+                backend_interaction.MODE = st.session_state["CACHE"].get("MODE", "direct")
                 backend_interaction.setup()
                 st.rerun()
             except ConnectionError:
@@ -38,15 +38,6 @@ def populate_state_cache() -> None:
     ) if os.path.exists(cfg.PATHS.FRONTEND_CACHE) else json_utility.load(
         cfg.PATHS.FRONTEND_DEFAULT_CACHE
     )
-
-
-def update_state_cache(update: dict) -> None:
-    """
-    Function for updating state cache.
-    :param update: State update.
-    """
-    for key in update:
-        st.session_state["CACHE"][key] = update[key]
 
 
 def remove_state_cache_element(field_path: List[Any]) -> None:
