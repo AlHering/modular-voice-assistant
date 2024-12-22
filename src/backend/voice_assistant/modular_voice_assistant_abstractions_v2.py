@@ -664,6 +664,13 @@ class BasicVoiceAssistant(object):
         """
         self.handler.run_conversation(blocking=blocking, loop=False, **self.conversation_kwargs)
 
+    def inject_prompt(self, prompt: str) -> None:
+        """
+        Injects a prompt into a running conversation.
+        :param prompt: Prompt to inject.
+        """
+        self.module_set.input_modules[-1].output_queue.put(VAPackage(content=prompt))
+
     def run_terminal_conversation(self) -> None:
         """
         Runs conversation loop with terminal input.
@@ -694,3 +701,4 @@ class BasicVoiceAssistant(object):
                     "User: ")
                 if user_input is not None:
                     self.module_set.input_modules[-1].output_queue.put(VAPackage(content=user_input))
+
