@@ -51,6 +51,9 @@ class VoiceAssistantInterface(object):
         self.router.add_api_route(path="/assistant/conversation", endpoint=self.assistant.run_conversation, methods=["POST"])
         self.router.add_api_route(path="/assistant/inject-prompt", endpoint=self.assistant.inject_prompt, methods=["POST"])
 
+        self.router.add_api_route(path="/assistant/transcribe", endpoint=self.transcribe, methods=["POST"])
+        self.router.add_api_route(path="/assistant/synthesize", endpoint=self.synthesize, methods=["POST"])
+
     def setup_assistant(self, 
                         speech_recorder_id: int| None = None,
                         transcriber_id: int| None = None,
