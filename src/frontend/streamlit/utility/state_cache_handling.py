@@ -19,7 +19,7 @@ def wait_for_setup() -> None:
     Function for waiting for setup to finish.
     """
     with st.spinner("Waiting for backend to finish startup..."):
-        while "CACHE" not in st.session_state:
+        while "CACHE" not in st.session_state or "CLASSES" not in st.session_state:
             try:
                 populate_state_cache()
                 backend_interaction.MODE = st.session_state["CACHE"].get("MODE", "direct")
