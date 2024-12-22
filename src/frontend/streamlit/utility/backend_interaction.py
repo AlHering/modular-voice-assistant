@@ -32,7 +32,7 @@ MODE: str = "direct"
 
 def setup() -> None:
     """
-    Function for setting up and assistant.
+    Sets up and assistant.
     """
     if "ASSISTANT" in st.session_state:
         st.session_state.pop("ASSISTANT")

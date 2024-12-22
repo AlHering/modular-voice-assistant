@@ -37,7 +37,7 @@ OBJECT_STRUCTURE = {
 
 def gather_config(object_type: str) -> dict:
     """
-    Function for gathering object config.
+    Gathers object config.
     :param object_type: Target object type.
     :return: Object config.
     """
@@ -53,7 +53,7 @@ def render_config_inputs(parent_widget: Any,
                          tab_key: str, 
                          object_type: str) -> None:
     """
-    Function for rendering config inputs.
+    Renders config inputs.
     :param parent_widget: Parent widget.
     :param tab_key: Current tab key.
     :param object_type: Target object type.
@@ -119,7 +119,7 @@ def render_header_buttons(parent_widget: Any,
                           tab_key: str, 
                           object_type: str) -> None:
     """
-    Function for rendering header buttons.
+    Renders header buttons.
     :param tab_key: Current tab key.
     :param parent_widget: Parent widget.
     :param object_type: Target object type.
@@ -184,7 +184,7 @@ def render_header_buttons(parent_widget: Any,
 
 def render_config(object_type: str) -> None:
     """
-    Function for rendering configs.
+    Renders configs.
     :param object_type: Target object type.
     """
     tab_key = f"new_{object_type}"

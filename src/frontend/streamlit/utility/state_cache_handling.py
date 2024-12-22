@@ -16,7 +16,7 @@ from src.frontend.streamlit.utility import backend_interaction
 
 def wait_for_setup() -> None:
     """
-    Function for waiting for setup to finish.
+    Waits for setup to finish.
     """
     with st.spinner("Waiting for backend to finish startup..."):
         while "CACHE" not in st.session_state or "CLASSES" not in st.session_state:
@@ -31,7 +31,7 @@ def wait_for_setup() -> None:
 
 def populate_state_cache() -> None:
     """
-    Function for populating state cache.
+    Populates state cache.
     """
     st.session_state["CACHE"] = json_utility.load(
         cfg.PATHS.FRONTEND_CACHE
@@ -42,7 +42,7 @@ def populate_state_cache() -> None:
 
 def remove_state_cache_element(field_path: List[Any]) -> None:
     """
-    Function for removing a target element from cache.
+    Removes a target element from cache.
     :param field_path: Field path for traversing cache to target element.
     """
     target = field_path[-1]
@@ -55,7 +55,7 @@ def remove_state_cache_element(field_path: List[Any]) -> None:
 
 def clear_tab_config(tab_key) -> None:
     """
-    Function for clearing config session state key.
+    Clears config session state key.
     :param tab_key: Tab key.
     """
     for key in [key for key in st.session_state if key.startswith(tab_key)]:

@@ -35,7 +35,7 @@ DATAFRAMES = {
 
 def render_selection_dataframe(key: str, dataframe: pd.DataFrame) -> Any:
     """
-    Function for rendering selection dataframe:
+    Renders selection dataframe:
     :param dataframe: Dataframe.
     :return: Selection.
     """
@@ -52,14 +52,14 @@ def render_selection_dataframe(key: str, dataframe: pd.DataFrame) -> Any:
 
 def check_downloaded_models(dataframe: pd.DataFrame) -> None:
     """
-    Function for checking and adjusting downloaded model data.
+    Checks and adjusts downloaded model data.
     :param dataframe: Dataframe.
     """
     pass
 
 def download_model(backend: str, model_id: str, target_folder: str) -> bool:
     """
-    Function for downloading model.
+    Downloads model.
     :param backend: Backend.
     :param model_id: Model ID.
     :param target_folder: Target folder.
@@ -79,7 +79,7 @@ def download_model(backend: str, model_id: str, target_folder: str) -> bool:
     
 def render_model_page(object_type: str) -> None:
     """
-    Function for rendering model page.
+    Renders model page.
     :param object_type: Object type.
     """
     if f"{object_type}_model_download_flair" not in st.session_state:

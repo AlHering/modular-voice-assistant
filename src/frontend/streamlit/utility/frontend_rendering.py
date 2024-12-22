@@ -32,10 +32,17 @@ from itertools import combinations
 
 def render_sidebar() -> None:
     """
-    Function for rendering the sidebar.
+    Renders the sidebar.
     """
     for key, value in st.session_state.items():
         st.sidebar.write(f"{key}: {value}")
+
+
+def render_node_plane(parent_widget: Any) -> None:
+    """
+    Renders a interactive node plane.
+    :param parent_widget: Parent widget.
+    """
 
 
             
