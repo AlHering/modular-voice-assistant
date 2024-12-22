@@ -133,7 +133,7 @@ def render_json_input(parent_widget: Any, key: str, label: str | None = None, de
             allow_reset=True,
             options={"wrap": True},
             buttons=get_json_editor_buttons(),
-            response_mode="debounce"
+#            response_mode="debounce"
         )
 
 
