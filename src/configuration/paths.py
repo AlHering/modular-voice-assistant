@@ -22,7 +22,7 @@ DUMP_PATH = os.path.join(DATA_PATH, "dumps")
 """
 Further data
 """
-MODEL_PATH = os.path.join(PACKAGE_PATH, "models")
+MODEL_PATH = "/mnt/Workspaces/Workspaces/projects/modular-voice-assistant/models" #os.path.join(PACKAGE_PATH, "models")
 CONFIG_PATH = os.path.join(PACKAGE_PATH, "configs")
 BACKEND_PATH = os.path.join(DATA_PATH, "backend")
 FRONTEND_PATH = os.path.join(DATA_PATH, "frontend")
