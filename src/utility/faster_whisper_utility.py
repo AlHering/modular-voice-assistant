@@ -37,7 +37,6 @@ def load_faster_whisper_model(model_path: str,
     )
 
 
-
 def normalize_audio_for_whisper(audio_input: Union[str, np.ndarray, torch.Tensor]) -> Union[str, np.ndarray, torch.Tensor]:
     """
     Function for normalizing audio data before transcribing with whisper or faster-whisper.
