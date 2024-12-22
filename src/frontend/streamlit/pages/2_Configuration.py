@@ -14,7 +14,6 @@ from src.utility.streamlit_utility import render_json_input
 
 from src.frontend.streamlit.utility.state_cache_handling import wait_for_setup, clear_tab_config
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
-from src.frontend.streamlit.utility.backend_interaction import get_configs, patch_config, put_config, delete_config
 
 
 ###################
@@ -60,7 +59,6 @@ def render_config_inputs(parent_widget: Any,
     :param object_type: Target object type.
     """
     current_config = st.session_state.get(f"{tab_key}_current")
-    print(current_config)
     if object_type in ["transcriber", "synthesizer"]:
         backends = st.session_state["CLASSES"][object_type].supported_backends
         default_models = st.session_state["CLASSES"][object_type].default_models
@@ -115,7 +113,7 @@ def render_config_inputs(parent_widget: Any,
         render_json_input(parent_widget=parent_widget, 
                         key=f"{tab_key}_{parameter}", 
                         label=" ".join(parameter.split("_")).capitalize(),
-                        default_data={} if current_config is None else current_config[parameter])
+                        default_data={} if current_config is None or not not current_config.get(parameter, {}) else current_config[parameter])
 
 def render_header_buttons(parent_widget: Any, 
                           tab_key: str, 
@@ -137,7 +135,7 @@ def render_header_buttons(parent_widget: Any,
             st.write(f"{object_title} configuration {st.session_state[f'{object_type}_config_selectbox']} will be overwritten.")
             
             if st.button("Approve", key=f"{tab_key}_approve_btn",):
-                patch_config(
+                st.session_state["DATABASE"].patch_object(
                     object_type=object_type,
                     object_id=st.session_state[f"{object_type}_config_selectbox"],
                     object_data=gather_config(object_type)
@@ -148,7 +146,7 @@ def render_header_buttons(parent_widget: Any,
     if header_button_columns[1].button("Add new", 
                                        key=f"{tab_key}_add_btn",
                                        help="Add new entry with the below configuration if it does not exist yet."):
-        obj_id = put_config(
+        obj_id = st.session_state["DATABASE"].put_object(
             object_type=object_type,
             object_data=gather_config(object_type)
         ).get("id")
@@ -165,7 +163,7 @@ def render_header_buttons(parent_widget: Any,
             st.write(f"{object_title} configuration {st.session_state[f'{object_type}_config_selectbox']} will be deleted!")
             
             if st.button("Approve", key=f"{tab_key}_delapprove_btn",):
-                obj_id = delete_config(
+                obj_id = st.session_state["DATABASE"].delete_object(
                     object_type=object_type,
                     object_id=st.session_state[f"{object_type}_config_selectbox"]
                 ).get("id")
@@ -191,7 +189,7 @@ def render_config(object_type: str) -> None:
     """
     tab_key = f"new_{object_type}"
     st.session_state[f"{tab_key}_available"] = {
-        entry["id"]: entry for entry in get_configs(object_type)
+        entry["id"]: entry for entry in st.session_state["DATABASE"].get_objects_by_type(object_type=object_type)
         if not entry["inactive"]}
     options = [">> New <<"] + list(st.session_state[f"{tab_key}_available"].keys())
     default = st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state.get(f"{object_type}_config_selectbox", ">> New <<"))

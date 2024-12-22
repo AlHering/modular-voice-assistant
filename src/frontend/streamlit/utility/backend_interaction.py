@@ -9,6 +9,7 @@ import os
 from typing import List, Any, Optional
 import json
 from enum import Enum
+from copy import deepcopy
 from asyncio import sleep
 import streamlit as st
 import traceback
@@ -16,7 +17,7 @@ import httpx
 from httpx import RequestError, ConnectError, ConnectTimeout
 from http.client import responses as status_codes
 from src.backend.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
-from src.backend.database.data_model import populate_data_infrastructure
+from src.backend.database.data_model import populate_data_infrastructure, get_default_entries
 from src.backend.voice_assistant.modular_voice_assistant_abstractions_v2 import BasicVoiceAssistant, Transcriber, Synthesizer, SpeechRecorder
 from run_backend import setup_default_voice_assistant
 from src.configuration import configuration as cfg
@@ -40,9 +41,8 @@ def setup() -> None:
         st.session_state["DATABASE"] = BasicSQLAlchemyInterface(
             working_directory=os.path.join(st.session_state["WORKDIR"], "database"),
             population_function=populate_data_infrastructure,
-            default_entries={
-                
-            }
+            default_entries=get_default_entries(),
+            handle_objects_as_dicts=True
         )
         st.session_state["ASSISTANT"] = setup_default_voice_assistant(
             use_remote_llm=st.session_state.get("use_remote_llm", True),
@@ -56,5 +56,8 @@ def setup() -> None:
         
     else:
         raise NotImplementedError("API mode is not implemented yet.")
-
-
+    st.session_state["CLASSES"] = {
+        "transcriber": Transcriber,
+        "synthesizer": Synthesizer,
+        "speech_recorder": SpeechRecorder
+    }
