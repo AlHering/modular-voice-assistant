@@ -13,9 +13,11 @@ import random
 import tkinter as tk
 from tkinter import filedialog
 from src.configuration import configuration as cfg
+from src.frontend.streamlit.utility.backend_interaction import OBJECT_STRUCTURE
 from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config
 import streamlit.components.v1 as st_components
 from code_editor import code_editor
+from barfi import st_barfi, Block
 import json
 from itertools import combinations
 
@@ -38,11 +40,24 @@ def render_sidebar() -> None:
         st.sidebar.write(f"{key}: {value}")
 
 
-def render_node_plane(parent_widget: Any) -> None:
+def render_pipeline_node_plane(parent_widget: Any, block_entries: Dict[str, List[dict]] | List[dict], session_state_key: str | None = None) -> None:
     """
     Renders a interactive node plane.
     :param parent_widget: Parent widget.
+    :param block_entries: Entries for barfi blocks.
     """
-
+    with parent_widget.empty():
+        blocks = []
+        for key in block_entries:
+            new_block = Block(name=" ".join(key.split("_")).title())
+            if key != "speech_recorder":
+                new_block.add_input("Input")
+            new_block.add_option("Config", "select")
+            blocks.append(new_block)
+            
+        
+        barfi_result = st_barfi(base_blocks={key: [Block(name=)]})
+        if session_state_key and barfi_result:
+            st.session_state[session_state_key] = barfi_result
 
             
