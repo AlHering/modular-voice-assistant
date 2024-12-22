@@ -40,7 +40,7 @@ class Transcriber(object):
             Check Transcriber.supported_backends for supported backends.
         :param model_path: Path to model files.
             Defaults to None in which case a default model is used.
-            The latter will most likely result in it beeing downloaded.
+            The latter will most likely result in it being downloaded.
         :param model_parameters: Model loading parameters as dictionary.
             Defaults to None.
         :param transcription_parameters: Transcription parameters as dictionary.
@@ -100,7 +100,7 @@ class Synthesizer(object):
             Check Transcriber.supported_backends for supported backends.
         :param model_path: Path to model files.
             Defaults to None in which case a default model is used.
-            The latter will most likely result in it beeing downloaded.
+            The latter will most likely result in it being downloaded.
         :param model_parameters: Model loading parameters as dictionary.
             Defaults to None.
         :param synthesis_parameters: Synthesis parameters as dictionary.
@@ -119,10 +119,10 @@ class Synthesizer(object):
             model_parameters=self.model_parameters
         )
 
-        self.sound_out_snythesis_functions = {
+        self.sound_out_synthesis_functions = {
             "coqui-tts": synthesize_with_coqui_tts
         }[self.backend]
-        self.file_out_snythesis_functions = {
+        self.file_out_synthesis_functions = {
             "coqui-tts": synthesize_with_coqui_tts_to_file
         }[self.backend]
 
@@ -134,7 +134,7 @@ class Synthesizer(object):
             Defaults to None.
         :return: Audio data and metadata.
         """
-        return self.sound_out_snythesis_functions(
+        return self.sound_out_synthesis_functions(
             text=text, 
             model=self.model,
             synthesis_parameters=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters)
@@ -148,7 +148,7 @@ class Synthesizer(object):
             Defaults to None.
         :return: Output file path and metadata.
         """
-        return self.file_out_snythesis_functions(
+        return self.file_out_synthesis_functions(
             text=text, 
             output_path=output_path,
             model=self.model,
@@ -201,9 +201,9 @@ class SpeechRecorder(object):
                             recognizer_parameters: dict | None = None,
                             microphone_parameters: dict | None = None) -> Tuple[np.ndarray, dict]:
         """
-        Records continuesly and puts results into output_queue.
+        Records continuously and puts results into output_queue.
         :param output_queue: Queue to put tuples of recordings and metadata into.
-            Recordings are either audio data (as numpy arrays) or texts, if a transriber is available.
+            Recordings are either audio data (as numpy arrays) or texts, if a transcriber is available.
         :param recognizer_parameters: Keyword arguments for setting up recognizer instances.
             Defaults to None in which case default values are used.
         :param microphone_parameters: Keyword arguments for setting up microphone instances.
@@ -232,7 +232,7 @@ class SpeechRecorder(object):
                microphone_parameters: dict | None = None,
                interrupt_threshold: float | None = None) -> None:
         """
-        Records continuesly and puts results into output_queue.
+        Records continuously and puts results into output_queue.
         :param output_queue: Queue to put tuples of recorded audio data (as numpy array) and recording metadata.
         :param recognizer_parameters: Keyword arguments for setting up recognizer instances.
             Defaults to None in which case default values are used.
