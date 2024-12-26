@@ -18,7 +18,7 @@ from httpx import RequestError, ConnectError, ConnectTimeout
 from http.client import responses as status_codes
 from src.backend.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.backend.database.data_model import populate_data_infrastructure, get_default_entries
-from src.backend.voice_assistant.modular_voice_assistant_abstractions_v2 import BasicVoiceAssistant, Transcriber, Synthesizer, SpeechRecorder
+from src.backend.voice_assistant.modular_voice_assistant_abstractions_v2 import BasicVoiceAssistant, Transcriber, Synthesizer, SpeechRecorder, BaseModuleSet, BasicHandlerModule, WaveOutputModule, SpeechRecorderModule, ModularConversationHandler
 from run_backend import setup_default_voice_assistant
 from src.configuration import configuration as cfg
 
@@ -57,17 +57,7 @@ def setup() -> None:
             population_function=populate_data_infrastructure,
             default_entries=get_default_entries(),
             handle_objects_as_dicts=True
-        )
-        st.session_state["ASSISTANT"] = setup_default_voice_assistant(
-            use_remote_llm=st.session_state.get("use_remote_llm", True),
-            download_model_files=st.session_state.get("download_model_files", False),
-            llm_parameters=st.session_state.get("llm_parameters"),
-            speech_recorder_parameters=st.session_state.get("speech_recorder_parameters"),
-            transcriber_parameters=st.session_state.get("transcriber_parameters"),
-            synthesizer_parameters=st.session_state.get("synthesizer_parameters"),
-            voice_assistant_parameters=st.session_state.get("voice_assistant_parameters")
-        )
-        
+        )       
     else:
         raise NotImplementedError("API mode is not implemented yet.")
     st.session_state["CLASSES"] = {
@@ -75,6 +65,18 @@ def setup() -> None:
         "synthesizer": Synthesizer,
         "speech_recorder": SpeechRecorder
     }
+
+
+def load_assistant(module_set: BaseModuleSet, loop_pause: float = .1) -> BasicVoiceAssistant:
+    """
+    Loads a basic voice assistant.
+    :param module_set: Module set.
+    :param loop_pause: Loop pause for modules.
+    """
+    return ModularConversationHandler(working_directory=os.path.join(st.session_state["WORKDIR"], "conversation_handler"),
+                                      module_set=module_set,
+                                      loop_pause=loop_pause)
+
 
 def get_components() -> List[Dict[str, dict]]:
     """
