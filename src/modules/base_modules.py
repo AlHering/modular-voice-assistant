@@ -20,6 +20,7 @@ class SpeechRecorderConfig(VAModuleConfig):
     Speech recorder config class.
     """
     model_config: ConfigDict = ConfigDict(protected_namespaces=())
+    name: str = "SpeechRecorder"
 
     input_device_index: int | None = None
     recognizer_parameters: dict | None = None
@@ -73,7 +74,12 @@ class SpeechRecorderModule(VAModule):
             yield VAPackage(content=recorder_output, metadata_stack=[recorder_metadata])
         
 
-WaveOutputConfig = VAModuleConfig
+class WaveOutputConfig(VAModuleConfig):
+    """
+    Wave output config class.
+    """
+    model_config: ConfigDict = ConfigDict(protected_namespaces=())
+    name: str = "WaveOutput"
 
 
 class WaveOutputModule(VAModule):
@@ -106,6 +112,7 @@ class TranscriberConfig(VAModuleConfig):
     Transcriber config class.
     """
     model_config: ConfigDict = ConfigDict(protected_namespaces=())
+    name: str = "Transcriber"
 
     backend: str
     model_path: str | None = None
@@ -153,7 +160,8 @@ class SynthesizerConfig(VAModuleConfig):
     Synthesizer config class.
     """
     model_config: ConfigDict = ConfigDict(protected_namespaces=())
-
+    name: str = "Synthesizer"
+    
     backend: str
     model_path: str | None = None
     model_parameters: dict | None = None
