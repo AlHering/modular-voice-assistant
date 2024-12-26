@@ -24,9 +24,11 @@ from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent
 from queue import Empty, Queue as TQueue
 from src.modules.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
+from src.modules.language_model_abstractions import ChatModelConfig, RemoteChatModelConfig
 from src.utility.time_utility import get_timestamp
 from src.utility.string_utility import separate_pattern_from_text, extract_matches_between_bounds, remove_multiple_spaces, EMOJI_PATTERN
 from src.modules.base_modules import BasicHandlerModule, SpeechRecorderModule, TranscriberModule, SynthesizerModule, WaveOutputModule
+from src.modules.base_modules import SpeechRecorderConfig, TranscriberConfig, SynthesizerConfig, WaveOutputConfig
 from src.modules.module_abstractions import BaseModuleSet, VAPackage
 from src.modules.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
@@ -255,43 +257,39 @@ class BasicVoiceAssistant(object):
 
     def __init__(self,
                  working_directory: str,
-                 speech_recorder: SpeechRecorder,
-                 transcriber: Transcriber,
-                 chat_model: ChatModelInstance | RemoteChatModelInstance,
-                 synthesizer: Synthesizer,
+                 speech_recorder_config: SpeechRecorderConfig,
+                 transcriber_config: TranscriberConfig,
+                 chat_model_config: ChatModelConfig | RemoteChatModelConfig,
+                 synthesizer_config: SynthesizerConfig,
                  stream: bool = False,
                  forward_logging: bool = False,
                  report: bool = False) -> None:
         """
         Initiation method.
         :param working_directory: Working directory.
-        :param speech_recorder: Speech Recorder.
-        :param transcriber: Transcriber.
-        :param chat_model: Chat model to handle interaction.
-        :param synthesizer: Synthesizer.
+        :param speech_recorder_config: Speech Recorder config.
+        :param transcriber_config: Transcriber config.
+        :param chat_model_config: Config of chat model to handle interaction.
+        :param synthesizer_config: Synthesizer config.
         :param stream: Declares, whether chat model should stream its response.
         :param forward_logging: Flag for forwarding logger to modules.
         :param report: Flag for running report thread.
         """
         self.working_directory = working_directory
-        self.speech_recorder = speech_recorder
-        self.transcriber = transcriber
-        self.chat_model = chat_model
-        self.synthesizer = synthesizer
+        self.chat_model = ChatModelInstance.from_configuration(
+            config=chat_model_config) if isinstance(
+                chat_model_config, ChatModelConfig) else RemoteChatModelConfig.from_configuration(config=chat_model_config)
         self.stream = stream
 
         forward_logging = cfg.LOGGER if forward_logging else None
+        for config in [speech_recorder_config, transcriber_config, synthesizer_config]:
+            config.logger = forward_logging
 
         self.module_set = BaseModuleSet()
         self.module_set.input_modules.append(
-            SpeechRecorderModule(speech_recorder=self.speech_recorder, 
-                               logger=forward_logging,
-                               name="SpeechRecorder"))
+            SpeechRecorderModule.from_configuration(speech_recorder_config))
         self.module_set.input_modules.append(
-            TranscriberModule(transcriber=self.transcriber, 
-                        input_queue=self.module_set.input_modules[-1].output_queue, 
-                        logger=forward_logging,
-                        name="Transcriber"))
+            TranscriberModule.from_configuration(transcriber_config))
         self.module_set.worker_modules.append(
             BasicHandlerModule(handler_method=self.chat_model.chat_stream if stream else self.chat_model.chat,
                             input_queue=self.module_set.input_modules[-1].output_queue,
@@ -305,21 +303,13 @@ class BasicVoiceAssistant(object):
                                name="Cleaner")
         )
         self.module_set.output_modules.append(
-            SynthesizerModule(synthesizer=self.synthesizer,
-                              input_queue=self.module_set.worker_modules[-1].output_queue if len(
-                                  self.module_set.output_modules) == 0 else self.module_set.output_modules[-1].output_queue,
-                              logger=forward_logging,
-                              name="Synthesizer")
-        )
+            SynthesizerModule.from_configuration(synthesizer_config))
         self.module_set.output_modules.append(
-            WaveOutputModule(input_queue=self.module_set.output_modules[-1].output_queue, 
-                             logger=forward_logging,
-                             name="WaveOutput")
-        )
+            WaveOutputModule.from_configuration(WaveOutputConfig))
 
         self.conversation_kwargs = {}
         if self.chat_model.history[-1]["role"] == "assistant":
-            self.conversation_kwargs["greeting"] = chat_model.history[-1]["content"]
+            self.conversation_kwargs["greeting"] = self.chat_model.history[-1]["content"]
         self.conversation_kwargs["report"] = report
         self.handler = None
 
