@@ -41,6 +41,20 @@ class VAPackage(BaseModel):
     metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
 
 
+class VAModuleConfig(BaseModel):
+    """
+    Voice assistant module config class.
+    """
+    interrupt: TEvent | None = None,
+    pause: TEvent | None = None,
+    loop_pause: float = 0.1,
+    input_timeout: float | None = None, 
+    input_queue: TQueue | None = None,
+    output_queue: TQueue | None = None,
+    logger: Logger | None = None,
+    name: str | None = None
+
+
 class VAModule(ABC):
     """
     Voice assistant module.
@@ -82,6 +96,15 @@ class VAModule(ABC):
 
         self.received = {}
         self.sent = {}
+
+    @classmethod
+    def from_configuration(cls, config: VAModuleConfig) -> Any:
+        """
+        Returns a language model instance from configuration.
+        :param config: Module configuration class.
+        :return: Module instance.
+        """
+        return cls(**config.model_dump()) 
 
     def add_uuid(self, store: dict, uuid: str) -> None:
         """
