@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field
 from logging import Logger
 from uuid import uuid4
+import numpy as np
 from typing import Any, Tuple, List, Callable, Generator
 import time
 from threading import Thread, Event as TEvent
