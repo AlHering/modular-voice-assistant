@@ -129,16 +129,16 @@ class LlamaCPPModelInstance(object):
             Defaults to None.
         :param encoding_parameters: Kwargs for encoding in the generation process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the backend in the 
-            different initation methods.
+            different initiation methods.
         :param embedding_parameters: Kwargs for embedding as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the backend in the 
-            different initation methods.
+            different initiation methods.
         :param generating_parameters: Kwargs for generating in the generation process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the backend in the 
-            different initation methods.
+            different initiation methods.
         :param decoding_parameters: Kwargs for decoding in the generation process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the backend in the 
-            different initation methods.
+            different initiation methods.
         :param args: Arbitrary arguments.
         :param kwargs: Arbitrary keyword arguments.
         """
