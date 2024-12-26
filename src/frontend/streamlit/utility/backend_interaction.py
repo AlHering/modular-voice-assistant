@@ -16,10 +16,7 @@ import traceback
 import httpx
 from httpx import RequestError, ConnectError, ConnectTimeout
 from http.client import responses as status_codes
-from src.backend.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
-from src.backend.database.data_model import populate_data_infrastructure, get_default_entries
-from src.backend.voice_assistant.modular_voice_assistant_abstractions_v2 import BasicVoiceAssistant, ChatModelInstance, RemoteChatModelInstance, Transcriber, Synthesizer, SpeechRecorder, BaseModuleSet, BasicHandlerModule, WaveOutputModule, SpeechRecorderModule, ModularConversationHandler
-from run_backend import setup_default_voice_assistant
+
 from src.configuration import configuration as cfg
 
 
