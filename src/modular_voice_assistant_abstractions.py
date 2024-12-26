@@ -23,12 +23,12 @@ from prompt_toolkit.styles import Style as PTStyle
 from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent
 from queue import Empty, Queue as TQueue
-from src.backend.voice_assistant.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
+from src.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
 from src.utility.time_utility import get_timestamp
 from src.utility.string_utility import separate_pattern_from_text, extract_matches_between_bounds, remove_multiple_spaces, EMOJI_PATTERN
 from src.utility.commandline_utility import silence_stderr
 from src.utility.pyaudio_utility import play_wave
-from src.backend.voice_assistant.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
+from src.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
 
 def setup_prompt_session(bindings: KeyBindings = None) -> PromptSession:

@@ -195,9 +195,9 @@ class LlamaCPPModelInstance(object):
         """
         parameters = copy.deepcopy(self.embedding_parameters)
         parameters.update(self.encoding_parameters)
-        for additional_paramters in [encoding_parameters, embedding_parameters]:
-            if additional_paramters:
-                parameters.update(additional_paramters)
+        for additional_parameters in [encoding_parameters, embedding_parameters]:
+            if additional_parameters:
+                parameters.update(additional_parameters)
         return self.model.embed(input, **parameters)
 
     def generate(self,
@@ -219,9 +219,9 @@ class LlamaCPPModelInstance(object):
         parameters = copy.deepcopy(self.encoding_parameters)
         parameters.update(self.generating_parameters)
         parameters.update(self.decoding_parameters)
-        for additional_paramters in [encoding_parameters, generating_parameters, decoding_parameters]:
-            if additional_paramters:
-                parameters.update(additional_paramters)
+        for additional_parameters in [encoding_parameters, generating_parameters, decoding_parameters]:
+            if additional_parameters:
+                parameters.update(additional_parameters)
         metadata = self.model(prompt, **generating_parameters)
         answer = metadata["choices"][0]["text"]
         return answer, metadata
@@ -285,7 +285,7 @@ class ChatModelInstance(object):
             self.history = [{
                 "role": "system", 
                 "content": "You are a helpful AI assistant. Please help users with their tasks." if system_prompt is None else system_prompt, 
-                "metadata": {"intitated": dt.now()}
+                "metadata": {"initiated": dt.now()}
             }]
         else:
             self.history = history
@@ -590,7 +590,7 @@ class RemoteChatModelInstance(ChatModelInstance):
             self.history = [{
                 "role": "system", 
                 "content": "You are a helpful AI assistant. Please help users with their tasks." if system_prompt is None else system_prompt, 
-                "metadata": {"intitated": dt.ctime(dt.now())}
+                "metadata": {"initiated": dt.ctime(dt.now())}
             }]
         else:
             self.history = history
@@ -708,7 +708,7 @@ class RemoteChatModelInstance(ChatModelInstance):
             self.history.append({"role": "assistant", "content": answer, "metadata": metadata})
 
     """
-    Addtional endpoint wrappers
+    Additional endpoint wrappers
     """
     def get_models(self) -> List[dict] | None:
         """
