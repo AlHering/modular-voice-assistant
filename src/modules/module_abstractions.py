@@ -63,6 +63,7 @@ class VAModule(ABC):
         :param pause: Pause event.
         :param loop_pause: Time to wait between looped runs.
         :param input_timeout: Time to wait for inputs in a single run.
+            The module will await an input indefinitely, if set to None.
         :param input_queue: Input queue.
         :param output_queue: Output queue.
         :param logger: Logger.
