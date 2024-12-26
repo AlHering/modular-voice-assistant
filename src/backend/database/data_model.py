@@ -153,7 +153,7 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
         """
         Config class, representing a remote chat model instance.
         """
-        __tablename__ = f"{schema}chat_model"
+        __tablename__ = f"{schema}remote_chat_model"
         __table_args__ = {
             "comment": "Remote chat model instance table.", "extend_existing": True}
 
