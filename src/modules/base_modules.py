@@ -11,7 +11,7 @@ from queue import Empty
 from pydantic import BaseModel, ConfigDict
 from src.utility.commandline_utility import silence_stderr
 from src.utility.pyaudio_utility import play_wave
-from src.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
+from src.modules.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 from src.modules.module_abstractions import VAModule, VAPackage, VAModuleConfig, BasicHandlerModule
 
 
