@@ -216,6 +216,48 @@ class PassiveVAModule(VAModule):
         pass
 
 
+class BasicHandlerModule(VAModule):
+    """
+    Basic handler module.
+    """
+    def __init__(self, 
+                 handler_method: Callable, 
+                 *args: Any | None, 
+                 **kwargs: Any | None) -> None:
+        """
+        Initiates an instance.
+        :param handler_method: Handler method.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
+        """
+        super().__init__(*args, **kwargs)
+        self.handler_method = handler_method
+
+    def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+        """
+        Module processing method.
+        :returns: Voice assistant package, package generator or None.
+        """
+        if not self.pause.is_set():
+            try:
+                input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
+                self.add_uuid(self.received, input_package.uuid)
+                self.log_info(f"Received input:\n'{input_package.content}'")
+                valid_input = (isinstance(input_package.content, np.ndarray) and input_package.content.size > 0) or input_package.content
+
+                if valid_input:
+                    result = self.handler_method(input_package.content)
+                    if isinstance(result, Generator):
+                        for response_tuple in result:
+                            self.log_info(f"Received response shard\n'{response_tuple[0]}'.")   
+                            yield VAPackage(uuid=input_package.uuid, content=response_tuple[0], metadata_stack=input_package.metadata_stack + [response_tuple[1]])
+                    else:
+                        self.log_info(f"Received response\n'{result[0]}'.")             
+                        yield VAPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
+            except Empty:
+                pass
+
+
 class BaseModuleSet(object):
     """
     Base module set.
