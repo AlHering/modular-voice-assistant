@@ -131,14 +131,46 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
 
         id = Column(Integer, primary_key=True, unique=True, nullable=False, autoincrement=True,
                     comment="ID of the chat model instance.")
-        model_path = Column(String,
-                         comment="Model folder path.")
-        model_file = Column(String,
-                         comment="Model file name.")
-        model_parameters = Column(JSON, default={},
-                            comment="Model loading parameters.")
-        generating_parameters = Column(JSON, default={},
-                                  comment="Generation parameters.")
+        language_model_config = Column(JSON, 
+                            comment="Language model config.")
+        chat_parameters = Column(JSON, default={},
+                            comment="Chat parameters.")
+        system_prompt = Column(String,
+                               comment="System prompt.")
+        system_prompt = Column(Boolean, default=True,
+                               comment="Flag for using history.")
+        history = Column(JSON, default={"history": []},
+                         comment="Chat parameters.")
+
+        created = Column(DateTime, server_default=func.now(),
+                         comment="Timestamp of creation.")
+        updated = Column(DateTime, server_default=func.now(), server_onupdate=func.now(),
+                         comment="Timestamp of last update.")
+        inactive = Column(Boolean, nullable=False, default=False,
+                          comment="Inactivity flag.")
+        
+    class RemoteChatModel(base):
+        """
+        Config class, representing a remote chat model instance.
+        """
+        __tablename__ = f"{schema}chat_model"
+        __table_args__ = {
+            "comment": "Remote chat model instance table.", "extend_existing": True}
+
+        id = Column(Integer, primary_key=True, unique=True, nullable=False, autoincrement=True,
+                    comment="ID of the chat model instance.")
+        api_base = Column(String,
+                         comment="API base.")
+        api_token = Column(String,
+                         comment="API token.")
+        chat_parameters = Column(JSON, default={},
+                            comment="Chat parameters.")
+        system_prompt = Column(String,
+                               comment="System prompt.")
+        system_prompt = Column(Boolean, default=True,
+                               comment="Flag for using history.")
+        history = Column(JSON, default={"history": []},
+                         comment="Chat parameters.")
 
         created = Column(DateTime, server_default=func.now(),
                          comment="Timestamp of creation.")
@@ -148,7 +180,7 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
                           comment="Inactivity flag.")
         
 
-    for dataclass in [Log, Transcriber, Synthesizer, SpeechRecorder, ChatModel]:
+    for dataclass in [Log, Transcriber, Synthesizer, SpeechRecorder, ChatModel, RemoteChatModel]:
         model[dataclass.__tablename__.replace(schema, "")] = dataclass
 
     base.metadata.create_all(bind=engine)
