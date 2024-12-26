@@ -675,30 +675,39 @@ class BasicVoiceAssistant(object):
         """
         Runs conversation loop with terminal input.
         """
-        stop = TEvent()
-        bindings = KeyBindings()
+        run_terminal_conversation(handler=self.handler, conversation_kwargs=self.conversation_kwargs)
 
-        @bindings.add("c-c")
-        @bindings.add("c-d")
-        def exit_session(event: KeyPressEvent) -> None:
-            """
-            Function for exiting session.
-            :param event: Event that resulted in entering the function.
-            """
-            cfg.LOGGER.info(f"Received keyboard interrupt, shutting down handler ...")
-            self.handler.reset()
-            print_formatted_text(HTML("<b>Bye...</b>"))
-            event.app.exit()
-            stop.set()
 
-        session = setup_prompt_session(bindings)
-        self.module_set.input_modules[0].pause.set()
-        self.handler.run_conversation(blocking=False, loop=True, **self.conversation_kwargs)
-        
-        while not stop.is_set():
-            with patch_stdout():
-                user_input = session.prompt(
-                    "User: ")
-                if user_input is not None:
-                    self.module_set.input_modules[-1].output_queue.put(VAPackage(content=user_input))
+def run_terminal_conversation(handler: ModularConversationHandler, conversation_kwargs: dict = None) -> None:
+    """
+    Runs conversation loop with terminal input.
+    :param handler: Conversation handler.
+    :param conversation_kwargs: Conversation keyword arguments, such as a 'greeting'.
+    """
+    conversation_kwargs = {} if conversation_kwargs is None else conversation_kwargs
+    stop = TEvent()
+    bindings = KeyBindings()
 
+    @bindings.add("c-c")
+    @bindings.add("c-d")
+    def exit_session(event: KeyPressEvent) -> None:
+        """
+        Function for exiting session.
+        :param event: Event that resulted in entering the function.
+        """
+        cfg.LOGGER.info(f"Received keyboard interrupt, shutting down handler ...")
+        handler.reset()
+        print_formatted_text(HTML("<b>Bye...</b>"))
+        event.app.exit()
+        stop.set()
+
+    session = setup_prompt_session(bindings)
+    handler.module_set.input_modules[0].pause.set()
+    handler.run_conversation(blocking=False, loop=True, **conversation_kwargs)
+    
+    while not stop.is_set():
+        with patch_stdout():
+            user_input = session.prompt(
+                "User: ")
+            if user_input is not None:
+                handler.module_set.input_modules[-1].output_queue.put(VAPackage(content=user_input))
