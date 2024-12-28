@@ -213,3 +213,24 @@ def run_terminal_conversation(handler: ModularConversationHandler, conversation_
                 "User: ")
             if user_input is not None:
                 handler.module_set.input_modules[-1].output_queue.put(VAPackage(content=user_input))
+
+
+def setup_default_voice_assistant(config: dict | None = None) -> BasicVoiceAssistant:
+    """
+    Sets up a default voice assistant for reference.
+    :param config: Config to overwrite voice assistant default config with.
+    :return: Basic voice assistant.
+    """
+    config = cfg.DEFAULT_VA_CONFIG if config is None else config
+    if config.get("download_model_files"):
+        raise NotImplementedError("Downloading models is not yet implemented!")
+
+    return BasicVoiceAssistant(
+        working_directory=os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant"),
+        speech_recorder=SpeechRecorderModule(**config.get("speech_recorder", cfg.DEFAULT_SPEECH_RECORDER)),
+        transcriber=TranscriberModule(**config.get("transcriber", cfg.DEFAULT_TRANSCRIBER)),
+        worker=RemoteChatModule(**config.get("remote_chat", cfg.DEFAULT_REMOTE_CHAT)) if config.get("use_remote_llm") else LocalChatModule(**config.get("local_chat", cfg.DEFAULT_LOCAL_CHAT)),
+        synthesizer=SynthesizerModule(**config.get("synthesizer", cfg.DEFAULT_SYNTHESIZER)),
+        wave_output=WaveOutputModule(**config.get("wave_output", cfg.DEFAULT_WAVE_OUTPUT)),
+        **config.get("voice_assistant", cfg.DEFAULT_VOICE_ASSISTANT)
+    )
