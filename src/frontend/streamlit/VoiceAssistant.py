@@ -37,65 +37,10 @@ if __name__ == "__main__":
                 
         
     # Page content
-    st.title("Voice Assistant")
-
-    """module_set = BaseModuleSet()
-    available = get_components()
-    header_columns = st.columns([.25, .25, .25, .10, .10, .5])
-    header_columns[0].selectbox(
-        key=f"va_input_type", 
-        label="Input Type", 
-        options=["Text", "Speech"])
-    header_columns[1].selectbox(
-        key=f"va_speech_recorder", 
-        label="Recorder", 
-        options=available["speech_recorder"],
-        disabled=st.session_state["va_input_type"] == "Speech")
-    header_columns[2].selectbox(
-        key=f"va_transcriber", 
-        label="Transcriber", 
-        options=available["transcriber"],
-        disabled=st.session_state["va_input_type"] == "Speech")
-    if header_columns[3].button("Load",
-                            help="Loads the input components."):
-        if st.session_state["va_input_type"] == "Speech":
-            module_set.input_modules.append(
-                SpeechRecorderModule(speech_recorder=, 
-                                logger=forward_logging,
-                                name="SpeechRecorder"))
-        self.module_set.input_modules.append(
-            BasicHandlerModule(handler_method=self.transcriber.transcribe, 
-                              input_queue=self.module_set.input_modules[-1].output_queue, 
-                              logger=forward_logging,
-                              name="Transcriber"))
-        self.module_set.worker_modules.append(
-            BasicHandlerModule(handler_method=self.chat_model.chat_stream if stream else self.chat_model.chat,
-                            input_queue=self.module_set.input_modules[-1].output_queue,
-                            logger=forward_logging,
-                            name="Chat")
-        )
-        self.module_set.output_modules.append(
-            BasicHandlerModule(handler_method=clean_worker_output,
-                               input_queue=self.module_set.worker_modules[-1].output_queue,
-                               logger=forward_logging,
-                               name="Cleaner")
-        )
-        self.module_set.output_modules.append(
-            BasicHandlerModule(handler_method=self.synthesizer.synthesize,
-                              input_queue=self.module_set.worker_modules[-1].output_queue if len(
-                                  self.module_set.output_modules) == 0 else self.module_set.output_modules[-1].output_queue,
-                              logger=forward_logging,
-                              name="Synthesizer")
-        )
-        self.module_set.output_modules.append(
-            WaveOutputModule(input_queue=self.module_set.output_modules[-1].output_queue, 
-                             logger=forward_logging,
-                             name="WaveOutput")
-        )"""
-        
+    st.title("Voice Assistant")        
 
     render_pipeline_node_plane(parent_widget=st.container(),
-                               block_entries=AVAILABLE_MODULES,
+                               block_dict=AVAILABLE_MODULES,
                                session_state_key="pipeline_schema")
     
     render_sidebar()
