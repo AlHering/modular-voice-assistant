@@ -31,12 +31,12 @@ def gather_config(object_type: str) -> dict:
     object_class = AVAILABLE_MODULES[object_type]
     data = {}
     param_spec = retrieve_parameter_specification(object_class.__init__, ignore=["self"])
-    for parameter in param_spec:
-        if param_spec[parameter]["type"] == dict:
-            widget = st.session_state[f"new_{object_type}_{key}"]
-            data[parameter] = json.loads(widget["text"]) if widget is not None else None
+    for param in param_spec:
+        if param_spec[param]["type"] == dict:
+            widget = st.session_state[f"new_{object_type}_{param}"]
+            data[param] = json.loads(widget["text"]) if widget is not None else None
         else:
-            data[parameter] = param_spec[parameter]["type"](st.session_state[f"new_{object_type}_{key}"])
+            data[param] = param_spec[param]["type"](st.session_state[f"new_{object_type}_{param}"])
     return data
 
 
