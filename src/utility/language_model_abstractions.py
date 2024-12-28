@@ -24,7 +24,8 @@ class LanguageModelConfig(BaseModel):
     """
     model_config: ConfigDict = ConfigDict(protected_namespaces=())
 
-    model_path: str
+    backend: str
+    model_path: str | None = None
     model_file: str | None = None
     model_parameters: dict | None = None
     tokenizer_path: str | None = None
@@ -43,15 +44,24 @@ class LanguageModelInstance(ABC):
     """
     Abstract language model class.
     """
+    supported_backends: List[str] = ["llama-cpp"]
+    default_models: Dict[str, List[str]] = {
+        "llama-cpp": ["bartowski/Meta-Llama-3.1-8B-Instruct-GGUF"]
+    }
+
     @classmethod
-    @abstractmethod
     def from_configuration(cls, config: LanguageModelConfig) -> Any:
         """
         Returns a language model instance from configuration.
         :param config: Language model configuration.
         :return: Language model instance.
         """
-        return cls(**config.model_dump())
+        if config.backend not in cls.supported_backends:
+            raise ValueError(f"Backend '{config.backend}' is not in supported backends: {cls.supported_backends}")
+        if config.model_path is None and config.backend in cls.default_models and cls.default_models[config.backend]:
+            config.model_path = cls.default_models[config.backend][0]
+        if config.backend == "llama-cpp":
+            return LlamaCPPModelInstance(**config.model_dump())
 
     """
     Generation methods
