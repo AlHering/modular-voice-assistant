@@ -46,13 +46,8 @@ class VAModuleConfig(BaseModel):
     """
     Voice assistant module config class.
     """
-    interrupt: TEvent | None = None,
-    pause: TEvent | None = None,
-    loop_pause: float = 0.1,
-    input_timeout: float | None = None, 
-    input_queue: TQueue | None = None,
-    output_queue: TQueue | None = None,
-    logger: Logger | None = None,
+    loop_pause: float = 0.1
+    input_timeout: float | None = None
     name: str | None = None
 
 
