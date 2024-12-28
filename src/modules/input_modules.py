@@ -67,6 +67,9 @@ class TranscriberModule(BasicHandlerModule):
     Transcriber module.
     Transcribes audio data.
     """
+    supported_backends = Transcriber.supported_backends
+    default_models = Transcriber.default_models
+
     def __init__(self, 
                  backend: str,
                  model_path: str | None = None,

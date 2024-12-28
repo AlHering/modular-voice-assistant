@@ -42,6 +42,9 @@ class SynthesizerModule(BasicHandlerModule):
         :param args: Arbitrary arguments.
         :param kwargs: Arbitrary keyword arguments.
         """
+        supported_backends = Synthesizer.supported_backends
+        default_models = Synthesizer.default_models
+
         self.synthesizer = Synthesizer(
             backend=backend,
             model_path=model_path,

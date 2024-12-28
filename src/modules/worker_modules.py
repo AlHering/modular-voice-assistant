@@ -6,7 +6,7 @@
 ****************************************************
 """
 from typing import Any, List, Callable, Dict
-from src.utility.language_model_abstractions import LlamaCPPModelInstance, ChatModelInstance, RemoteChatModelInstance
+from src.utility.language_model_abstractions import LanguageModelInstance, LlamaCPPModelInstance, ChatModelInstance, RemoteChatModelInstance
 from src.modules.abstractions import BasicHandlerModule
 
 
@@ -15,6 +15,9 @@ class LocalChatModule(BasicHandlerModule):
     Local chat module.
     Generates a response for a given input.
     """
+    supported_backends = LanguageModelInstance.supported_backends
+    default_models = LanguageModelInstance.default_models
+
     def __init__(self, 
                  model_path: str,
                  model_file: str | None = None,
