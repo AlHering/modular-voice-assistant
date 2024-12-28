@@ -43,6 +43,15 @@ def load_conversation_handler(module_set: BaseModuleSet, loop_pause: float = .1)
         loop_pause=loop_pause
     )
 
+
+def fetch_default_config() -> dict:
+    """
+    Fetches default config.
+    :return: Config.
+    """
+    return cfg.DEFAULT_COMPONENT_CONFIG
+
+
 def load_voice_assistant(
     config: dict
 ) -> BasicVoiceAssistant:
