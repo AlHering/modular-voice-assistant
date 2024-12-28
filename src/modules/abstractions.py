@@ -290,5 +290,7 @@ class BaseModuleSet(object):
         for module_list in [self.input_modules, self.worker_modules, self.output_modules]:
             for previous_module_index in range(len(module_list)-1):
                 module_list[previous_module_index+1].input_queue = module_list[previous_module_index].output_queue
-        self.worker_modules[0].input_queue = self.input_modules[-1].output_queue
-        self.output_modules[0].input_queue = self.worker_modules[-1].output_queue
+        if self.input_modules and self.worker_modules:
+            self.worker_modules[0].input_queue = self.input_modules[-1].output_queue
+        if self.worker_modules and self.output_modules:
+            self.output_modules[0].input_queue = self.worker_modules[-1].output_queue
