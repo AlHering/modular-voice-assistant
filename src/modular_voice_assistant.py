@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ****************************************************
-*                      Utility                 
+*             Modular Voice Assistant              *
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
@@ -27,9 +27,9 @@ from src.modules.language_model_abstractions import ChatModelInstance, RemoteCha
 from src.modules.language_model_abstractions import ChatModelConfig, RemoteChatModelConfig
 from src.utility.time_utility import get_timestamp
 from src.utility.string_utility import separate_pattern_from_text, extract_matches_between_bounds, remove_multiple_spaces, EMOJI_PATTERN
-from src.modules.base_modules import BasicHandlerModule, SpeechRecorderModule, TranscriberModule, SynthesizerModule, WaveOutputModule
-from src.modules.base_modules import SpeechRecorderConfig, TranscriberConfig, SynthesizerConfig, WaveOutputConfig
-from src.modules.module_abstractions import BaseModuleSet, VAPackage
+from src.modules.worker_modules import BasicHandlerModule, SpeechRecorderModule, TranscriberModule, SynthesizerModule, WaveOutputModule
+from src.modules.worker_modules import SpeechRecorderConfig, TranscriberConfig, SynthesizerConfig, WaveOutputConfig
+from src.modules.abstractions import BaseModuleSet, VAPackage
 from src.modules.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
 
 
