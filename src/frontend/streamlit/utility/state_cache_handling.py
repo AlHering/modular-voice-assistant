@@ -35,9 +35,7 @@ def populate_state_cache() -> None:
     """
     st.session_state["CACHE"] = json_utility.load(
         cfg.PATHS.FRONTEND_CACHE
-    ) if os.path.exists(cfg.PATHS.FRONTEND_CACHE) else json_utility.load(
-        cfg.PATHS.FRONTEND_DEFAULT_CACHE
-    )
+    ) if os.path.exists(cfg.PATHS.FRONTEND_CACHE) else cfg.DEFAULT_COMPONENT_CONFIG
 
 
 def remove_state_cache_element(field_path: List[Any]) -> None:

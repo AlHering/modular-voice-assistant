@@ -101,7 +101,7 @@ DEFAULT_VOICE_ASSISTANT = {
     "forward_logging": True
 }
 
-DEFAULT_VA_CONFIG = {
+DEFAULT_COMPONENT_CONFIG = {
     "use_remote_llm": False,
     "download_model_files": False,
     "speech_recorder": {},

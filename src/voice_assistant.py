@@ -221,7 +221,7 @@ def setup_default_voice_assistant(config: dict | None = None) -> BasicVoiceAssis
     :param config: Config to overwrite voice assistant default config with.
     :return: Basic voice assistant.
     """
-    config = cfg.DEFAULT_VA_CONFIG if config is None else config
+    config = cfg.DEFAULT_COMPONENT_CONFIG if config is None else config
     if config.get("download_model_files"):
         raise NotImplementedError("Downloading models is not yet implemented!")
 
