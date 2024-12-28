@@ -21,6 +21,8 @@ class SpeechRecorderModule(VAModule):
     Speech recorder module.
     Records a speech snipped from the user and forwards it as VAPackage.
     """
+    supported_input_devices = SpeechRecorder.supported_input_devices
+
     def __init__(self, 
                  input_device_index: int | None = None,
                  recognizer_parameters: dict | None = None,
