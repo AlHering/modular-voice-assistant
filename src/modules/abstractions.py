@@ -187,6 +187,13 @@ class VAModule(ABC):
                     self.add_uuid(self.sent, elem.uuid)
                     return True
         return False
+    
+    def validate(self) -> Tuple[bool, dict]:
+        """
+        Module validation method.
+        :returns: Status success and validation data.
+        """
+        return True, {"warning": "Empty validation method"}
 
     @abstractmethod
     def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
