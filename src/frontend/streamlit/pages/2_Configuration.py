@@ -15,7 +15,7 @@ from copy import deepcopy
 from time import sleep
 from src.utility.streamlit_utility import render_json_input
 from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES, fetch_default_config
-from src.frontend.streamlit.utility.state_cache_handling import wait_for_setup, clear_tab_config
+from src.frontend.streamlit.utility.state_cache_handling import wait_for_setup, save_config
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 
 
@@ -36,7 +36,10 @@ def gather_config(object_type: str) -> dict:
             widget = st.session_state[f"new_{object_type}_{param}"]
             data[param] = json.loads(widget["text"]) if widget is not None else None
         else:
-            data[param] = param_spec[param]["type"](st.session_state[f"new_{object_type}_{param}"])
+            if f"new_{object_type}_{param}" in st.session_state:
+                data[param] = param_spec[param]["type"](st.session_state[f"new_{object_type}_{param}"])
+            else:
+                data[param] = param_spec[param].get("default")
     return data
 
 
@@ -61,7 +64,8 @@ def retrieve_type(input_type: Any) -> Any:
         return set
     else:
         for data_type in base_data_types:
-            if str(data_type) in str(input_type):
+            string_representation = str(data_type).split("'")[1]
+            if string_representation in str(input_type):
                 return data_type
             
 
@@ -79,9 +83,9 @@ def retrieve_parameter_specification(func: callable, ignore: List[str] | None = 
     default_offset = len(arg_spec.args) - len(arg_spec.defaults)
 
     for param_index, param in enumerate(arg_spec.args):
-        spec[param] = {
-            "type": retrieve_type(arg_spec.annotations[param])
-        }
+        spec[param] = {}
+        if param in arg_spec.annotations:
+            spec[param]["type"] = retrieve_type(arg_spec.annotations[param])
         if param_index < default_offset:
             spec[param]["default"] = arg_spec.defaults[param_index]
     for ignored_param in ignore:
@@ -99,24 +103,19 @@ def render_config_inputs(parent_widget: Any,
     :param tab_key: Current tab key.
     :param object_type: Target object type.
     """
-    current_config = st.session_state.get(f"{tab_key}_current")
+    object_class = AVAILABLE_MODULES[object_type]
+    backends = object_class.supported_backends if hasattr(object_class, "supported_backends") else None
+    default_models = object_class.default_models if hasattr(object_class, "default_models") else None
     if object_type == "speech_recorder":
         input_devices = {entry["name"]: entry["index"] 
                          for entry in sorted(
-                             st.session_state["CLASSES"][object_type].supported_input_devices,
+                             AVAILABLE_MODULES[object_type].supported_input_devices,
                              key=lambda x: x["index"])}
         input_device_column, loop_pause_column, _ = parent_widget.columns([.25, .25, .50])
-        current_device_index = 0 
-        if current_config is not None:
-            for device_name in input_devices:
-                if current_config["input_device_index"] == input_devices[device_name]:
-                    current_device_index = input_devices[device_name]
-                    break
         device_name = input_device_column.selectbox(
             key=f"{tab_key}_input_device_name", 
             label="Input device", 
-            options=list(input_devices.keys()), 
-            index=current_device_index)
+            options=list(input_devices.keys()))
         st.session_state[f"{tab_key}_input_device_index"] = input_devices[device_name]
         parent_widget.markdown("""
         <style>
@@ -127,50 +126,44 @@ def render_config_inputs(parent_widget: Any,
         unsafe_allow_html=True)
         loop_pause_column.number_input(
             "Loop pause",
-            key=f"{tab_key}_loop_pause", 
+            key=f"{tab_key}_recorder_loop_pause", 
             format="%0.2f",
             step=0.1,
             min_value=0.01,
             max_value=10.1,
-            value=.1 if current_config is None else current_config["loop_pause"]
         )
     elif object_type in AVAILABLE_MODULES:
-        object_class = AVAILABLE_MODULES[object_type]
-        backends = object_class.supported_backends if hasattr(object_class, "supported_backends") else None
-        default_models = object_class.default_models if hasattr(object_class, "default_models") else None
         if backends is not None:
             parent_widget.selectbox(
                 key=f"{tab_key}_backend", 
                 label="Backend", 
-                options=backends, 
-                index=0 if current_config is None else backends.index(current_config["backend"]))
+                options=backends)
         if default_models is not None:
             if f"{tab_key}_model_path" not in st.session_state:
-                st.session_state[f"{tab_key}_model_path"] = default_models[st.session_state[f"{tab_key}_backend"]][0] if (
-                current_config is None or current_config["model_path"] is None) else current_config["model_path"]
+                st.session_state[f"{tab_key}_model_path"] = default_models[st.session_state[f"{tab_key}_backend"]][0]
             parent_widget.text_input(
                 key=f"{tab_key}_model_path", 
                 label="Model (Model name or path)")
 
         parent_widget.write("")
         
-        param_spec = retrieve_parameter_specification(object_class.__init__, ignore=["self", "backend", "model_path", "loop_pause"])
-        for param in param_spec:
-            if param_spec[param]["type"] == str:
-                parent_widget.text_input(
+    param_spec = retrieve_parameter_specification(object_class.__init__, ignore=["self", "backend", "model_path", "recorder_loop_pause", "input_device_index"])
+    for param in param_spec:
+        if param_spec[param]["type"] == str:
+            parent_widget.text_input(
+                key=f"{tab_key}_{param}", 
+                label=" ".join(param.split("_")).title(),
+                value=param_spec[param].get("default", ""))
+        elif param_spec[param]["type"] in [int, float]:
+            parent_widget.number_input(
+                key=f"{tab_key}_{param}", 
+                label=" ".join(param.split("_")).title(),
+                value=param_spec[param].get("default", .0 if param_spec[param]["type"] == float else 0))
+        elif param_spec[param]["type"]  == dict:
+            render_json_input(parent_widget=parent_widget, 
                     key=f"{tab_key}_{param}", 
                     label=" ".join(param.split("_")).title(),
-                    value=param_spec[param].get("default", ""))
-            elif param_spec[param]["type"] in [int, float]:
-                parent_widget.number_input(
-                    key=f"{tab_key}_{param}", 
-                    label=" ".join(param.split("_")).title(),
-                    value=param_spec[param].get("default", .0 if param_spec[param]["type"] == float else 0))
-            elif param_spec[param]["type"]  == dict:
-                render_json_input(parent_widget=parent_widget, 
-                        key=f"{tab_key}_{param}", 
-                        label=" ".join(param.split("_")).title(),
-                        default_data={} if current_config is None or not not current_config.get(param, {}) else current_config[param])
+                    default_data={})
         
 
 def render_header_buttons(parent_widget: Any, 
@@ -183,18 +176,17 @@ def render_header_buttons(parent_widget: Any,
     :param object_type: Target object type.
     """
     changed = False
-    current_config = st.session_state.get(f"{tab_key}_current")
     header_button_columns = parent_widget.columns([.30, .30, .30])
 
     object_title = " ".join(object_type.split("_")).title()
     header_button_columns[0].write("#####")
-    with header_button_columns[0].popover("Overwrite",
-                                          disabled=current_config is None, 
-                                          help="Overwrite the current configuration"):
-            st.write(f"{object_title} configuration {st.session_state[f'{object_type}_config_selectbox']} will be overwritten.")
+    with header_button_columns[0].popover("Save",
+                                          help="Saves the current configuration"):
+            st.write(f"{object_title} configuration will be overwritten.")
             
             if st.button("Approve", key=f"{tab_key}_approve_btn",):
                 st.session_state["CACHE"][object_type] = deepcopy(gather_config(object_type=object_type))
+                save_config(object_type=object_type)
                 st.info(f"Updated {object_title} configuration.")
                 changed = True
 
@@ -206,7 +198,6 @@ def render_header_buttons(parent_widget: Any,
     
     header_button_columns[2].write("#####")
     with header_button_columns[2].popover("Reset",
-                                          disabled=current_config is None, 
                                           help="Reset the current configuration"):
             st.write(f"{object_title} configuration will be reset!")
             
