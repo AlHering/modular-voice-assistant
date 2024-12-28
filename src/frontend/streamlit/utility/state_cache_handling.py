@@ -9,6 +9,7 @@ import os
 import streamlit as st
 from typing import List, Any
 from time import sleep
+from copy import deepcopy
 from src.utility import json_utility
 from src.configuration import configuration as cfg
 from src.frontend.streamlit.utility import backend_interaction
@@ -19,7 +20,7 @@ def wait_for_setup() -> None:
     Waits for setup to finish.
     """
     with st.spinner("Waiting for backend to finish startup..."):
-        while "CACHE" not in st.session_state or "CLASSES" not in st.session_state:
+        while "CACHE" not in st.session_state or not st.session_state["CACHE"]:
             try:
                 populate_state_cache()
                 backend_interaction.MODE = st.session_state["CACHE"].get("MODE", "direct")
@@ -29,14 +30,28 @@ def wait_for_setup() -> None:
                 sleep(3)
 
 
+def save_config(object_type: str) -> None:
+    """
+    Saves config to file system.
+    :param object_type: Target object type.
+    """
+    config = json_utility.load(
+        cfg.PATHS.FRONTEND_CACHE
+    ) if os.path.exists(cfg.PATHS.FRONTEND_CACHE) else {}
+    config[object_type] = st.session_state["CACHE"][object_type]
+    json_utility.save(config, cfg.PATHS.FRONTEND_CACHE)
+
+
 def populate_state_cache() -> None:
     """
     Populates state cache.
     """
     st.session_state["CACHE"] = json_utility.load(
         cfg.PATHS.FRONTEND_CACHE
-    ) if os.path.exists(cfg.PATHS.FRONTEND_CACHE) else cfg.DEFAULT_COMPONENT_CONFIG
-
+    ) if os.path.exists(cfg.PATHS.FRONTEND_CACHE) else {}
+    for key in cfg.DEFAULT_COMPONENT_CONFIG:
+        if key not in st.session_state["CACHE"]:
+            st.session_state["CACHE"][key] = deepcopy(cfg.DEFAULT_COMPONENT_CONFIG[key])
 
 def remove_state_cache_element(field_path: List[Any]) -> None:
     """
