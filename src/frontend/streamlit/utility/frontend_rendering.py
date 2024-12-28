@@ -13,7 +13,7 @@ import random
 import tkinter as tk
 from tkinter import filedialog
 from src.configuration import configuration as cfg
-from src.frontend.streamlit.utility.backend_interaction import OBJECT_STRUCTURE
+from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES
 from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config
 import streamlit.components.v1 as st_components
 from code_editor import code_editor
@@ -40,30 +40,20 @@ def render_sidebar() -> None:
         st.sidebar.write(f"{key}: {value}")
 
 
-def render_pipeline_node_plane(parent_widget: Any, block_entries: Dict[str, List[dict]] | List[dict], session_state_key: str | None = None) -> None:
+def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_state_key: str | None = None) -> None:
     """
     Renders a interactive node plane.
     :param parent_widget: Parent widget.
-    :param block_entries: Entries for barfi blocks.
+    :param block_dict: Dictionary for barfi blocks.
     """
     with parent_widget.empty():
         blocks = []
-        for key in block_entries:
+        for key in block_dict:
             new_block = Block(name=" ".join(key.split("_")).title())
             if key != "speech_recorder":
                 new_block.add_input("Input")
-            new_block.add_output("Output")
-            items = [">> New <<"]
-            items.extend([str(entry["id"]) for entry in block_entries[key]])
-            new_block.add_option(name="Config", type="select", value=">> New <<", items=items)
-            if key in OBJECT_STRUCTURE:
-                for core_parameter in OBJECT_STRUCTURE[key]["core_parameters"]:
-                    new_block.add_option(name=core_parameter, type="input")
-                for json_parameter in OBJECT_STRUCTURE[key]["json_parameters"]:
-                    new_block.add_option(name=json_parameter, type="input", value="{\n\t\n}")
-            blocks.append(new_block)
-        blocks.append(Block(name="Wave Output"))
-        blocks[-1].add_input("Input")
+            if key != "wave_output":
+                new_block.add_output("Output")
             
         barfi_result = st_barfi(base_blocks=blocks)
         if session_state_key and barfi_result:
