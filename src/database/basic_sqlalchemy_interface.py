@@ -9,6 +9,7 @@ import os
 from .filter_mask import FilterMask
 from src.utility import sqlalchemy_utility
 from src.utility import time_utility
+from uuid import UUID
 from datetime import datetime as dt
 from typing import Optional, Any, List, Dict
 
@@ -125,11 +126,13 @@ class BasicSQLAlchemyInterface(object):
                                                                        exp[2]) for exp in filtermask.expressions))
         return converted_filtermasks
     
-    def obj_as_dict(self, obj: Any, convert_timestamps: bool = False) -> dict:
+    def obj_as_dict(self, obj: Any, convert_timestamps: bool = False, convert_uuids: bool = False) -> dict:
         """
         Method for converting SQLAlchemy ORM object to a dictionary.
         :param obj: Object.
         :param convert_timestamps: Flag for declaring, whether to convert timestamps to string.
+            Defaults to False.
+        :param convert_uuids: Flag for declaring, whether to convert UUIDs to string.
             Defaults to False.
         :return: Object entry as dictionary.
         """
@@ -141,6 +144,10 @@ class BasicSQLAlchemyInterface(object):
                 if isinstance(data[key], dt):
                     data[key] = data[key].strftime(
                         time_utility.DEFAULTS_TS_FORMAT)
+        if convert_uuids:
+            for key in data:
+                if isinstance(data[key], UUID):
+                    data[key] = str(data[key])
         return data
 
     """
