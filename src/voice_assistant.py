@@ -32,6 +32,16 @@ from src.modules.output_modules import SynthesizerModule, WaveOutputModule
 from src.conversation_handler import ModularConversationHandler
 
 
+AVAILABLE_MODULES = {
+    "speech_recorder": SpeechRecorderModule,
+    "transcriber": TranscriberModule,
+    "local_chat": LocalChatModule,
+    "remote_chat": RemoteChatModule,
+    "synthesizer": SynthesizerModule,
+    "wave_output": WaveOutputModule
+}
+
+
 def setup_prompt_session(bindings: KeyBindings = None) -> PromptSession:
     """
     Function for setting up a command line prompt session.
