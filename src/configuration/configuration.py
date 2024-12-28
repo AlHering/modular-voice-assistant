@@ -9,6 +9,7 @@ import os
 import logging
 from dotenv import dotenv_values
 from . import paths as PATHS
+import pyaudio
 
 
 """
@@ -47,9 +48,23 @@ FRONTEND_PORT = ENV.get("FRONTEND_PORT", "8868")
 
 
 """
-Frontend Components
+Components
 """
-DEFAULT_SPEECH_RECORDER = {}
+pya = pyaudio.PyAudio()
+DEFAULT_INPUT_DEVICE_INDEX = pya.get_default_input_device_info().get("index")
+pya.terminate()
+DEFAULT_SPEECH_RECORDER = {
+    "recognizer_parameters": {
+        "energy_threshold": 1000,
+        "dynamic_energy_threshold": False,
+        "pause_threshold": .8
+    },
+    "microphone_parameters": {
+            "device_index": DEFAULT_INPUT_DEVICE_INDEX,
+            "sample_rate": 16000,
+            "chunk_size": 1024
+    }
+}
 DEFAULT_TRANSCRIBER = {
     "backend": "faster-whisper",
     "model_path": os.path.join(PATHS.MODEL_PATH, 
