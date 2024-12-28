@@ -53,7 +53,7 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
 
         id = Column(UUID(as_uuid=True), primary_key=True, unique=True, nullable=False, default=uuid4,
                     comment="ID of an instance.")
-        module = Column(String,
+        module_type = Column(String,
                          comment="Target module type.")
         config = Column(JSON,
                          comment="Module config.")
