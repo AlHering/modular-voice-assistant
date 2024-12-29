@@ -13,13 +13,13 @@ from src.utility.commandline_utility import silence_stderr
 from src.utility.pyaudio_utility import play_wave
 from src.utility.language_model_abstractions import ChatModelConfig, ChatModelInstance, RemoteChatModelConfig, RemoteChatModelInstance
 from src.utility.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
-from src.modules.abstractions import VAModule, VAPackage, VAModuleConfig, BasicHandlerModule
+from src.modules.abstractions import PipelineModule, PipelinePackage, PipelineModuleConfig, BasicHandlerModule
 
 
-class SpeechRecorderModule(VAModule):
+class SpeechRecorderModule(PipelineModule):
     """
     Speech recorder module.
-    Records a speech snipped from the user and forwards it as VAPackage.
+    Records a speech snipped from the user and forwards it as PipelinePackage.
     """
     supported_input_devices = SpeechRecorder.supported_input_devices
 
@@ -52,16 +52,16 @@ class SpeechRecorderModule(VAModule):
             loop_pause=recorder_loop_pause
         )
 
-    def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+    def process(self) -> PipelinePackage | Generator[PipelinePackage, None, None] | None:
         """
         Module processing method.
-        :returns: Voice assistant package, containing the recorded audio data and a metadata stack with the
+        :returns: Pipeline package, containing the recorded audio data and a metadata stack with the
             recording metadata as first element.
         """
         if not self.pause.is_set():
             recorder_output, recorder_metadata = self.speech_recorder.record_single_input()
             self.log_info(f"Got voice input.")
-            yield VAPackage(content=recorder_output, metadata_stack=[recorder_metadata])
+            yield PipelinePackage(content=recorder_output, metadata_stack=[recorder_metadata])
 
 
 class TranscriberModule(BasicHandlerModule):

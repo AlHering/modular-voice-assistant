@@ -25,7 +25,7 @@ from threading import Thread, Event as TEvent
 from queue import Empty, Queue as TQueue
 from src.utility.time_utility import get_timestamp
 from src.utility.string_utility import separate_pattern_from_text, extract_matches_between_bounds, remove_multiple_spaces, EMOJI_PATTERN
-from src.modules.abstractions import BaseModuleSet, VAPackage
+from src.modules.abstractions import BaseModuleSet, PipelinePackage
 from src.modules.input_modules import SpeechRecorderModule, TranscriberModule
 from src.modules.worker_modules import BasicHandlerModule, LocalChatModule, RemoteChatModule
 from src.modules.output_modules import SynthesizerModule, WaveOutputModule
@@ -171,7 +171,7 @@ class BasicVoiceAssistant(object):
         Injects a prompt into a running conversation.
         :param prompt: Prompt to inject.
         """
-        self.module_set.input_modules[-1].output_queue.put(VAPackage(content=prompt))
+        self.module_set.input_modules[-1].output_queue.put(PipelinePackage(content=prompt))
 
     def run_terminal_conversation(self) -> None:
         """
@@ -212,7 +212,7 @@ def run_terminal_conversation(handler: ModularConversationHandler, conversation_
             user_input = session.prompt(
                 "User: ")
             if user_input is not None:
-                handler.module_set.input_modules[-1].output_queue.put(VAPackage(content=user_input))
+                handler.module_set.input_modules[-1].output_queue.put(PipelinePackage(content=user_input))
 
 
 def setup_default_voice_assistant(config: dict | None = None) -> BasicVoiceAssistant:

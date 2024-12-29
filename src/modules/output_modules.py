@@ -13,7 +13,7 @@ from src.utility.commandline_utility import silence_stderr
 from src.utility.pyaudio_utility import play_wave
 from src.utility.language_model_abstractions import ChatModelConfig, ChatModelInstance, RemoteChatModelConfig, RemoteChatModelInstance
 from src.utility.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
-from src.modules.abstractions import VAModule, VAPackage, VAModuleConfig, BasicHandlerModule
+from src.modules.abstractions import PipelineModule, PipelinePackage, PipelineModuleConfig, BasicHandlerModule
 
 
 class SynthesizerModule(BasicHandlerModule):
@@ -54,10 +54,10 @@ class SynthesizerModule(BasicHandlerModule):
         super().__init__(handler_method=self.synthesizer.synthesize, *args, **kwargs)
 
 
-class WaveOutputModule(VAModule):
+class WaveOutputModule(PipelineModule):
     """
     Wave output module.
-    Takes in VAPackages with wave audio data and outputs it. 
+    Takes in PipelinePackages with wave audio data and outputs it. 
     Note, that the last metadata stack element must be stream parameters for outputting.
     """
     def __init__(self,
@@ -70,7 +70,7 @@ class WaveOutputModule(VAModule):
         """
         super().__init__(*args, **kwargs)
 
-    def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+    def process(self) -> PipelinePackage | Generator[PipelinePackage, None, None] | None:
         """
         Module processing method.
         Note, that the last metadata stack element must be stream parameters for outputting.
@@ -78,7 +78,7 @@ class WaveOutputModule(VAModule):
         """
         if not self.pause.is_set():
             try:
-                input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
+                input_package: PipelinePackage = self.input_queue.get(block=True, timeout=self.input_timeout)
                 self.pause.set()
                 self.add_uuid(self.received, input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")

@@ -13,7 +13,7 @@ from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent
 from src.utility.time_utility import get_timestamp
 from src.utility.string_utility import separate_pattern_from_text, extract_matches_between_bounds, remove_multiple_spaces, EMOJI_PATTERN
-from src.modules.abstractions import BaseModuleSet, VAPackage
+from src.modules.abstractions import BaseModuleSet, PipelinePackage
 
 
 class ModularConversationHandler(object):
@@ -119,7 +119,7 @@ class ModularConversationHandler(object):
         Runs a blocking conversation.
         :param loop: Declares, whether to loop conversation or stop after a single interaction.
         """
-        # TODO: Trace inputs via VAPackage UUIDs
+        # TODO: Trace inputs via PipelinePackage UUIDs
         while not self.stop.is_set():
             for module in self.module_set.input_modules:
                 while not module.run():
@@ -155,7 +155,7 @@ class ModularConversationHandler(object):
         for thread in self.output_threads:
             thread.start()
         if self.module_set.output_modules:
-            self.module_set.output_modules[0].input_queue.put(VAPackage(content=greeting))
+            self.module_set.output_modules[0].input_queue.put(PipelinePackage(content=greeting))
 
         try:
             if not blocking:
