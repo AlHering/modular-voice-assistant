@@ -6,16 +6,73 @@
 ****************************************************
 """
 import os
-from typing import List, Generator
+from typing import List, Generator, Any
+import logging
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 import numpy as np
 from uuid import UUID
+import traceback
+from datetime import datetime as dt
 from gc import collect
+from functools import wraps
 from src.configuration import configuration as cfg
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
 from src.voice_assistant import AVAILABLE_MODULES, BasicVoiceAssistant, TranscriberModule, SynthesizerModule, LocalChatModule, RemoteChatModule
+
+
+def interaction_log() -> Any | None:
+    """
+    Interaction logging decorator.
+    :return: Error report if operation failed, else function return.
+    """
+    def wrapper(func: Any) -> Any | None:
+        """
+        Function wrapper.
+        :param func: Wrapped function.
+        :return: Error report if operation failed, else function return.
+        """
+        @wraps(func)
+        async def inner(*args: Any | None, **kwargs: Any | None):
+            """
+            Inner function wrapper.
+            :param args: Arbitrary arguments.
+            :param kwargs: Arbitrary keyword arguments.
+            """
+            requested = dt.now()
+            try:
+                response = func(*args, **kwargs)
+            except Exception as ex:
+                response = {
+                    "status": "error",
+                    "exception": str(ex),
+                    "trace": traceback.format_exc()
+                }
+            responded = dt.now()
+            log_data = {
+                "request": {
+                    "function": func.__name__,
+                    "args": str(args),
+                    "kwargs": str(kwargs)
+                },
+                "response": {
+                    key: str(response[key]) for key in response
+                },
+                "requested": requested,
+                "responded": responded
+            }
+            args[0].database.post_object(
+                object_type="log",
+                **log_data
+            )
+            logging_message = f"Interaction with {args[0]}: {log_data}"
+            logging.info(logging_message) if log_data["response"].get("status", "success") == "error" else logging.warning(
+                logging_message)
+            return response
+        return inner
+    return wrapper
+
 
 
 class VoiceAssistantInterface(object):
@@ -46,6 +103,8 @@ class VoiceAssistantInterface(object):
         """
         self.router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
 
+        self.router.add_api_route(path="/", endpoint=self.add_config, methods=["POST"])
+
         # Config and module handling
         self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
         self.router.add_api_route(path="/configs/patch", endpoint=self.overwrite_config, methods=["POST"])
@@ -67,10 +126,12 @@ class VoiceAssistantInterface(object):
         self.router.add_api_route(path="/services/chat", endpoint=self.chat, methods=["POST"])
         self.router.add_api_route(path="/services/chat-stream", endpoint=self.chat_stream, methods=["POST"])
 
+    
+
     """
     Config handling
     """
-
+    @interface_function
     def add_config(self,
                    module_type: str,
                    config: dict) -> dict:
