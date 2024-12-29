@@ -96,7 +96,7 @@ class LocalChatModule(BasicHandlerModule):
         """
         model_path = config["model_path"]
         if not os.path.exists(model_path):
-            return None, f"Model path '{model_path}' is not in local filesystem.\nModel access must be handled by chosen backend."
+            return None, f"Model path '{model_path}' is not in local filesystem.\nModel access must be handled remotely by the chosen backend."
         else:
             model_file = config.get("model_file")
             if model_file:

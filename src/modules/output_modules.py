@@ -61,9 +61,9 @@ class SynthesizerModule(BasicHandlerModule):
         """
         if not config["backend"] in Synthesizer.supported_backends:
             return False, f"Synthesizer backend '{config['backend']}' is not supported."
-        model_path = Synthesizer.default_models[config["backend"]][0] if config.get(model_path) is None else config.get(model_path)
+        model_path = Synthesizer.default_models[config["backend"]][0] if config.get("model_path") is None else config.get("model_path")
         if not os.path.exists(model_path):
-            return None, f"Model path '{model_path}' is not in local filesystem.\nModel access must be handled by chosen backend."
+            return None, f"Model path '{model_path}' is not in local filesystem.\nModel access must be handled remotely by the chosen backend."
         return True, "Validation succeeded."
 
 
