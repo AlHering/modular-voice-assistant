@@ -77,15 +77,15 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
                     comment="ID of a model.")
         module_type = Column(String,
                          comment="Target module type.")
-        backend = Column(str,
+        backend = Column(String,
                       comment="Model backend.")
-        name = Column(str,
+        name = Column(String,
                       comment="Model name.")
-        info = Column(str,
+        info = Column(String,
                       comment="Info link.")
-        size = Column(str,
+        size = Column(String,
                       comment="Model size.")
-        path = Column(str,
+        path = Column(String,
                       comment="Model path.")
 
         created = Column(DateTime, server_default=func.now(),
