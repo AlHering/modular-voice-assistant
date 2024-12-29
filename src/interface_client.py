@@ -29,6 +29,7 @@ class Endpoints(str, Enum):
     inject_prompt = API_BASE + "/assistant/inject-prompt"
     interaction = API_BASE + "/assistant/interaction"
     conversation = API_BASE + "/assistant/conversation"
+    terminal_conversation = API_BASE + "/assistant/terminal-conversation"
     transcribe = API_BASE + "/services/transcribe"
     synthesize = API_BASE + "/services/synthesize"
     chat = API_BASE + "/services/chat"
@@ -68,7 +69,6 @@ class VoiceAssistantClient(object):
         except:
             return False
 
-
     """
     Config handling
     """
@@ -107,8 +107,6 @@ class VoiceAssistantClient(object):
         except:
             pass
     
-
-    
     def get_configs(self,
                     module_type: str = None) -> List[dict] | None:
         """
@@ -144,7 +142,6 @@ class VoiceAssistantClient(object):
             }).json()
         except:
             pass
-
             
     def unload_module(self,
                       module_type: str,
@@ -162,7 +159,6 @@ class VoiceAssistantClient(object):
             }).json()
         except:
             pass
-
 
     """
     Assistant handling
@@ -202,8 +198,6 @@ class VoiceAssistantClient(object):
         except:
             pass
 
-
-
     """
     Direct module access
     """
@@ -229,7 +223,6 @@ class VoiceAssistantClient(object):
         except:
             pass
 
-
     def synthesize(self, text: str, synthesis_parameters: dict | None = None) -> dict:
         """
         Synthesizes audio from input text.
@@ -245,7 +238,6 @@ class VoiceAssistantClient(object):
             }).json()
         except:
             pass
-
         
     def chat(self, 
              prompt: str, 

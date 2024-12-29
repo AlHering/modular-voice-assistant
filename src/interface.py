@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from uuid import UUID
 import traceback
 from datetime import datetime as dt
-from gc import collect
+import gc
 import numpy as np
 import uvicorn
 from functools import wraps
@@ -29,56 +29,50 @@ APP = FastAPI(title=cfg.PROJECT_NAME, version=cfg.PROJECT_VERSION,
 INTERFACE: VoiceAssistantInterface | None = None
 
 
-def interaction_log() -> Any | None:
+def interaction_log(func: Any) -> Any | None:
     """
     Interaction logging decorator.
+    :param func: Wrapped function.
     :return: Error report if operation failed, else function return.
     """
-    def wrapper(func: Any) -> Any | None:
+    @wraps(func)
+    async def inner(*args: Any | None, **kwargs: Any | None):
         """
-        Function wrapper.
-        :param func: Wrapped function.
-        :return: Error report if operation failed, else function return.
+        Inner function wrapper.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
         """
-        @wraps(func)
-        async def inner(*args: Any | None, **kwargs: Any | None):
-            """
-            Inner function wrapper.
-            :param args: Arbitrary arguments.
-            :param kwargs: Arbitrary keyword arguments.
-            """
-            requested = dt.now()
-            try:
-                response = func(*args, **kwargs)
-            except Exception as ex:
-                response = {
-                    "status": "error",
-                    "exception": str(ex),
-                    "trace": traceback.format_exc()
-                }
-            responded = dt.now()
-            log_data = {
-                "request": {
-                    "function": func.__name__,
-                    "args": str(args),
-                    "kwargs": str(kwargs)
-                },
-                "response": {
-                    key: str(response[key]) for key in response
-                },
-                "requested": requested,
-                "responded": responded
+        requested = dt.now()
+        try:
+            response = func(*args, **kwargs)
+        except Exception as ex:
+            response = {
+                "status": "error",
+                "exception": str(ex),
+                "trace": traceback.format_exc()
             }
-            args[0].database.post_object(
-                object_type="log",
-                **log_data
-            )
-            logging_message = f"Interaction with {args[0]}: {log_data}"
-            logging.info(logging_message) if log_data["response"].get("status", "success") == "error" else logging.warning(
-                logging_message)
-            return response
-        return inner
-    return wrapper
+        responded = dt.now()
+        log_data = {
+            "request": {
+                "function": func.__name__,
+                "args": str(args),
+                "kwargs": str(kwargs)
+            },
+            "response": {
+                key: str(response[key]) for key in response
+            },
+            "requested": requested,
+            "responded": responded
+        }
+        args[0].database.post_object(
+            object_type="log",
+            **log_data
+        )
+        logging_message = f"Interaction with {args[0]}: {log_data}"
+        logging.info(logging_message) if log_data["response"].get("status", "success") == "error" else logging.warning(
+            logging_message)
+        return response
+    return inner
 
 
 
@@ -104,7 +98,7 @@ class VoiceAssistantInterface(object):
         self.assistant: BasicVoiceAssistant | None = None
         self.router: APIRouter | None = None
 
-    def setup_router(self) -> None:
+    def setup_router(self) -> APIRouter:
         """
         Sets up API router.
         """
@@ -120,11 +114,12 @@ class VoiceAssistantInterface(object):
 
         # Assistant Interaction
         self.router.add_api_route(path="/assistant/setup", endpoint=self.setup_assistant, methods=["POST"])
-        self.router.add_api_route(path="/assistant/reset", endpoint=self.assistant.setup, methods=["POST"])
-        self.router.add_api_route(path="/assistant/stop", endpoint=self.assistant.stop, methods=["POST"])
-        self.router.add_api_route(path="/assistant/inject-prompt", endpoint=self.assistant.inject_prompt, methods=["POST"])
-        self.router.add_api_route(path="/assistant/interaction", endpoint=self.assistant.run_interaction, methods=["POST"])
-        self.router.add_api_route(path="/assistant/conversation", endpoint=self.assistant.run_conversation, methods=["POST"])
+        self.router.add_api_route(path="/assistant/reset", endpoint=self.reset_assistant, methods=["POST"])
+        self.router.add_api_route(path="/assistant/stop", endpoint=self.stop_assistant, methods=["POST"])
+        self.router.add_api_route(path="/assistant/inject-prompt", endpoint=self.inject_prompt, methods=["POST"])
+        self.router.add_api_route(path="/assistant/interaction", endpoint=self.run_interaction, methods=["POST"])
+        self.router.add_api_route(path="/assistant/conversation", endpoint=self.run_conversation, methods=["POST"])
+        self.router.add_api_route(path="/assistant/terminal-conversation", endpoint=self.run_terminal_conversation, methods=["POST"])
 
         # Underlying Services
         self.router.add_api_route(path="/services/transcribe", endpoint=self.transcribe, methods=["POST"])
@@ -224,7 +219,7 @@ class VoiceAssistantInterface(object):
             module_obj = self.modules.pop(module_type) 
             del module_obj
             self.module_uuids[module_type] = None
-            collect()
+            gc.collect()
             return {"success": f"Unloaded {self.module_titles[module_type]} with config '{config_uuid}'"}
         else:
             return {"error": f"No active {self.module_titles[module_type]}"}
@@ -274,10 +269,7 @@ class VoiceAssistantInterface(object):
         if "error" in res:
             return res
 
-        if self.assistant is not None:
-            self.assistant.stop()
-            self.assistant = None
-            collect()
+        self.stop_assistant()
         self.assistant = BasicVoiceAssistant(
             working_directory=os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant"),
             speech_recorder=self.modules["speech_recorder"],
@@ -289,8 +281,70 @@ class VoiceAssistantInterface(object):
             forward_logging=forward_logging,
             report=report
         )
-        self.assistant.setup()
+        self.assistant.re()
 
+    def reset_assistant(self) -> dict:
+        """
+        Resets the assistant.
+        """
+        if self.assistant is not None:
+            self.assistant.reset()
+            self.assistant = None
+            gc.collect()
+            return {"success": "Assistant reset."}
+        return {"error": "No assistant running."}
+
+    def stop_assistant(self) -> dict:
+        """
+        Stops the assistant.
+        """
+        if self.assistant is not None:
+            self.assistant.stop()
+            self.assistant = None
+            gc.collect()
+            return {"success": "Assistant stopped."}
+        return {"error": "No assistant running."}
+
+    def run_conversation(self, blocking: bool = True) -> dict:
+        """
+        Runs conversation via assistant.
+        :param blocking: Flag which declares whether or not to wait for each conversation step.
+            Defaults to True.
+        """
+        if self.assistant is not None:
+            self.assistant.run_conversation(blocking=blocking)
+            return {"success": "Assistant conversation started."}
+        return {"error": "No assistant running."}
+
+    def run_interaction(self, blocking: bool = True) -> dict:
+        """
+        Runs an interaction with the assistant
+        :param blocking: Flag which declares whether or not to wait for each conversation step.
+            Defaults to True.
+        """
+        if self.assistant is not None:
+            self.assistant.run_interaction(blocking=blocking)
+            return {"success": "Assistant interaction started."}
+        return {"error": "No assistant running."}
+
+    def inject_prompt(self, prompt: str) -> None:
+        """
+        Injects a prompt into a running conversation.
+        :param prompt: Prompt to inject.
+        """
+        if self.assistant is not None:
+            self.assistant.inject_prompt(prompt=prompt)
+            return {"success": "Injection sent."}
+        return {"error": "No assistant running."}
+
+    def run_terminal_conversation(self) -> None:
+        """
+        Runs conversation loop with terminal input.
+        """
+        if self.assistant is not None:
+            self.assistant.run_terminal_conversation()
+            return {"success": "Terminal conversation started."}
+        return {"error": "No assistant running."}
 
     """
     Direct module access
@@ -406,7 +460,7 @@ def run() -> None:
     """
     global APP, INTERFACE
     INTERFACE = VoiceAssistantInterface()
-    APP.include_router(INTERFACE.router)
+    APP.include_router(INTERFACE.setup_router())
     uvicorn.run("src.interface:APP",
                 host=cfg.BACKEND_HOST,
                 port=cfg.BACKEND_PORT,
