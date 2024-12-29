@@ -21,6 +21,9 @@ class SynthesizerModule(BasicHandlerModule):
     Synthesizer module.
     Synthesizes and forwards audio data.
     """
+    supported_backends = Synthesizer.supported_backends
+    default_models = Synthesizer.default_models
+    
     def __init__(self, 
                  backend: str,
                  model_path: str | None = None,
@@ -42,9 +45,6 @@ class SynthesizerModule(BasicHandlerModule):
         :param args: Arbitrary arguments.
         :param kwargs: Arbitrary keyword arguments.
         """
-        supported_backends = Synthesizer.supported_backends
-        default_models = Synthesizer.default_models
-
         self.synthesizer = Synthesizer(
             backend=backend,
             model_path=model_path,
