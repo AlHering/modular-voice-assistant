@@ -140,15 +140,16 @@ if __name__ == "__main__":
         layout="wide"
     )
 
-    # Wait for backend and dependencies
-    wait_for_setup()
-        
     # Page content
     st.title("Models")
     
-    tabs = ["transcriber", "synthesizer", "chat"]
-    for index, tab in enumerate(st.tabs([" ".join(elem.split("_")).title()+"s" for elem in tabs])):
-        with tab:
-            render_model_page(tabs[index])
+    # Wait for backend and dependencies
+    if "SETUP" not in st.session_state or not st.session_state["SETUP"]:
+        st.write("Please setup the assistant first.")
+    else:
+        tabs = ["transcriber", "synthesizer", "chat"]
+        for index, tab in enumerate(st.tabs([" ".join(elem.split("_")).title()+"s" for elem in tabs])):
+            with tab:
+                render_model_page(tabs[index])
             
     render_sidebar()

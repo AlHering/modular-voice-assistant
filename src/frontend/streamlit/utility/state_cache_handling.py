@@ -15,22 +15,19 @@ from src.configuration import configuration as cfg
 from src.frontend.streamlit.utility import backend_interaction
 
 
-def wait_for_setup() -> None:
+def wait_for_setup(mode: str) -> None:
     """
     Waits for setup to finish.
+    :param mode: Assistant mode.
     """
-    with st.spinner("Waiting for backend to finish startup..."):
-        while "CACHE" not in st.session_state or not st.session_state["CACHE"]:
-            try:
-                populate_state_cache()
-                backend_interaction.MODE = st.session_state["CACHE"].get("MODE", "direct")
-                if not backend_interaction.setup():
-                    st.warning("Setup failed! Probably the assistant is set to 'API' mode but the backend server is not running.")
-                else:
-                    st.rerun()
-            except ConnectionError:
-                sleep(3)
-
+    populate_state_cache()
+    backend_interaction.MODE = mode
+    if not backend_interaction.setup():
+        st.warning("Setup failed! Probably the assistant is set to 'API' mode but the backend server is not running.")
+        st.session_state["SETUP"] = False
+    else:
+        st.session_state["SETUP"] = True
+        st.rerun()
 
 def save_config(object_type: str) -> None:
     """

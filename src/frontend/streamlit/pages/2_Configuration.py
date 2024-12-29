@@ -176,25 +176,26 @@ def render_header_buttons(parent_widget: Any,
     :param object_type: Target object type.
     """
     changed = False
+    notification_status = parent_widget.empty()
+    notification_info = parent_widget.empty()
     header_button_columns = parent_widget.columns([.30, .30, .30])
 
     object_title = " ".join(object_type.split("_")).title()
     header_button_columns[0].write("#####")
-    with header_button_columns[0].popover("Save",
-                                          help="Saves the current configuration"):
-            st.write(f"{object_title} configuration will be overwritten.")
-            
-            if st.button("Approve", key=f"{tab_key}_approve_btn",):
-                st.session_state["CACHE"][object_type] = deepcopy(gather_config(object_type=object_type))
-                save_config(object_type=object_type)
-                st.info(f"Updated {object_title} configuration.")
-                changed = True
+    if header_button_columns[0].button("Save", key=f"{tab_key}_approve_btn", help="Saves the current configuration"):
+        st.session_state["CACHE"][object_type] = deepcopy(gather_config(object_type=object_type))
+        save_config(object_type=object_type)
+        st.info(f"Updated {object_title} configuration.")
+        changed = True
 
     header_button_columns[1].write("#####")
-    if header_button_columns[1].button("Add new", 
-                                       key=f"{tab_key}_add_btn",
-                                       help="Add new entry with the below configuration if it does not exist yet."):
-        pass
+    with header_button_columns[2].popover("Validate",
+                                          help="Reset the current configuration"):
+        st.write(f"{object_title} configuration will be reset!")
+        if header_button_columns[1].button("Approve", 
+                                        key=f"{tab_key}_validate_btn",
+                                        help="Validate the current configuration."):
+            pass
     
     header_button_columns[2].write("#####")
     with header_button_columns[2].popover("Reset",
@@ -203,6 +204,7 @@ def render_header_buttons(parent_widget: Any,
             
             if st.button("Approve", key=f"{tab_key}_delapprove_btn",):
                 st.session_state["CACHE"][object_type] = deepcopy(fetch_default_config()[object_type])
+                save_config(object_type=object_type)
                 st.info(f"{object_title} configuration was reset.")
                 changed = True
 
@@ -240,16 +242,17 @@ if __name__ == "__main__":
         page_icon=":ocean:",
         layout="wide"
     )
-
-    # Wait for backend and dependencies
-    wait_for_setup()
         
     # Page content
     st.title("Configuration")
-    
-    tabs = list(AVAILABLE_MODULES.keys())
-    for index, tab in enumerate(st.tabs([" ".join(elem.split("_")).title()+"s" for elem in tabs])):
-        with tab:
-            render_config(tabs[index])
+
+     # Wait for backend and dependencies
+    if "SETUP" not in st.session_state or not st.session_state["SETUP"]:
+        st.write("Please setup the assistant first.")
+    else:
+        tabs = list(AVAILABLE_MODULES.keys())
+        for index, tab in enumerate(st.tabs([" ".join(elem.split("_")).title()+"s" for elem in tabs])):
+            with tab:
+                render_config(tabs[index])
             
     render_sidebar()

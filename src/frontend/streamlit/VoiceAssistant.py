@@ -31,16 +31,22 @@ if __name__ == "__main__":
         page_icon=":ocean:",
         layout="wide"
     )
-
-    # Wait for backend and dependencies
-    wait_for_setup()
-                
         
     # Page content
     st.title("Voice Assistant")        
 
-    render_pipeline_node_plane(parent_widget=st.container(),
-                               block_dict=AVAILABLE_MODULES,
-                               session_state_key="pipeline_schema")
+    # Wait for backend and dependencies
+    mode_header = st.columns([.20, .20, .20, .20, .20])
+    mode = mode_header[0].selectbox(
+        label="Assistant Mode", 
+        options=["DIRECT", "API"])
+    if mode_header[1].button("Setup", help="Sets up assistant infrastructure."):
+        with st.spinner("Waiting for backend to finish startup..."):
+            wait_for_setup(mode)
+    
+    if "SETUP" in st.session_state and st.session_state["SETUP"]:    
+        render_pipeline_node_plane(parent_widget=st.container(),
+                                block_dict=AVAILABLE_MODULES,
+                                session_state_key="pipeline_schema")
     
     render_sidebar()
