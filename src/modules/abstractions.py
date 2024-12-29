@@ -19,44 +19,44 @@ from src.utility.time_utility import get_timestamp
 
 def create_default_metadata() -> List[dict]:
     """
-    Creates a default VA package metadata stack.
-    :return: Default VA package dictionary
+    Creates a default pipeline package metadata stack.
+    :return: Default pipeline package dictionary
     """
     return [{"created": get_timestamp()}]
 
 
 def create_uuid() -> str:
     """
-    Creates an UUID for a VA package.
+    Creates an UUID for a pipeline package.
     :return: UUID as string.
     """
     return str(uuid4())
 
 
-class VAPackage(BaseModel):
+class PipelinePackage(BaseModel):
     """
-    Voice assistant package for exchanging data between modules.
+    Pipeline package for exchanging data between modules.
     """
     uuid: str = Field(default_factory=create_uuid)
     content: Any
     metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
 
 
-class VAModuleConfig(BaseModel):
+class PipelineModuleConfig(BaseModel):
     """
-    Voice assistant module config class.
+    Pipeline module config class.
     """
     loop_pause: float = 0.1
     input_timeout: float | None = None
     name: str | None = None
 
 
-class VAModule(ABC):
+class PipelineModule(ABC):
     """
-    Voice assistant module.
+    Pipeline module.
     A module can be understood as a pipeline component with an input and output queue, which can be wrapped into a thread.
-    It evolves around the central "process"-method which takes an input VAPackage from the input queue and potentially
-    puts an output VAPackage back into the output queue, taking over the input package's UUID and previous metadata stack.
+    It evolves around the central "process"-method which takes an input pipelinePackage from the input queue and potentially
+    puts an output pipelinePackage back into the output queue, taking over the input package's UUID and previous metadata stack.
     """
     def __init__(self, 
                  interrupt: TEvent | None = None,
@@ -94,7 +94,7 @@ class VAModule(ABC):
         self.sent = {}
 
     @classmethod
-    def from_configuration(cls, config: VAModuleConfig) -> Any:
+    def from_configuration(cls, config: PipelineModuleConfig) -> Any:
         """
         Returns a language model instance from configuration.
         :param config: Module configuration class.
@@ -175,7 +175,7 @@ class VAModule(ABC):
         """
         result = self.process()
         if result is not None:
-            if isinstance(result, VAPackage):
+            if isinstance(result, PipelinePackage):
                 self.output_queue.put(result)
                 self.add_uuid(self.sent, elem.uuid)
                 return True
@@ -196,22 +196,22 @@ class VAModule(ABC):
         return True, {"warning": "Empty validation method"}
 
     @abstractmethod
-    def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+    def process(self) -> PipelinePackage | Generator[PipelinePackage, None, None] | None:
         """
         Module processing method.
-        :returns: Voice assistant package, a package generator or None.
+        :returns: Pipeline package, a package generator or None.
         """
         pass
 
 
-class PassiveVAModule(VAModule):
+class PassivePipelineModule(PipelineModule):
     """
-    Passive voice assistant module.
-    This module follows the same functionality as a conventional VAModule but forwards the incoming packages in its received state.
+    Passive pipeline module.
+    This module follows the same functionality as a conventional pipelineModule but forwards the incoming packages in its received state.
     It can be used for fetching and processing pipeline data without the results being fed back into the module pipeline.
     """
     @abstractmethod
-    def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+    def process(self) -> PipelinePackage | Generator[PipelinePackage, None, None] | None:
         """
         Passive module processing method.
         :returns: The input data, as taken from the input queue.
@@ -219,7 +219,7 @@ class PassiveVAModule(VAModule):
         pass
 
 
-class BasicHandlerModule(VAModule):
+class BasicHandlerModule(PipelineModule):
     """
     Basic handler module.
     """
@@ -236,14 +236,14 @@ class BasicHandlerModule(VAModule):
         super().__init__(*args, **kwargs)
         self.handler_method = handler_method
 
-    def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
+    def process(self) -> PipelinePackage | Generator[PipelinePackage, None, None] | None:
         """
         Module processing method.
-        :returns: Voice assistant package, package generator or None.
+        :returns: Pipeline package, package generator or None.
         """
         if not self.pause.is_set():
             try:
-                input_package: VAPackage = self.input_queue.get(block=True, timeout=self.input_timeout)
+                input_package: PipelinePackage = self.input_queue.get(block=True, timeout=self.input_timeout)
                 self.add_uuid(self.received, input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
                 valid_input = (isinstance(input_package.content, np.ndarray) and input_package.content.size > 0) or input_package.content
@@ -253,10 +253,10 @@ class BasicHandlerModule(VAModule):
                     if isinstance(result, Generator):
                         for response_tuple in result:
                             self.log_info(f"Received response shard\n'{response_tuple[0]}'.")   
-                            yield VAPackage(uuid=input_package.uuid, content=response_tuple[0], metadata_stack=input_package.metadata_stack + [response_tuple[1]])
+                            yield PipelinePackage(uuid=input_package.uuid, content=response_tuple[0], metadata_stack=input_package.metadata_stack + [response_tuple[1]])
                     else:
                         self.log_info(f"Received response\n'{result[0]}'.")             
-                        yield VAPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
+                        yield PipelinePackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
             except Empty:
                 pass
 
@@ -264,27 +264,27 @@ class BasicHandlerModule(VAModule):
 class BaseModuleSet(object):
     """
     Base module set.
-    Holds VAModules in four different categories:
+    Holds pipelineModules in four different categories:
     - input modules resemble a pipeline for inputting user data, e.g. SpeechRecorderModule->TranscriberModule
     - worker modules resemble a pipeline for processing the ingoing user data, e.g. a ChatModelModule
     - output modules resemble a pipeline for outputting the results of the worker module pipeline, e.g. SynthesizerModule->WaveOutputModule
     - additional (passive) modules can be "inserted" into a pipeline to branch out operations, which do not reintroduce transformed data back into 
         the pipeline, e.g. for animating a character alongside the output module pipeline or running additional reporting.
     """
-    input_modules: List[VAModule] = []
-    worker_modules: List[VAModule] = []
-    output_modules: List[VAModule] = []
-    additional_modules: List[PassiveVAModule] = []
+    input_modules: List[PipelineModule] = []
+    worker_modules: List[PipelineModule] = []
+    output_modules: List[PipelineModule] = []
+    additional_modules: List[PassivePipelineModule] = []
 
     @classmethod
-    def get_all(cls) -> List[VAModule]:
+    def get_all(cls) -> List[PipelineModule]:
         """
         Returns all available modules.
-        :returns: List of VA modules.
+        :returns: List of pipeline modules.
         """
         return cls.input_modules + cls.worker_modules + cls.output_modules + cls.additional_modules
     
-    def reroute_pipeline_queues(self) -> List[VAModule]:
+    def reroute_pipeline_queues(self) -> List[PipelineModule]:
         """
         Reroutes queues between the pipelines.
         Note, that the queues of additional (passive) modules are not rerouted.
