@@ -8,6 +8,7 @@
 import os
 import streamlit as st
 from src.voice_assistant import BaseModuleSet, BasicVoiceAssistant, ModularConversationHandler, setup_default_voice_assistant
+from src.voice_assistant import AVAILABLE_MODULES as AVAILABLE_MODULES
 from src.interface_client import VoiceAssistantClient
 from src.interface import VoiceAssistantInterface
 from src.configuration import configuration as cfg
