@@ -82,31 +82,31 @@ def get_default_entries() -> dict:
     return {
         "module_config": [
             {
-                "module": "speech_recorder",
+                "module_type": "speech_recorder",
                 "config": {}
             },
             {
-                "module": "transcriber",
+                "module_type": "transcriber",
                 "config": cfg.DEFAULT_TRANSCRIBER
             },
             {
-                "module": "local_chat",
+                "module_type": "local_chat",
                 "config": cfg.DEFAULT_LOCAL_CHAT
             },
             {
-                "module": "remote_chat",
+                "module_type": "remote_chat",
                 "config": cfg.DEFAULT_REMOTE_CHAT
             },
             {
-                "module": "synthesizer",
+                "module_type": "synthesizer",
                 "config": cfg.DEFAULT_SYNTHESIZER
             },
             {
-                "module": "wave_output",
+                "module_type": "wave_output",
                 "config": cfg.DEFAULT_WAVE_OUTPUT
             },
             {
-                "module": "voice_assistant",
+                "module_type": "voice_assistant",
                 "config": cfg.DEFAULT_VOICE_ASSISTANT
             },
         ]
