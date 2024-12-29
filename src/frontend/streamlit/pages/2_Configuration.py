@@ -348,7 +348,7 @@ if __name__ == "__main__":
 
      # Wait for backend and dependencies
     if "SETUP" not in st.session_state or not st.session_state["SETUP"]:
-        st.write("Please choose a mode in the sidebar and press the setup button.")
+        st.info("System inactive. Please choose a Setup Mode in the sidebar and press the Setup button.")
     else:
         tabs = list(AVAILABLE_MODULES.keys())
         tabs.remove("wave_output")
