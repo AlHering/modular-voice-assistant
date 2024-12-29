@@ -90,6 +90,23 @@ def retrieve_parameter_specification(func: callable, ignore: List[str] | None = 
     return spec
 
 
+def get_default_value(key: str, current_config: dict | None, default: Any, options: List[Any] | None = None) -> Any:
+    """
+    Retrieves default value for configuration input widget.
+    :param key: Target key.
+    :param current_config: Current config.
+    :param default: Default value or index.
+    :param options: Options in case of selectbox.
+    """
+    if options is None:
+        return default if (current_config is None 
+                           or key not in current_config) else current_config[key]
+    else:
+        return default if (current_config is None 
+                           or key not in current_config 
+                           or current_config[key] not in options) else options.index(current_config[key])
+
+
 def render_config_inputs(parent_widget: Any, 
                          tab_key: str, 
                          object_type: str) -> None:
@@ -135,7 +152,9 @@ def render_config_inputs(parent_widget: Any,
             step=0.1,
             min_value=0.01,
             max_value=10.1,
-            value=.1 if current_config is None else current_config.get("recorder_loop_pause", .1)
+            value=get_default_value(key="recorder_loop_pause",
+                                    current_config=current_config,
+                                    default=.1)
         )
     elif object_type in AVAILABLE_MODULES:
         if backends is not None:
@@ -143,11 +162,17 @@ def render_config_inputs(parent_widget: Any,
                 key=f"{tab_key}_backend", 
                 label="Backend", 
                 options=backends,
-                index=0 if "backend" not in current_config or current_config["backend"] not in backends else backends.index(current_config["backend"]))
+                index=get_default_value(key="backend",
+                                        current_config=current_config,
+                                        default=0,
+                                        options=backends))
         if default_models is not None:
             if f"{tab_key}_model_path" not in st.session_state:
-                st.session_state[f"{tab_key}_model_path"] = default_models[st.session_state[f"{tab_key}_backend"]][0] if (
-                current_config is None or current_config.get("model_path") is None) else current_config["model_path"]
+                st.session_state[f"{tab_key}_model_path"] = get_default_value(
+                    key="model_path",
+                    current_config=current_config,
+                    default=default_models[st.session_state[f"{tab_key}_backend"]][0]
+                )
             parent_widget.text_input(
                 key=f"{tab_key}_model_path", 
                 label="Model (Model name or path)")
@@ -161,17 +186,23 @@ def render_config_inputs(parent_widget: Any,
     param_spec = st.session_state["CACHE"]["PARAM_SPECS"][object_type]
     for param in param_spec:
         if param_spec[param]["type"] == str:
-            default_value = param_spec[param].get("default", "")
             parent_widget.text_input(
                 key=f"{tab_key}_{param}", 
                 label=" ".join(param.split("_")).title(),
-                value=current_config[param] if current_config and param in current_config else default_value)
+                value=get_default_value(
+                    key=param,
+                    current_config=current_config,
+                    default=param_spec[param].get("default", "")
+                ))
         elif param_spec[param]["type"] in [int, float]:
-            default_value = param_spec[param].get("default", .0 if param_spec[param]["type"] == float else 0)
             parent_widget.number_input(
                 key=f"{tab_key}_{param}", 
                 label=" ".join(param.split("_")).title(),
-                value=current_config[param] if current_config and param in current_config else default_value)
+                value=get_default_value(
+                    key=param,
+                    current_config=current_config,
+                    default=param_spec[param].get("default", .0 if param_spec[param]["type"] == float else 0)
+                ))
         elif param_spec[param]["type"]  == dict:
             render_json_input(parent_widget=parent_widget, 
                     key=f"{tab_key}_{param}", 
