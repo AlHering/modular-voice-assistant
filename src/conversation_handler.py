@@ -195,19 +195,3 @@ class ModularConversationHandler(object):
         thread = Thread(target=log_report)
         thread.daemon = True
         thread.start()    
-        
-
-def clean_worker_output(text: str) -> Tuple[str, dict]:
-    """
-    Cleanse worker output from emojis and emotional hints.
-    :param text: Worker output.
-    :return: Cleaned text and metadata.
-    """
-    metadata = {"full_text": text}
-    metadata["text_without_emojis"], metadata["emojis"] = separate_pattern_from_text(text=text, pattern=EMOJI_PATTERN)
-    metadata["emotional_hints"] = [f"*{hint}*" for hint in extract_matches_between_bounds(start_bound=r"*", end_bound=r"*", text=metadata["text_without_emojis"])]
-    metadata["text_without_emotional_hints"] = metadata["text_without_emojis"]
-    if metadata["emotional_hints"]:
-        for hint in metadata["emotional_hints"]:
-            metadata["text_without_emotional_hints"] = metadata["text_without_emotional_hints"].replace(hint, "")
-    return remove_multiple_spaces(text=metadata["text_without_emotional_hints"]), metadata
