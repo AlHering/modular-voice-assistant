@@ -5,25 +5,25 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from typing import Tuple, List
+from typing import List
 import os
 import gc
 import time
 from src.configuration import configuration as cfg
 from threading import Thread, Event as TEvent
 from src.utility.time_utility import get_timestamp
-from src.utility.string_utility import separate_pattern_from_text, extract_matches_between_bounds, remove_multiple_spaces, EMOJI_PATTERN
 from src.modules.abstractions import BaseModuleSet, PipelinePackage
 
 
 class ModularConversationHandler(object):
     """
-    Represents a modular conversation handler for handling audio based interaction.
-    A conversation handler manages the following modules:
+    Represents a modular conversation handler for handling pipeline based interaction.
+    A conversation handler manages pipeline modules, e.g.:
         - speech_recorder: A recorder for spoken input.
         - transcriber: A transcriber to transcribe spoken input into text.
         - worker: A worker to compute an output for the given user input.
         - synthesizer: A synthesizer to convert output texts to sound.
+        - wave_output: A wave output engine.
     """
 
     def __init__(self, 
