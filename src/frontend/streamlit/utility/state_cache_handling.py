@@ -50,6 +50,7 @@ def populate_state_cache() -> None:
     for key in cfg.DEFAULT_COMPONENT_CONFIG:
         if key not in st.session_state["CACHE"]:
             st.session_state["CACHE"][key] = deepcopy(cfg.DEFAULT_COMPONENT_CONFIG[key])
+    st.session_state["CACHE"]["PARAM_SPECS"] = {}
 
 def remove_state_cache_element(field_path: List[Any]) -> None:
     """
