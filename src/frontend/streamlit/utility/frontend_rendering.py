@@ -70,18 +70,21 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
         "active": []
         } for key in AVAILABLE_MODULES
     }
-    node_menu_columns = st.columns(4)
+    node_menu_columns = st.columns([.25, .25, .10, .10, .10, .10, .10])
     
+    node_menu_columns[0].write("")
     node_object_type = node_menu_columns[0].selectbox(
                 key=f"flow_node_object_type", 
                 label="Module type", 
                 options=list(st.session_state["flow_modules"].keys()))
+    node_menu_columns[1].write("")
     node_object_id = node_menu_columns[1].selectbox(
                 key=f"flow_node_object_id", 
                 label="Module UUID", 
                 options=st.session_state["flow_modules"][node_object_type]["available"])
     target_node_flow_id = f"{node_object_type}_{node_object_id}"
-    if node_menu_columns[1].button(
+    node_menu_columns[3].write("#####")
+    if node_menu_columns[3].button(
         "Add", 
         key=f"add_node_btn", 
         disabled=node_object_id in st.session_state["flow_modules"][node_object_type]["active"]):
@@ -91,20 +94,28 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
         new_node = StreamlitFlowNode(
             id=target_node_flow_id, 
             pos=(0, 0), 
-            data={"Type": node_object_type, "UUID": node_object_id}, 
+            data={"content": f"{node_object_type}: {node_object_id}"}, 
             node_type=node_type, 
             source_position="right",
-            target_position="left")
+            target_position="left",
+            selectable=True,
+            connectable=True,
+            draggable=True,
+            resizing=True,
+            deletable=True)
         st.session_state["flow"].nodes.append(new_node)
+        st.session_state["flow_modules"][node_object_type]["active"].append(node_object_id)
         st.rerun()
 
-    if node_menu_columns[1].button(
+    node_menu_columns[4].write("#####")
+    if node_menu_columns[4].button(
         "Remove", 
         key=f"remove_node_btn", 
         disabled=node_object_id not in st.session_state["flow_modules"][node_object_type]["active"]):
 
         st.session_state["flow"].nodes = [node for node in st.session_state["flow"].nodes if node.id != target_node_flow_id]
         st.session_state["flow"].edges = [edge for edge in st.session_state["flow"].edges if edge.source != target_node_flow_id and edge.target != target_node_flow_id]
+        st.session_state["flow_modules"][node_object_type]["active"].remove(node_object_id)
         st.rerun()
 
     st.session_state["flow"] = streamlit_flow(
