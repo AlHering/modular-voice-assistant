@@ -43,15 +43,6 @@ class PipelinePackage(BaseModel):
     metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
 
 
-class PipelineModuleConfig(BaseModel):
-    """
-    Pipeline module config class.
-    """
-    loop_pause: float = 0.1
-    input_timeout: float | None = None
-    name: str | None = None
-
-
 class PipelineModule(ABC):
     """
     Pipeline module.
@@ -95,13 +86,23 @@ class PipelineModule(ABC):
         self.sent = {}
 
     @classmethod
-    def from_configuration(cls, config: PipelineModuleConfig) -> Any:
+    def from_configuration(cls, config: dict) -> Any:
         """
         Returns a language model instance from configuration.
-        :param config: Module configuration class.
+        :param config: Module configuration.
         :return: Module instance.
         """
-        return cls(**config.model_dump()) 
+        return cls(**config) 
+    
+    @classmethod
+    def validate_configuration(cls, config: dict) -> Tuple[bool | None, str]:
+        """
+        Validates an configuration.
+        :param config: Module configuration.
+        :return: True or False and validation report depending on validation success. 
+            None and validation report in case of no implemented validation method. 
+        """
+        return None, "Validation method is not implemented."
 
     def add_uuid(self, store: dict, uuid: str) -> None:
         """
@@ -188,13 +189,6 @@ class PipelineModule(ABC):
                     self.add_uuid(self.sent, elem.uuid)
                     return True
         return False
-    
-    def validate(self) -> Tuple[bool, dict]:
-        """
-        Module validation method.
-        :returns: Status success and validation data.
-        """
-        return True, {"warning": "Empty validation method"}
 
     @abstractmethod
     def process(self) -> PipelinePackage | Generator[PipelinePackage, None, None] | None:
