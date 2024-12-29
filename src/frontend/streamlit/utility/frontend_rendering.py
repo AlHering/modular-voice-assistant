@@ -34,14 +34,21 @@ def render_sidebar() -> None:
     mode = st.sidebar.selectbox(
         label="Setup Mode",
         options=["DIRECT", "API"])
-    if st.sidebar.button("Setup", help="Sets up assistant infrastructure."):
+    if st.sidebar.button(" Setup " + "(Status: " + ("Active)" if st.session_state.get("SETUP") else "Inactive)"), help="Sets up assistant infrastructure."):
         with st.spinner("Waiting for backend to finish startup..."):
             wait_for_setup(mode.lower())
     if mode == "API":
         st.sidebar.warning("Backend server must be running!")
 
-    for key, value in st.session_state.items():
-        st.sidebar.write(f"{key}: {value}")
+
+    st.sidebar.write("#")
+    st.sidebar.write("#")
+    show_cache = st.sidebar.selectbox(
+        label="Show Cache (Debug Mode)",
+        options=["HIDE", "SHOW"])
+    if show_cache == "SHOW":
+        for key, value in st.session_state.items():
+            st.sidebar.write(f"{key}: {value}")
 
 
 def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_state_key: str | None = None) -> None:
