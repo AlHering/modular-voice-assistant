@@ -10,6 +10,7 @@ from enum import Enum
 from datetime import datetime as dt
 from sqlalchemy import Column, String, Boolean, Integer, JSON, Text, DateTime, VARCHAR, CHAR, ForeignKey, Table, Float, BLOB, Uuid
 from sqlalchemy import func, select
+from sqlalchemy import inspect as inspect
 from sqlalchemy.orm import relationship
 from sqlalchemy import and_, or_, not_, select
 from sqlalchemy import create_engine
