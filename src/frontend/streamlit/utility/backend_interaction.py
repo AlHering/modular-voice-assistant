@@ -21,6 +21,7 @@ from src.configuration import configuration as cfg
 #   direct: Controller in session cache
 #
 MODE: str = "direct"
+MODULE_TITLES =  {key: " ".join(key.split("_")).title() for key in AVAILABLE_MODULES}
 
 
 def setup() -> bool:
