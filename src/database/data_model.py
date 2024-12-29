@@ -43,11 +43,11 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
         
     class ModuleConfig(base):
         """
-        Config class, representing a VA module config.
+        Config class, representing a pipeline module config.
         """
         __tablename__ = f"{schema}module_config"
         __table_args__ = {
-            "comment": "VA module config table.", "extend_existing": True}
+            "comment": "Pipeline module config table.", "extend_existing": True}
 
         id = Column(UUID(as_uuid=True), primary_key=True, unique=True, nullable=False, default=uuid4,
                     comment="ID of an instance.")
@@ -65,8 +65,38 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
         inactive = Column(Boolean, nullable=False, default=False,
                           comment="Inactivity flag.")
         
+    class Model(base):
+        """
+        Model class, representing a machine learning model.
+        """
+        __tablename__ = f"{schema}model"
+        __table_args__ = {
+            "comment": "Pipeline module config table.", "extend_existing": True}
 
-    for dataclass in [Log, ModuleConfig]:
+        id = Column(Integer, autoincrement=True, primary_key=True, unique=True, nullable=False, 
+                    comment="ID of a model.")
+        module_type = Column(String,
+                         comment="Target module type.")
+        backend = Column(str,
+                      comment="Model backend.")
+        name = Column(str,
+                      comment="Model name.")
+        info = Column(str,
+                      comment="Info link.")
+        size = Column(str,
+                      comment="Model size.")
+        path = Column(str,
+                      comment="Model path.")
+
+        created = Column(DateTime, server_default=func.now(),
+                         comment="Timestamp of creation.")
+        updated = Column(DateTime, server_default=func.now(), server_onupdate=func.now(),
+                         comment="Timestamp of last update.")
+        inactive = Column(Boolean, nullable=False, default=False,
+                          comment="Inactivity flag.")
+        
+
+    for dataclass in [Log, ModuleConfig, Model]:
         model[dataclass.__tablename__.replace(schema, "")] = dataclass
 
     base.metadata.create_all(bind=engine)
