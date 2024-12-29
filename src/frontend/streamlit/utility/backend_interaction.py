@@ -29,8 +29,6 @@ def setup() -> bool:
     Sets up and assistant.
     :return: True, if successful, else False.
     """
-    if "ASSISTANT" in st.session_state:
-        st.session_state.pop("ASSISTANT")
     st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
     if MODE == "direct":
         st.session_state["CLIENT"] = VoiceAssistantInterface()

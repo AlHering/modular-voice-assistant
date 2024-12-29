@@ -7,9 +7,9 @@
 """
 import os
 from enum import Enum
-from typing import List, Generator, Any
+from typing import List, Generator
 import json
-import httpx
+import requests
 from src.configuration import configuration as cfg
 
 
@@ -18,6 +18,7 @@ class Endpoints(str, Enum):
     """
     Endpoints config.
     """
+    check_connection = API_BASE + "/check"
     add_configs = API_BASE + "/configs/add"
     patch_configs = API_BASE + "/configs/patch"
     get_configs = API_BASE + "/configs/get"
@@ -35,26 +36,23 @@ class Endpoints(str, Enum):
     chat = API_BASE + "/services/chat"
     chat_stream = API_BASE + "/services/chat-stream"
 
+    def __str__(self) -> str:
+        """
+        Returns string representation.
+        """
+        return str(self.value)
+
 
 class VoiceAssistantClient(object):
     """
     Voice assistant client.
     """
-    def __init__(self, working_directory: str = None, **client_parameters: Any | None) -> None:
+    def __init__(self, working_directory: str = None) -> None:
         """
         Initiation method.
         :param working_directory: Working directory.
-        :param client_parameters: HTTPX client parameters.
         """
-        client_parameters = {} if client_parameters is None else client_parameters
         self.working_directory = os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant_client") if working_directory is None else working_directory
-        self.client = httpx.Client(**client_parameters)
-
-    def __del__(self) -> None:
-        """
-        Deconstructs instance.
-        """
-        self.client.close()
 
     def check_connection(self) -> bool:
         """
@@ -62,11 +60,9 @@ class VoiceAssistantClient(object):
         :return: True, if available, else False.
         """
         try:
-            resp = self.client.get(Endpoints.get_configs, json={
-                "module_type": "transcriber"
-            }).json()
+            resp = requests.get(Endpoints.check_connection).json()
             return True
-        except:
+        except Exception as ex:
             return False
 
     """
@@ -82,13 +78,10 @@ class VoiceAssistantClient(object):
         :param config: Config.
         :return: Response.
         """
-        try:
-            return self.client.post(Endpoints.add_configs, json={
-                "module_type": module_type,
-                "config": config
-            }).json()
-        except:
-            pass
+        return requests.post(Endpoints.add_configs, json={
+            "module_type": module_type,
+            "config": config
+        }).json().get("result")
 
     def overwrite_config(self,
                    module_type: str,
@@ -99,13 +92,10 @@ class VoiceAssistantClient(object):
         :param config: Config.
         :return: Response.
         """
-        try:
-            return self.client.post(Endpoints.patch_configs, json={
-                "module_type": module_type,
-                "config": config
-            }).json()
-        except:
-            pass
+        return requests.post(Endpoints.patch_configs, json={
+            "module_type": module_type,
+            "config": config
+        }).json().get("result")
     
     def get_configs(self,
                     module_type: str = None) -> List[dict] | None:
@@ -115,12 +105,8 @@ class VoiceAssistantClient(object):
             Defaults to None in which case all configs are returned.
         :return: Response.
         """
-        try:
-            return self.client.get(Endpoints.get_configs, json={
-                "module_type": module_type
-            }).json()
-        except:
-            pass
+        return requests.post(
+            Endpoints.get_configs, json={"module_type": module_type}).json().get("result")
 
     """
     Module handling
@@ -136,7 +122,7 @@ class VoiceAssistantClient(object):
         :return: Response.
         """
         try:
-            return self.client.post(Endpoints.load_modules, json={
+            return requests.post(Endpoints.load_modules, json={
                 "module_type": module_type,
                 "config_uuid": config_uuid
             }).json()
@@ -153,7 +139,7 @@ class VoiceAssistantClient(object):
         :return: Response.
         """
         try:
-            return self.client.post(Endpoints.unload_modules, json={
+            return requests.post(Endpoints.unload_modules, json={
                 "module_type": module_type,
                 "config_uuid": config_uuid
             }).json()
@@ -185,7 +171,7 @@ class VoiceAssistantClient(object):
         :param report: Flag for running report thread.
         """
         try:
-            return self.client.post(Endpoints.setup_assistant, json={
+            return requests.post(Endpoints.setup_assistant, json={
                 "speech_recorder_uuid": speech_recorder_uuid,
                 "transcriber_uuid": transcriber_uuid,
                 "worker_uuid": worker_uuid,
@@ -215,7 +201,7 @@ class VoiceAssistantClient(object):
         :return: Transcript and metadata if successful, else error report.
         """
         try:
-            return self.client.post(Endpoints.transcribe, json={
+            return requests.post(Endpoints.transcribe, json={
                 "audio_input": audio_input,
                 "dtype": dtype,
                 "transcription_parameters": transcription_parameters,
@@ -232,7 +218,7 @@ class VoiceAssistantClient(object):
         :return: Audio data, dtype and metadata if successful, else error report.
         """
         try:
-            return self.client.post(Endpoints.synthesize, json={
+            return requests.post(Endpoints.synthesize, json={
                 "text": text,
                 "synthesis_parameters": synthesis_parameters,
             }).json()
@@ -251,7 +237,7 @@ class VoiceAssistantClient(object):
         :return: Generated response and metadata if successful, else error report.
         """
         try:
-            return self.client.post(Endpoints.chat, json={
+            return requests.post(Endpoints.chat, json={
                 "prompt": prompt,
                 "chat_parameters": chat_parameters,
                 "local": local,
@@ -271,7 +257,7 @@ class VoiceAssistantClient(object):
         :return: Generated response and metadata if successful, else error report.
         """
         try:
-            with self.client.stream("POST", Endpoints.chat_stream, json={
+            with requests.stream("POST", Endpoints.chat_stream, json={
                 "prompt": prompt,
                 "chat_parameters": chat_parameters,
                 "local": local

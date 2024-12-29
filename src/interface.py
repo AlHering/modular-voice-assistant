@@ -58,9 +58,7 @@ def interaction_log(func: Any) -> Any | None:
                 "args": str(args),
                 "kwargs": str(kwargs)
             },
-            "response": {
-                key: str(response[key]) for key in response
-            },
+            "response": str(response),
             "requested": requested,
             "responded": responded
         }
@@ -69,8 +67,7 @@ def interaction_log(func: Any) -> Any | None:
             **log_data
         )
         logging_message = f"Interaction with {args[0]}: {log_data}"
-        logging.info(logging_message) if log_data["response"].get("status", "success") == "error" else logging.warning(
-            logging_message)
+        logging.info(logging_message)
         return response
     return inner
 
@@ -103,12 +100,12 @@ class VoiceAssistantInterface(object):
         Sets up API router.
         """
         self.router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
-        self.router.add_api_route(path="/", endpoint=self.check_connection, methods=["GET"])
+        self.router.add_api_route(path="/check", endpoint=self.check_connection, methods=["GET"])
 
         # Config and module handling
         self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
         self.router.add_api_route(path="/configs/patch", endpoint=self.overwrite_config, methods=["POST"])
-        self.router.add_api_route(path="/configs/get", endpoint=self.get_configs, methods=["GET"])
+        self.router.add_api_route(path="/configs/get", endpoint=self.get_configs, methods=["POST"])
         self.router.add_api_route(path="/modules/load", endpoint=self.load_module, methods=["POST"])
         self.router.add_api_route(path="/modules/unload", endpoint=self.unload_module, methods=["POST"])
 
@@ -127,68 +124,79 @@ class VoiceAssistantInterface(object):
         self.router.add_api_route(path="/services/chat", endpoint=self.chat, methods=["POST"])
         self.router.add_api_route(path="/services/chat-stream", endpoint=self.chat_stream, methods=["POST"])
 
+        return self.router
+
     def check_connection(self) -> dict:
         """
         Checks connection.
         :return: Connection response.
         """
-        return {"success": f"Backend is available!"}
+        return {"status": "success", "message": f"Backend is available!"}
 
     """
     Config handling
     """
     @interaction_log
     def add_config(self,
-                   module_type: str,
-                   config: dict) -> dict:
+                   payload: dict) -> dict:
         """
         Adds a config to the database.
         :param module_type: Target module type.
         :param config: Config.
         :return: Response.
         """
-        return self.database.obj_as_dict(self.database.put_object(object_type="module_config", module_type=module_type, **config))
+        module_type = payload["module_type"]
+        config = payload["config"]
+        if "id" in config:
+            config["id"] = UUID(config["id"])
+        result = self.database.obj_as_dict(self.database.put_object(object_type="module_config", module_type=module_type, **config))
+        return {"status": "success", "result": result}
     
     @interaction_log
     def overwrite_config(self,
-                   module_type: str,
-                   config: dict) -> dict:
+                   payload: dict) -> dict:
         """
         Overwrites a config in the database.
         :param module_type: Target module type.
         :param config: Config.
         :return: Response.
         """
-        return self.database.obj_as_dict(self.database.patch_object(object_type="module_config", object_id=config.pop("id"), module_type=module_type, **config))
+        module_type = payload["module_type"]
+        config = payload["config"]
+        result = self.database.obj_as_dict(self.database.patch_object(object_type="module_config", object_id=UUID(config.pop("id")), module_type=module_type, **config))
+        return {"status": "success", "result": result}
     
     @interaction_log
     def get_configs(self,
-                    module_type: str = None) -> List[dict]:
+                    payload: dict = None) -> dict:
         """
         Adds a config to the database.
         :param module_type: Target module type.
             Defaults to None in which case all configs are returned.
         :return: Response.
         """
+        module_type = payload.get("module_type") if payload is not None else None
         if module_type is None:
-            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_type(object_type="module_config")]
+            result = [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_type(object_type="module_config")]
         else:
-            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="module_config", filtermasks=[FilterMask([["module_type", "==", module_type]])])]
-        
+            result = [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="module_config", filtermasks=[FilterMask([["module_type", "==", module_type]])])]
+        return {"status": "success", "result": result}
+
     """
     Module handling
     """
 
     @interaction_log
     def load_module(self,
-                    module_type: str,
-                    config_uuid: str) -> dict:
+                    payload: dict) -> dict:
         """
         Loads a module from the given config UUID.
         :param module_type: Target module type.
         :param config_uuid: Config UUID.
         :return: Response.
         """
+        module_type = payload["module_type"]
+        config_uuid = payload["config_uuid"]
         config_uuid = UUID(config_uuid)
         if self.module_uuids[module_type] != config_uuid:
             self.unload_module(module_type=module_type, config_uuid=self.module_uuids[module_type])
@@ -204,14 +212,15 @@ class VoiceAssistantInterface(object):
             
     @interaction_log
     def unload_module(self,
-                      module_type: str,
-                      config_uuid: str) -> dict:
+                      payload: dict) -> dict:
         """
         Unloads a module from the given config UUID.
         :param module_type: Target module type.
         :param config_uuid: Config UUID.
         :return: Response.
         """
+        module_type = payload["module_type"]
+        config_uuid = payload["config_uuid"]
         config_uuid = UUID(config_uuid)
         if self.module_uuids[module_type] != config_uuid:
             return {"error": f"Active {self.module_titles[module_type]} has UUID '{self.module_uuids[module_type]}', not '{config_uuid}'"}
@@ -230,14 +239,7 @@ class VoiceAssistantInterface(object):
 
     @interaction_log
     def setup_assistant(self,
-                        speech_recorder_uuid: str,
-                        transcriber_uuid: str,
-                        worker_uuid: str,
-                        synthesizer_uuid: str,
-                        wave_output_uuid: str,
-                        stream: bool = True,
-                        forward_logging: bool = False,
-                        report: bool = False) -> dict:
+                        payload: dict) -> dict:
         """
         Sets up a voice assistant from currently configured modules.
         :param speech_recorder_uuid: Speech Recorder config UUID.
@@ -249,6 +251,15 @@ class VoiceAssistantInterface(object):
         :param forward_logging: Flag for forwarding logger to modules.
         :param report: Flag for running report thread.
         """
+        speech_recorder_uuid = payload["speech_recorder_uuid"]
+        transcriber_uuid = payload["transcriber_uuid"]
+        worker_uuid = payload["worker_uuid"]
+        synthesizer_uuid = payload["synthesizer_uuid"]
+        wave_output_uuid = payload["wave_output_uuid"]
+        stream = payload.get("stream", True)
+        forward_logging = payload.get("forward_logging", False)
+        report = payload.get("report", False)
+
         res = self.load_module(module_type="speech_recorder", config_uuid=UUID(speech_recorder_uuid))
         if "error" in res:
             return res
@@ -281,7 +292,7 @@ class VoiceAssistantInterface(object):
             forward_logging=forward_logging,
             report=report
         )
-        self.assistant.re()
+        return {"status": "success", "message": "Assistant started."}
 
     def reset_assistant(self) -> dict:
         """
@@ -305,33 +316,36 @@ class VoiceAssistantInterface(object):
             return {"success": "Assistant stopped."}
         return {"error": "No assistant running."}
 
-    def run_conversation(self, blocking: bool = True) -> dict:
+    def run_conversation(self, payload: dict) -> dict:
         """
         Runs conversation via assistant.
         :param blocking: Flag which declares whether or not to wait for each conversation step.
             Defaults to True.
         """
+        blocking = payload.get("blocking", True)
         if self.assistant is not None:
             self.assistant.run_conversation(blocking=blocking)
             return {"success": "Assistant conversation started."}
         return {"error": "No assistant running."}
 
-    def run_interaction(self, blocking: bool = True) -> dict:
+    def run_interaction(self, payload: dict) -> dict:
         """
         Runs an interaction with the assistant
         :param blocking: Flag which declares whether or not to wait for each conversation step.
             Defaults to True.
         """
+        blocking = payload.get("blocking", True)
         if self.assistant is not None:
             self.assistant.run_interaction(blocking=blocking)
             return {"success": "Assistant interaction started."}
         return {"error": "No assistant running."}
 
-    def inject_prompt(self, prompt: str) -> None:
+    def inject_prompt(self, payload: dict) -> None:
         """
         Injects a prompt into a running conversation.
         :param prompt: Prompt to inject.
         """
+        prompt = payload["prompt"]
         if self.assistant is not None:
             self.assistant.inject_prompt(prompt=prompt)
             return {"success": "Injection sent."}
@@ -410,27 +424,32 @@ class VoiceAssistantInterface(object):
             return {"error": f"No active {self.module_titles[target_worker]} set."}
         
     def _wrapped_streamed_chat(self,
-                               target_worker: str,
                                prompt: str, 
-                               chat_parameters: dict | None = None,) -> Generator[dict, None, None]:
+                               chat_parameters: dict | None = None,
+                               local: bool = True) -> Generator[dict, None, None]:
         """
         Wraps a streamed chat response.
-        :param target_worker: Target worker module name.
         :param prompt: User input.
         :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
             Defaults to None in which case an empty dictionary is created.
+        :param local: Flag for declaring whether to use local or remote language models.
         :return: Generated response and metadata if successful, else error report.
         """
-        for response in self.modules[target_worker].chat_model.chat_stream(
-                prompt=prompt, 
-                chat_parameters=chat_parameters):
-            yield {"response": response[0], "metadata": response[1]}
+        target_worker = "local_chat" if local else "remote_chat"
+        target_worker_class = LocalChatModule if local else RemoteChatModule
+        if isinstance(target_worker, target_worker_class):
+            for response in self.modules[target_worker].chat_model.chat_stream(
+                    prompt=prompt, 
+                    chat_parameters=chat_parameters):
+                yield {"response": response[0], "metadata": response[1]}
+        else:
+            return {"error": f"No active {self.module_titles[target_worker]} set."}
         
     @interaction_log
     def chat_stream(self, 
-             prompt: str, 
-             chat_parameters: dict | None = None,
-             local: bool = True) -> StreamingResponse | dict:
+                    prompt: str, 
+                    chat_parameters: dict | None = None,
+                    local: bool = True) -> StreamingResponse:
         """
         Generates a streamed chat response.
         :param prompt: User input.
@@ -438,19 +457,14 @@ class VoiceAssistantInterface(object):
             Defaults to None in which case an empty dictionary is created.
         :return: Generated response and metadata if successful, else error report.
         """
-        target_worker = "local_chat" if local else "remote_chat"
-        target_worker_class = LocalChatModule if local else RemoteChatModule
-        if isinstance(target_worker, target_worker_class):
-            return StreamingResponse(self._wrapped_streamed_chat(
-                target_worker=target_worker,
+        return StreamingResponse(
+            self._wrapped_streamed_chat(
                 prompt=prompt,
-                chat_parameters=chat_parameters
-            ),
+                chat_parameters=chat_parameters,
+                local=local),
             media_type="application/x-ndjson")
-        else:
-            return {"error": f"No active {self.module_titles[target_worker]} set."}
         
-
+        
 """
 Backend server
 """
