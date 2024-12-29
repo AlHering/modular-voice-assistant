@@ -131,7 +131,7 @@ class VoiceAssistantInterface(object):
     """
     Config handling
     """
-    @interface_function
+    @interaction_log
     def add_config(self,
                    module_type: str,
                    config: dict) -> dict:
@@ -143,6 +143,7 @@ class VoiceAssistantInterface(object):
         """
         return self.database.obj_as_dict(self.database.put_object(object_type="module_config", module_type=module_type, **config))
     
+    @interaction_log
     def overwrite_config(self,
                    module_type: str,
                    config: dict) -> dict:
@@ -154,6 +155,7 @@ class VoiceAssistantInterface(object):
         """
         return self.database.obj_as_dict(self.database.patch_object(object_type="module_config", object_id=config.pop("id"), module_type=module_type, **config))
     
+    @interaction_log
     def get_configs(self,
                     module_type: str = None) -> List[dict]:
         """
@@ -171,6 +173,7 @@ class VoiceAssistantInterface(object):
     Module handling
     """
 
+    @interaction_log
     def load_module(self,
                     module_type: str,
                     config_uuid: str) -> dict:
@@ -193,6 +196,7 @@ class VoiceAssistantInterface(object):
         else:
             return {"success": f"Active {self.module_titles[module_type]} is already set to UUID '{config_uuid}'"}
             
+    @interaction_log
     def unload_module(self,
                       module_type: str,
                       config_uuid: str) -> dict:
@@ -218,6 +222,7 @@ class VoiceAssistantInterface(object):
     Assistant handling
     """
 
+    @interaction_log
     def setup_assistant(self,
                         speech_recorder_uuid: str,
                         transcriber_uuid: str,
@@ -280,6 +285,7 @@ class VoiceAssistantInterface(object):
     Direct module access
     """
 
+    @interaction_log
     def transcribe(self, 
                    audio_input: List[int | float] | str, 
                    dtype: str | None = None, 
@@ -316,6 +322,7 @@ class VoiceAssistantInterface(object):
         else:
             return {"error": f"No active Synthesizer set."}
         
+    @interaction_log
     def chat(self, 
              prompt: str, 
              chat_parameters: dict | None = None,
@@ -354,6 +361,7 @@ class VoiceAssistantInterface(object):
                 chat_parameters=chat_parameters):
             yield {"response": response[0], "metadata": response[1]}
         
+    @interaction_log
     def chat_stream(self, 
              prompt: str, 
              chat_parameters: dict | None = None,
