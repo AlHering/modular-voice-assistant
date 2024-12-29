@@ -100,7 +100,7 @@ class PipelineModule(ABC):
         Validates an configuration.
         :param config: Module configuration.
         :return: True or False and validation report depending on validation success. 
-            None and validation report in case of no implemented validation method. 
+            None and validation report in case of warnings. 
         """
         return None, "Validation method is not implemented."
 

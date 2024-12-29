@@ -5,7 +5,8 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from typing import Any, Generator
+import os
+from typing import Any, Generator, Tuple
 from src.utility.sound_model_abstractions import Transcriber, SpeechRecorder
 from src.modules.abstractions import PipelineModule, PipelinePackage, BasicHandlerModule
 
@@ -45,6 +46,16 @@ class SpeechRecorderModule(PipelineModule):
             microphone_parameters=microphone_parameters,
             loop_pause=recorder_loop_pause
         )
+
+    @classmethod
+    def validate_configuration(cls, config: dict) -> Tuple[bool | None, str]:
+        """
+        Validates an configuration.
+        :param config: Module configuration.
+        :return: True or False and validation report depending on validation success. 
+            None and validation report in case of warnings. 
+        """
+        return True, "Validation succeeded."
 
     def process(self) -> PipelinePackage | Generator[PipelinePackage, None, None] | None:
         """
@@ -94,3 +105,18 @@ class TranscriberModule(BasicHandlerModule):
             transcription_parameters=transcription_parameters
         )
         super().__init__(handler_method=self.transcriber.transcribe, *args, **kwargs)
+
+    @classmethod
+    def validate_configuration(cls, config: dict) -> Tuple[bool | None, str]:
+        """
+        Validates an configuration.
+        :param config: Module configuration.
+        :return: True or False and validation report depending on validation success. 
+            None and validation report in case of warnings. 
+        """
+        if not config["backend"] in Transcriber.supported_backends:
+            return False, f"Transcriber backend '{config['backend']}' is not supported."
+        model_path = Transcriber.default_models[config["backend"]][0] if config.get(model_path) is None else config.get(model_path)
+        if not os.path.exists(model_path):
+            return None, f"Model path '{model_path}' is not in local filesystem.\nModel access must be handled by chosen backend."
+        return True, "Validation succeeded."

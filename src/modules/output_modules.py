@@ -5,7 +5,8 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from typing import Any, Generator
+import os
+from typing import Any, Generator, Tuple
 from queue import Empty
 from src.utility.commandline_utility import silence_stderr
 from src.utility.pyaudio_utility import play_wave
@@ -48,7 +49,22 @@ class SynthesizerModule(BasicHandlerModule):
             model_parameters=model_parameters,
             synthesis_parameters=synthesis_parameters
         )
-        super().__init__(handler_method=self.synthesizer.synthesize, *args, **kwargs)
+        super().__init__(handler_method=self.synthesizer.synthesize, *args, **kwargs)@classmethod
+
+    @classmethod    
+    def validate_configuration(cls, config: dict) -> Tuple[bool | None, str]:
+        """
+        Validates an configuration.
+        :param config: Module configuration.
+        :return: True or False and validation report depending on validation success. 
+            None and validation report in case of warnings. 
+        """
+        if not config["backend"] in Synthesizer.supported_backends:
+            return False, f"Synthesizer backend '{config['backend']}' is not supported."
+        model_path = Synthesizer.default_models[config["backend"]][0] if config.get(model_path) is None else config.get(model_path)
+        if not os.path.exists(model_path):
+            return None, f"Model path '{model_path}' is not in local filesystem.\nModel access must be handled by chosen backend."
+        return True, "Validation succeeded."
 
 
 class WaveOutputModule(PipelineModule):

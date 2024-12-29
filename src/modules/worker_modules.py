@@ -5,7 +5,9 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from typing import Any, List, Callable, Dict
+import os
+import requests
+from typing import Any, List, Tuple, Dict
 from src.utility.language_model_abstractions import LanguageModelInstance, LlamaCPPModelInstance, ChatModelInstance, RemoteChatModelInstance
 from src.modules.abstractions import BasicHandlerModule
 
@@ -84,6 +86,25 @@ class LocalChatModule(BasicHandlerModule):
         )
         super().__init__(handler_method=self.chat_model.chat_stream if stream else self.chat_model.chat, *args, **kwargs)
 
+    @classmethod    
+    def validate_configuration(cls, config: dict) -> Tuple[bool | None, str]:
+        """
+        Validates an configuration.
+        :param config: Module configuration.
+        :return: True or False and validation report depending on validation success. 
+            None and validation report in case of warnings. 
+        """
+        model_path = config["model_path"]
+        if not os.path.exists(model_path):
+            return None, f"Model path '{model_path}' is not in local filesystem.\nModel access must be handled by chosen backend."
+        else:
+            model_file = config.get("model_file")
+            if model_file:
+                full_model_path = os.path.join(model_path, model_file)
+                if not os.path.exists(full_model_path):
+                    return None, f"Model file '{full_model_path}' is not in local filesystem.\nModel file access must be handled by chosen backend."
+        return True, "Validation succeeded."
+
 
 class RemoteChatModule(BasicHandlerModule):
     """
@@ -126,3 +147,26 @@ class RemoteChatModule(BasicHandlerModule):
             history=history
         )
         super().__init__(handler_method=self.chat_model.chat_stream if stream else self.chat_model.chat, *args, **kwargs)
+
+    @classmethod    
+    def validate_configuration(cls, config: dict) -> Tuple[bool | None, str]:
+        """
+        Validates an configuration.
+        :param config: Module configuration.
+        :return: True or False and validation report depending on validation success. 
+            None and validation report in case of warnings. 
+        """
+        models_endpoint = f"{config['api_base']}/models"
+        token = config.get("api_token")
+        headers = {} if token is None else {
+            "Authorization": f"Bearer {token}",
+        }
+        try:
+            response = requests.get(models_endpoint, headers=headers)
+            if response.status_code == 200:
+                return True, "Validation succeeded."
+            else:
+                return None, f"Models endpoint {models_endpoint} resulted in response status code {response.status_code}."
+        except requests.ConnectionError:
+            return False, f"Connection to models endpoint {models_endpoint} did not succeed."
+        
