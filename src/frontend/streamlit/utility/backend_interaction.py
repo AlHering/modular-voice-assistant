@@ -12,8 +12,7 @@ import streamlit as st
 from uuid import UUID
 from src.voice_assistant import BasicVoiceAssistant, setup_default_voice_assistant
 from src.voice_assistant import AVAILABLE_MODULES as AVAILABLE_MODULES
-from src.interface_client import RemoteVoiceAssistantClient
-from src.interface import VoiceAssistantInterface
+from src.interface_client import RemoteVoiceAssistantClient, LocalVoiceAssistantClient
 from src.configuration import configuration as cfg
 
 
@@ -31,7 +30,7 @@ def setup() -> bool:
     """
     st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
     if MODE == "direct":
-        st.session_state["CLIENT"] = VoiceAssistantInterface()
+        st.session_state["CLIENT"] = LocalVoiceAssistantClient()
     elif MODE == "api":
         st.session_state["CLIENT"] = RemoteVoiceAssistantClient()
         if not st.session_state["CLIENT"].check_connection():

@@ -9,6 +9,7 @@ from enum import Enum
 from typing import List, Generator
 import json
 import requests
+import asyncio
 from src.interface import VoiceAssistantInterface
 from src.configuration import configuration as cfg
 
@@ -285,7 +286,7 @@ class LocalVoiceAssistantClient(object):
         :return: True, if available, else False.
         """
         try:
-            resp = self.interface.check_connection()
+            resp = asyncio.run(self.interface.check_connection())
             return True
         except Exception as ex:
             return False
@@ -303,10 +304,11 @@ class LocalVoiceAssistantClient(object):
         :param config: Config.
         :return: Response.
         """
-        return self.interface.add_config(payload={
+        response = asyncio.run(self.interface.overwrite_config(payload={
             "module_type": module_type,
             "config": config
-        }).get("result")
+        }))
+        return response.get("result")
 
     def overwrite_config(self,
                    module_type: str,
@@ -317,10 +319,11 @@ class LocalVoiceAssistantClient(object):
         :param config: Config.
         :return: Response.
         """
-        return self.interface.overwrite_config(payload={
+        response = asyncio.run(self.interface.overwrite_config(payload={
             "module_type": module_type,
             "config": config
-        }).get("result")
+        })) 
+        return response.get("result")
     
     def get_configs(self,
                     module_type: str = None) -> List[dict] | None:
@@ -330,7 +333,9 @@ class LocalVoiceAssistantClient(object):
             Defaults to None in which case all configs are returned.
         :return: Response.
         """
-        return self.interface.get_configs(payload={"module_type": module_type}).get("result")
+        response = asyncio.run(self.interface.get_configs(payload={"module_type": module_type}))
+        print(response)
+        return response.get("result")
 
     """
     Module handling
@@ -345,10 +350,11 @@ class LocalVoiceAssistantClient(object):
         :param config_uuid: Config UUID.
         :return: Response.
         """
-        return self.interface.load_module(payload={
+        response = asyncio.run(self.interface.load_module(payload={
             "module_type": module_type,
             "config_uuid": config_uuid
-        })
+        }))
+        return response
             
     def unload_module(self,
                       module_type: str,
@@ -359,10 +365,11 @@ class LocalVoiceAssistantClient(object):
         :param config_uuid: Config UUID.
         :return: Response.
         """
-        self.interface.unload_module(payload={
+        response = asyncio.run(self.interface.unload_module(payload={
             "module_type": module_type,
             "config_uuid": config_uuid
-        })
+        }))
+        return response
 
     """
     Assistant handling
@@ -388,7 +395,7 @@ class LocalVoiceAssistantClient(object):
         :param forward_logging: Flag for forwarding logger to modules.
         :param report: Flag for running report thread.
         """
-        return self.interface.setup_assistant(payload={
+        response = asyncio.run(self.interface.setup_assistant(payload={
             "speech_recorder_uuid": speech_recorder_uuid,
             "transcriber_uuid": transcriber_uuid,
             "worker_uuid": worker_uuid,
@@ -397,7 +404,8 @@ class LocalVoiceAssistantClient(object):
             "stream": stream,
             "forward_logging": forward_logging,
             "report": report
-        })
+        }))
+        return response
 
     """
     Direct module access
@@ -415,11 +423,12 @@ class LocalVoiceAssistantClient(object):
             Defaults to None.
         :return: Transcript and metadata if successful, else error report.
         """
-        return self.interface.transcribe(**{
+        response = asyncio.run(self.interface.transcribe(**{
             "audio_input": audio_input,
             "dtype": dtype,
             "transcription_parameters": transcription_parameters,
-        })
+        }))
+        return response
 
     def synthesize(self, text: str, synthesis_parameters: dict | None = None) -> dict:
         """
@@ -429,10 +438,11 @@ class LocalVoiceAssistantClient(object):
             Defaults to None.
         :return: Audio data, dtype and metadata if successful, else error report.
         """
-        return self.interface.synthesize(**{
+        response = asyncio.run(self.interface.synthesize(**{
             "text": text,
             "synthesis_parameters": synthesis_parameters,
-        })
+        }))
+        return response
         
     def chat(self, 
              prompt: str, 
@@ -445,11 +455,12 @@ class LocalVoiceAssistantClient(object):
             Defaults to None in which case an empty dictionary is created.
         :return: Generated response and metadata if successful, else error report.
         """
-        return self.interface.chat(**{
+        response = asyncio.run(self.interface.chat(**{
             "prompt": prompt,
             "chat_parameters": chat_parameters,
             "local": local,
-        })
+        }))
+        return response
         
     def chat_stream(self, 
              prompt: str, 
@@ -462,10 +473,10 @@ class LocalVoiceAssistantClient(object):
             Defaults to None in which case an empty dictionary is created.
         :return: Generated response and metadata if successful, else error report.
         """
-        for response in self.interface._wrapped_streamed_chat(**{
+        for response in asyncio.run(self.interface._wrapped_streamed_chat(**{
             "prompt": prompt,
             "chat_parameters": chat_parameters,
             "local": local
-        }):
+        })):
             yield response
         
