@@ -10,7 +10,6 @@ from typing import List, Generator, Any
 import logging
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-import numpy as np
 from uuid import UUID
 import traceback
 from datetime import datetime as dt
@@ -19,7 +18,7 @@ from functools import wraps
 from src.configuration import configuration as cfg
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
-from src.voice_assistant import AVAILABLE_MODULES, BasicVoiceAssistant, TranscriberModule, SynthesizerModule, LocalChatModule, RemoteChatModule
+from src.voice_assistant import AVAILABLE_MODULES, BasicVoiceAssistant, TranscriberModule, SynthesizerModule
 
 
 def interaction_log() -> Any | None:
@@ -102,8 +101,7 @@ class VoiceAssistantInterface(object):
         Sets up API router.
         """
         self.router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
-
-        self.router.add_api_route(path="/", endpoint=self.add_config, methods=["POST"])
+        self.router.add_api_route(path="/", endpoint=self.check_connection, methods=["GET"])
 
         # Config and module handling
         self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
@@ -126,7 +124,12 @@ class VoiceAssistantInterface(object):
         self.router.add_api_route(path="/services/chat", endpoint=self.chat, methods=["POST"])
         self.router.add_api_route(path="/services/chat-stream", endpoint=self.chat_stream, methods=["POST"])
 
-    
+    def check_connection(self) -> dict:
+        """
+        Checks connection.
+        :return: Connection response.
+        """
+        return {"success": f"Backend is available!"}
 
     """
     Config handling
