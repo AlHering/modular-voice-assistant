@@ -49,15 +49,26 @@ class VoiceAssistantInterface(object):
         Sets up API router.
         """
         self.router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
-        self.router.add_api_route(path="/setup", endpoint=self.setup_assistant, methods=["POST"])
+
+        # Config and module handling
+        self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
+        self.router.add_api_route(path="/configs/get", endpoint=self.get_configs, methods=["GET"])
+        self.router.add_api_route(path="/modules/load", endpoint=self.load_module, methods=["POST"])
+        self.router.add_api_route(path="/modules/unload", endpoint=self.unload_module, methods=["POST"])
+
+        # Assistant Interaction
+        self.router.add_api_route(path="/assistant/setup", endpoint=self.setup_assistant, methods=["POST"])
         self.router.add_api_route(path="/assistant/reset", endpoint=self.assistant.setup, methods=["POST"])
         self.router.add_api_route(path="/assistant/stop", endpoint=self.assistant.stop, methods=["POST"])
+        self.router.add_api_route(path="/assistant/inject-prompt", endpoint=self.assistant.inject_prompt, methods=["POST"])
         self.router.add_api_route(path="/assistant/interaction", endpoint=self.assistant.run_interaction, methods=["POST"])
         self.router.add_api_route(path="/assistant/conversation", endpoint=self.assistant.run_conversation, methods=["POST"])
-        self.router.add_api_route(path="/assistant/inject-prompt", endpoint=self.assistant.inject_prompt, methods=["POST"])
 
-        self.router.add_api_route(path="/assistant/transcribe", endpoint=self.transcribe, methods=["POST"])
-        self.router.add_api_route(path="/assistant/synthesize", endpoint=self.synthesize, methods=["POST"])
+        # Underlying Services
+        self.router.add_api_route(path="/services/transcribe", endpoint=self.transcribe, methods=["POST"])
+        self.router.add_api_route(path="/services/synthesize", endpoint=self.synthesize, methods=["POST"])
+        self.router.add_api_route(path="/services/chat", endpoint=self.chat, methods=["POST"])
+        self.router.add_api_route(path="/services/chat-stream", endpoint=self.chat_stream, methods=["POST"])
 
     """
     Config handling
@@ -195,7 +206,6 @@ class VoiceAssistantInterface(object):
         )
         self.assistant.setup()
 
-    
 
     """
     Direct module access
@@ -275,7 +285,6 @@ class VoiceAssistantInterface(object):
                 chat_parameters=chat_parameters):
             yield {"response": response[0], "metadata": response[1]}
         
-        
     def chat_stream(self, 
              prompt: str, 
              chat_parameters: dict | None = None,
@@ -298,3 +307,4 @@ class VoiceAssistantInterface(object):
         else:
             return {"error": f"No active {self.module_titles[target_worker]} set."}
         
+    
