@@ -14,11 +14,12 @@ from uuid import UUID
 import traceback
 from datetime import datetime as dt
 from gc import collect
+import numpy as np
 from functools import wraps
 from src.configuration import configuration as cfg
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
-from src.voice_assistant import AVAILABLE_MODULES, BasicVoiceAssistant, TranscriberModule, SynthesizerModule
+from src.voice_assistant import AVAILABLE_MODULES, BasicVoiceAssistant, TranscriberModule, SynthesizerModule, LocalChatModule, RemoteChatModule
 
 
 def interaction_log() -> Any | None:
