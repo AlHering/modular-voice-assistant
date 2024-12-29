@@ -81,31 +81,31 @@ def get_configs(config_type: str) -> List[dict]:
     return [flatten_config(entry) for entry in st.session_state["CLIENT"].get_configs(module_type=config_type)]
 
 
-def patch_config(config_type: str, config_data: dict, config_uuid: str | None = None) -> dict:
+def patch_config(config_type: str, config_data: dict, config_id: str | UUID | None = None) -> dict:
     """
     Patches config in database.
     :param config_type: Config type.
     :param config_data: Config data.
-    :param config_uuid: Config UUID, if available.
+    :param config_id: Config UUID, if available.
     :return: Config entry.
     """
     patch = {"config": config_data}
-    if config_uuid is not None:
-        patch["id"] = UUID(config_uuid)
-    return flatten_config(st.session_state["CLIENT"].patch_config(module_type=config_type, config=patch))
+    if config_id is not None:
+        patch["id"] = config_id
+    return flatten_config(st.session_state["CLIENT"].overwrite_config(module_type=config_type, config=patch))
 
 
-def put_config(config_type: str, config_data: dict, config_uuid: str | None = None) -> dict:
+def put_config(config_type: str, config_data: dict, config_id: str | None = None) -> dict:
     """
     Puts config into database.
     :param config_type: Config type.
     :param config_data: Config data.
-    :param config_uuid: Config UUID, if available.
+    :param config_id: Config UUID, if available.
     :return: Config entry.
     """
     patch = {"config": config_data}
-    if config_uuid is not None:
-        patch["id"] = UUID(config_uuid)
+    if config_id is not None:
+        patch["id"] = config_id
     return flatten_config(st.session_state["CLIENT"].add_config(module_type=config_type, config=patch))
 
 
@@ -116,5 +116,5 @@ def delete_config(config_type: str, config_id: str) -> dict:
     :param config_id: Config ID.
     :return: Config entry.
     """
-    deletion_patch = {"id": UUID(config_id), "inactive": True}
-    return flatten_config(st.session_state["CLIENT"].add_config(module_type=config_type, config=deletion_patch))
+    deletion_patch = {"id": config_id, "inactive": True}
+    return flatten_config(st.session_state["CLIENT"].overwrite_config(module_type=config_type, config=deletion_patch))
