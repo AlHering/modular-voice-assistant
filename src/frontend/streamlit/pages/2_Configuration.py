@@ -10,7 +10,7 @@ from typing import List, Any
 from inspect import getfullargspec
 import json
 from src.utility.streamlit_utility import render_json_input
-from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES, validate_config, put_config, delete_config, get_configs, patch_config
+from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES, MODULE_TITLES, validate_config, put_config, delete_config, get_configs, patch_config
 from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 
@@ -79,7 +79,7 @@ def retrieve_parameter_specification(func: callable, ignore: List[str] | None = 
     default_offset = len(arg_spec.args) - len(arg_spec.defaults) if arg_spec.defaults else None
 
     for param_index, param in enumerate(arg_spec.args):
-        spec[param] = {}
+        spec[param] = {"title": " ".join(param.split("_")).title()}
         if param in arg_spec.annotations:
             spec[param]["type"] = retrieve_type(arg_spec.annotations[param])
         if default_offset and param_index > default_offset:
@@ -188,7 +188,7 @@ def render_config_inputs(parent_widget: Any,
         if param_spec[param]["type"] == str:
             parent_widget.text_input(
                 key=f"{tab_key}_{param}", 
-                label=" ".join(param.split("_")).title(),
+                label=param_spec[param]["title"],
                 value=get_default_value(
                     key=param,
                     current_config=current_config,
@@ -197,7 +197,7 @@ def render_config_inputs(parent_widget: Any,
         elif param_spec[param]["type"] in [int, float]:
             parent_widget.number_input(
                 key=f"{tab_key}_{param}", 
-                label=" ".join(param.split("_")).title(),
+                label=param_spec[param]["title"],
                 value=get_default_value(
                     key=param,
                     current_config=current_config,
@@ -206,7 +206,7 @@ def render_config_inputs(parent_widget: Any,
         elif param_spec[param]["type"]  == dict:
             render_json_input(parent_widget=parent_widget, 
                     key=f"{tab_key}_{param}", 
-                    label=" ".join(param.split("_")).title(),
+                    label=param_spec[param]["title"],
                     default_data={} if current_config is None or not current_config.get(param, {}) else current_config[param])
         
 
@@ -223,7 +223,7 @@ def render_header_buttons(parent_widget: Any,
     
     header_button_columns = parent_widget.columns([.2, .2, .2, .2, .2])
 
-    object_title = " ".join(object_type.split("_")).title()
+    object_title = MODULE_TITLES[object_type]
     header_button_columns[0].write("#####")
     with header_button_columns[0].popover("Validate",
                                           help="Validates the current configuration"):
@@ -352,7 +352,7 @@ if __name__ == "__main__":
     else:
         tabs = list(AVAILABLE_MODULES.keys())
         tabs.remove("wave_output")
-        for index, tab in enumerate(st.tabs([" ".join(elem.split("_")).title()+"s" for elem in tabs])):
+        for index, tab in enumerate(st.tabs([MODULE_TITLES[elem]+"s" for elem in tabs])):
             with tab:
                 render_config(tabs[index])
             
