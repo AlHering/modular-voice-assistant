@@ -21,7 +21,21 @@ from src.utility.coqui_tts_utility import download_coqui_tts_model
 # Main page functionality
 ###################
 DATAFRAMES = {
-    "transcriber": pd.read_csv(os.path.join(cfg.PATHS.DATA_PATH, "frontend", "transcriber_models.csv"))
+    "transcriber": pd.DataFrame(
+        columns=["Model", "Backend", "Info", "Size (downloaded)", "Path (downloaded)"],
+        data=[
+            ["", "coqui-tts", "", "", ""],
+            ["", "coqui-tts", "", "", ""],
+            ["", "coqui-tts", "", "", ""],
+            ["", "coqui-tts", "", "", ""],
+            ["", "coqui-tts", "", "", ""],
+            ["", "coqui-tts", "", "", ""],
+            ["", "coqui-tts", "", "", ""],
+            ["", "coqui-tts", "", "", ""],
+            ["", "coqui-tts", "", "", ""],
+            ["", "coqui-tts", "", "", ""],
+        ]
+    )
 }
 
 
