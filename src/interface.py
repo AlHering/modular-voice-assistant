@@ -31,10 +31,7 @@ class VoiceAssistantInterface(object):
         self.database = BasicSQLAlchemyInterface(
             working_directory=os.path.join(self.working_directory, "database"),
             population_function=populate_data_infrastructure,
-            default_entries=get_default_entries(),
-            handle_objects_as_dicts=True,
-            convert_timestamps=True,
-            convert_uuids=True
+            default_entries=get_default_entries()
         )
         
         self.modules = {key: None for key in AVAILABLE_MODULES}
@@ -82,7 +79,7 @@ class VoiceAssistantInterface(object):
         :param config: Config.
         :return: Response.
         """
-        return self.database.put_object(object_type="module_config", module_type=module_type, **config)
+        return self.database.obj_as_dict(self.database.put_object(object_type="module_config", module_type=module_type, **config))
     
     def get_configs(self,
                     module_type: str = None) -> List[dict]:
@@ -93,9 +90,9 @@ class VoiceAssistantInterface(object):
         :return: Response.
         """
         if module_type is None:
-            return self.database.get_objects_by_type(object_type="module_config")
+            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_type(object_type="module_config")]
         else:
-            return self.database.get_objects_by_filtermasks(object_type="module_config", filtermasks=[FilterMask([["module_type", "==", module_type]])])
+            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="module_config", filtermasks=[FilterMask([["module_type", "==", module_type]])])]
         
     """
     Module handling
@@ -113,7 +110,7 @@ class VoiceAssistantInterface(object):
         config_uuid = UUID(config_uuid)
         if self.module_uuids[module_type] != config_uuid:
             self.unload_module(module_type=module_type, config_uuid=self.module_uuids[module_type])
-            entry = self.database.get_object_by_id("module_config", object_id=config_uuid)
+            entry = self.database.obj_as_dict(self.database.get_object_by_id("module_config", object_id=config_uuid))
             if entry:
                 self.modules[module_type] = AVAILABLE_MODULES[module_type](**entry["config"])
                 self.module_uuids[module_type] = UUID(entry["id"])
@@ -174,7 +171,7 @@ class VoiceAssistantInterface(object):
         res = self.load_module(module_type="transcriber", config_uuid=UUID(transcriber_uuid))
         if "error" in res:
             return res
-        entry = self.database.get_object_by_id(UUID(worker_uuid))
+        entry = self.database.obj_as_dict(self.database.get_object_by_id(UUID(worker_uuid)))
         if entry is not None:
             res = self.load_module(module_type=entry[entry["module_type"]], config_uuid=UUID(entry["id"]))
             if "error" in res:
