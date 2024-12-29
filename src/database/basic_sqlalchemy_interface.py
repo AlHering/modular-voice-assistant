@@ -25,9 +25,6 @@ class BasicSQLAlchemyInterface(object):
                  population_function: Any = None, 
                  default_entries: Dict[str, List[dict]] = None,
                  schema: str = "", 
-                 handle_objects_as_dicts: bool = False,
-                 convert_timestamps: bool = False,
-                 convert_uuids: bool = False,
                  logger: Any = None) -> None:
         """
         Initiation method.
@@ -36,10 +33,6 @@ class BasicSQLAlchemyInterface(object):
         :param population_function: A function, taking an engine, schema and a dataclass dictionary (later one can be empty and is to be populated).
             Defaults to None.
         :param default_entries: Default entries to populate database with.
-        :param handle_objects_as_dicts: Declares, whether to handle (mostly return) objects as dictionaries by default.
-            Defaults to False.
-        :param convert_timestamps: Declares, whether to convert timestamps into strings if objects are handled as dictionaries.
-        :param convert_uuids: Declares, whether to convert UUIDs into strings if objects are handled as dictionaries.
         :param logger: Logger instance. 
             Defaults to None in which case separate logging is disabled.
         """
@@ -50,9 +43,6 @@ class BasicSQLAlchemyInterface(object):
         self.database_uri = f"sqlite:///{self.working_directory}/database.db" if database_uri is None else database_uri
         self.population_function = population_function
         self.default_entries = default_entries
-        self.handle_objects_as_dicts = handle_objects_as_dicts
-        self.convert_timestamps = convert_timestamps
-        self.convert_uuids = convert_uuids
 
         # Database infrastructure
         self.base = None
@@ -132,21 +122,23 @@ class BasicSQLAlchemyInterface(object):
                                                                        exp[2]) for exp in filtermask.expressions))
         return converted_filtermasks
     
-    def obj_as_dict(self, obj: Any) -> dict:
+    def obj_as_dict(self, obj: Any, convert_timestamps: bool = False, convert_uuids: bool = False) -> dict:
         """
         Method for converting SQLAlchemy ORM object to a dictionary.
         :param obj: Object.
+        :param convert_timestamps: Declares, whether to convert timestamps into strings if objects are handled as dictionaries.
+        :param convert_uuids: Declares, whether to convert UUIDs into strings if objects are handled as dictionaries.
         :return: Object entry as dictionary.
         """
         data = {
             col.key: getattr(obj, col.key) for col in sqlalchemy_utility.inspect(obj).mapper.column_attrs
         }
-        if self.convert_timestamps is not None:
+        if convert_timestamps is not None:
             for key in data:
                 if isinstance(data[key], dt):
                     data[key] = data[key].strftime(
                         time_utility.DEFAULTS_TS_FORMAT)
-        if self.convert_uuids:
+        if convert_uuids:
             for key in data:
                 if isinstance(data[key], UUID):
                     data[key] = str(data[key])
@@ -205,10 +197,7 @@ class BasicSQLAlchemyInterface(object):
         :param object_type: Target object type.
         :return: List of objects of given type.
         """
-        return [
-            self.obj_as_dict(elem) for elem in 
-            self.session_factory().query(self.model[object_type]).all()
-        ] if self.handle_objects_as_dicts else self.session_factory().query(self.model[object_type]).all()
+        return self.session_factory().query(self.model[object_type]).all()
 
     def get_object_by_id(self, object_type: str, object_id: Any) -> Optional[Any]:
         """
@@ -217,11 +206,10 @@ class BasicSQLAlchemyInterface(object):
         :param object_id: Target ID.
         :return: An object of given type and ID, if found.
         """
-        obj = self.session_factory().query(self.model[object_type]).filter(
+        return self.session_factory().query(self.model[object_type]).filter(
             getattr(self.model[object_type],
                     self.primary_keys[object_type]) == object_id
         ).first()
-        return self.obj_as_dict(obj) if self.handle_objects_as_dicts else obj
 
     def get_objects_by_filtermasks(self, object_type: str, filtermasks: List[FilterMask]) -> List[Any]:
         """
@@ -235,7 +223,7 @@ class BasicSQLAlchemyInterface(object):
             result = session.query(self.model[object_type]).filter(sqlalchemy_utility.SQLALCHEMY_FILTER_CONVERTER["or"](
                 *converted_filters)
             ).all()
-        return [self.obj_as_dict(elem) for elem in result] if self.handle_objects_as_dicts else result
+        return result
 
     def post_object(self, object_type: str, **object_attributes: Optional[Any]) -> Optional[Any]:
         """
@@ -249,7 +237,7 @@ class BasicSQLAlchemyInterface(object):
             session.add(obj)
             session.commit()
             session.refresh(obj)
-        return self.obj_as_dict(obj) if self.handle_objects_as_dicts else obj
+        return obj
 
     def patch_object(self, object_type: str, object_id: Any, **object_attributes: Optional[Any]) -> Optional[Any]:
         """
@@ -259,7 +247,6 @@ class BasicSQLAlchemyInterface(object):
         :param object_attributes: Object attributes.
         :return: Patched object, if patching was successful.
         """
-        result = None
         with self.session_factory() as session:
             obj = session.query(self.model[object_type]).filter(
                 getattr(self.model[object_type],
@@ -272,8 +259,7 @@ class BasicSQLAlchemyInterface(object):
                     setattr(obj, attribute, object_attributes[attribute])
                 session.add(obj)
                 session.commit()
-                result = self.obj_as_dict(obj) if self.handle_objects_as_dicts else obj
-        return result
+        return obj
 
     def delete_object(self, object_type: str, object_id: Any, force: bool = False) -> Optional[Any]:
         """
@@ -283,7 +269,6 @@ class BasicSQLAlchemyInterface(object):
         :param force: Force deletion of the object instead of setting inactivity flag.
         :return: Deleted object, if deletion was successful.
         """
-        result = None
         with self.session_factory() as session:
             obj = session.query(self.model[object_type]).filter(
                 getattr(self.model[object_type],
@@ -298,8 +283,7 @@ class BasicSQLAlchemyInterface(object):
                 else:
                     session.delete(obj)
                 session.commit()
-                result = self.obj_as_dict(obj) if self.handle_objects_as_dicts else obj
-        return result
+        return obj
         
     def put_object(self, object_type: str, reference_attributes: List[str] = None,  **object_attributes: Optional[Any]) -> Optional[Any]:
             """
@@ -317,5 +301,5 @@ class BasicSQLAlchemyInterface(object):
             if not objs:
                 return self.post_object(object_type, **object_attributes)
             else:
-                return self.patch_object(object_type, objs[0][self.primary_keys[object_type]] if self.handle_objects_as_dicts else getattr(objs[0], self.primary_keys[object_type]), **object_attributes)
+                return self.patch_object(object_type, getattr(objs[0], self.primary_keys[object_type]), **object_attributes)
     
