@@ -112,7 +112,7 @@ def render_config_inputs(parent_widget: Any,
         current_device_index = 0 
         if current_config is not None:
             for device_name in input_devices:
-                if current_config["input_device_index"] == input_devices[device_name]:
+                if current_config.get("input_device_index") == input_devices[device_name]:
                     current_device_index = input_devices[device_name]
                     break
         device_name = input_device_column.selectbox(
@@ -129,13 +129,13 @@ def render_config_inputs(parent_widget: Any,
         </style>""",
         unsafe_allow_html=True)
         loop_pause_column.number_input(
-            "Loop pause",
+            "Recorder loop pause",
             key=f"{tab_key}_recorder_loop_pause", 
             format="%0.2f",
             step=0.1,
             min_value=0.01,
             max_value=10.1,
-            value=.1 if current_config is None else current_config["recorder_loop_pause"]
+            value=.1 if current_config is None else current_config.get("recorder_loop_pause", .1)
         )
     elif object_type in AVAILABLE_MODULES:
         if backends is not None:
@@ -143,11 +143,11 @@ def render_config_inputs(parent_widget: Any,
                 key=f"{tab_key}_backend", 
                 label="Backend", 
                 options=backends,
-                index=0 if current_config is None else backends.index(current_config["backend"]))
+                index=0 if "backend" not in current_config or current_config["backend"] not in backends else backends.index(current_config["backend"]))
         if default_models is not None:
             if f"{tab_key}_model_path" not in st.session_state:
                 st.session_state[f"{tab_key}_model_path"] = default_models[st.session_state[f"{tab_key}_backend"]][0] if (
-                current_config is None or current_config["model_path"] is None) else current_config["model_path"]
+                current_config is None or current_config.get("model_path") is None) else current_config["model_path"]
             parent_widget.text_input(
                 key=f"{tab_key}_model_path", 
                 label="Model (Model name or path)")
@@ -202,14 +202,14 @@ def render_header_buttons(parent_widget: Any,
                 config = gather_config(object_type)
                 result = validate_config(config_type=object_type, config=config)
                 if result[0] is None:
-                    st.warning("Warning")
-                    st.warning(result[1])
+                    st.warning("Status: Warning")
+                    st.warning("Reason: " + result[1])
                 elif result[0]:
-                    st.info("Success")
-                    st.info(result[1])
+                    st.info("Status: Success")
+                    st.info("Reason: " + result[1])
                 else:
-                    st.error("Error")
-                    st.error(result[1])
+                    st.error("Status: Error")
+                    st.error("Reason: " + result[1])
                 
     header_button_columns[1].write("#####")
     with header_button_columns[1].popover("Overwrite",
