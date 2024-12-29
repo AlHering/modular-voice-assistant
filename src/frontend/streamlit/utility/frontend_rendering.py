@@ -14,7 +14,7 @@ import tkinter as tk
 from tkinter import filedialog
 from src.configuration import configuration as cfg
 from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES
-from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config
+from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config, wait_for_setup
 import streamlit.components.v1 as st_components
 from code_editor import code_editor
 from streamlit_flow import streamlit_flow
@@ -39,6 +39,16 @@ def render_sidebar() -> None:
     """
     Renders the sidebar.
     """
+    
+    mode = st.sidebar.selectbox(
+        label="Setup Mode",
+        options=["DIRECT", "API"])
+    if st.sidebar.button("Setup", help="Sets up assistant infrastructure."):
+        with st.spinner("Waiting for backend to finish startup..."):
+            wait_for_setup(mode.lower())
+    if mode == "API":
+        st.sidebar.warning("Backend server must be running!")
+
     for key, value in st.session_state.items():
         st.sidebar.write(f"{key}: {value}")
 

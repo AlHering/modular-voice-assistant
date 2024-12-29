@@ -178,7 +178,7 @@ def render_header_buttons(parent_widget: Any,
     changed = False
     notification_status = parent_widget.empty()
     notification_info = parent_widget.empty()
-    header_button_columns = parent_widget.columns([.30, .30, .30])
+    header_button_columns = parent_widget.columns([.2, .2, .2, .2, .2])
 
     object_title = " ".join(object_type.split("_")).title()
     header_button_columns[0].write("#####")
@@ -189,10 +189,10 @@ def render_header_buttons(parent_widget: Any,
         changed = True
 
     header_button_columns[1].write("#####")
-    with header_button_columns[2].popover("Validate",
+    with header_button_columns[1].popover("Validate",
                                           help="Reset the current configuration"):
         st.write(f"{object_title} configuration will be reset!")
-        if header_button_columns[1].button("Approve", 
+        if st.button("Approve", 
                                         key=f"{tab_key}_validate_btn",
                                         help="Validate the current configuration."):
             pass
@@ -200,13 +200,13 @@ def render_header_buttons(parent_widget: Any,
     header_button_columns[2].write("#####")
     with header_button_columns[2].popover("Reset",
                                           help="Reset the current configuration"):
-            st.write(f"{object_title} configuration will be reset!")
-            
-            if st.button("Approve", key=f"{tab_key}_delapprove_btn",):
-                st.session_state["CACHE"][object_type] = deepcopy(fetch_default_config()[object_type])
-                save_config(object_type=object_type)
-                st.info(f"{object_title} configuration was reset.")
-                changed = True
+        st.write(f"{object_title} configuration will be reset!")
+        
+        if st.button("Approve", key=f"{tab_key}_delapprove_btn",):
+            st.session_state["CACHE"][object_type] = deepcopy(fetch_default_config()[object_type])
+            save_config(object_type=object_type)
+            st.info(f"{object_title} configuration was reset.")
+            changed = True
 
     if changed:
         st.rerun()
@@ -248,7 +248,7 @@ if __name__ == "__main__":
 
      # Wait for backend and dependencies
     if "SETUP" not in st.session_state or not st.session_state["SETUP"]:
-        st.write("Please setup the assistant first.")
+        st.write("Please choose a mode in the sidebar and press the setup button.")
     else:
         tabs = list(AVAILABLE_MODULES.keys())
         for index, tab in enumerate(st.tabs([" ".join(elem.split("_")).title()+"s" for elem in tabs])):
