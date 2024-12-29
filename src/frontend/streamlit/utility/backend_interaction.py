@@ -6,7 +6,9 @@
 ****************************************************
 """
 import os
+from typing import List
 import streamlit as st
+from uuid import UUID
 from src.voice_assistant import BasicVoiceAssistant, setup_default_voice_assistant
 from src.voice_assistant import AVAILABLE_MODULES as AVAILABLE_MODULES
 from src.interface_client import VoiceAssistantClient
@@ -58,3 +60,47 @@ def load_voice_assistant(
     :return: Conversation handler.
     """
     return setup_default_voice_assistant(config=config)
+
+
+def flatten_config(config: dict) -> dict:
+    """
+    Flattens config for further usage.
+    :param config: Database config entry.
+    :return: Flattened config entry.
+    """
+    data = {"id": config["id"]}
+    data.update(config["config"])
+    return data
+
+
+def get_configs(config_type: str) -> List[dict]:
+    """
+    Fetches configs from database.
+    :param config_type: Config type.
+    :return: Config entries.
+    """
+    return [flatten_config(entry) for entry in st.session_state["CLIENT"].get_configs(module_type=config_type)]
+
+
+def put_config(config_type: str, config_data: dict, config_uuid: str | None = None) -> dict:
+    """
+    Puts config into database.
+    :param config_type: Config type.
+    :param config_data: Config data.
+    :param config_uuid: Config UUID, if available.
+    :return: Config entry.
+    """
+    if config_uuid is not None:
+        config_data["id"] = UUID(config_uuid)
+    return flatten_config(st.session_state["CLIENT"].add_config(module_type=config_type, config=config_data))
+
+
+def delete_config(config_type: str, config_id: str) -> dict:
+    """
+    Puts config into database.
+    :param config_type: Config type.
+    :param config_id: Config ID.
+    :return: Config entry.
+    """
+    deletion_patch = {"id": UUID(config_id), "inactive": True}
+    return flatten_config(st.session_state["CLIENT"].add_config(module_type=config_type, config=deletion_patch))
