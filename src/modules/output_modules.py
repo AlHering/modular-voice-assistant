@@ -5,15 +5,12 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from typing import Any, Tuple, List, Callable, Generator
-import numpy as np
+from typing import Any, Generator
 from queue import Empty
-from pydantic import BaseModel, ConfigDict
 from src.utility.commandline_utility import silence_stderr
 from src.utility.pyaudio_utility import play_wave
-from src.utility.language_model_abstractions import ChatModelConfig, ChatModelInstance, RemoteChatModelConfig, RemoteChatModelInstance
-from src.utility.sound_model_abstractions import Transcriber, Synthesizer, SpeechRecorder
-from src.modules.abstractions import PipelineModule, PipelinePackage, PipelineModuleConfig, BasicHandlerModule
+from src.utility.sound_model_abstractions import Synthesizer
+from src.modules.abstractions import PipelineModule, PipelinePackage, BasicHandlerModule
 
 
 class SynthesizerModule(BasicHandlerModule):

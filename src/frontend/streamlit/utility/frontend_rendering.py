@@ -5,24 +5,15 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-import os
-from typing import Any, List, Callable, Dict
+from typing import Any
 from uuid import uuid4
 import streamlit as st
 import random
-import tkinter as tk
-from tkinter import filedialog
-from src.configuration import configuration as cfg
-from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES
-from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config, wait_for_setup
-import streamlit.components.v1 as st_components
-from code_editor import code_editor
+from src.frontend.streamlit.utility.state_cache_handling import wait_for_setup
 from streamlit_flow import streamlit_flow
 from streamlit_flow.elements import StreamlitFlowNode, StreamlitFlowEdge
-from streamlit_flow.layouts import TreeLayout, RadialLayout
+from streamlit_flow.layouts import TreeLayout
 from streamlit_flow.state import StreamlitFlowState
-import json
-from itertools import combinations
 
 
 ###################

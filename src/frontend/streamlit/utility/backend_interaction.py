@@ -7,8 +7,7 @@
 """
 import os
 import streamlit as st
-import httpx
-from src.voice_assistant import BaseModuleSet, BasicVoiceAssistant, ModularConversationHandler, AVAILABLE_MODULES, setup_default_voice_assistant
+from src.voice_assistant import BaseModuleSet, BasicVoiceAssistant, ModularConversationHandler, setup_default_voice_assistant
 from src.interface_client import VoiceAssistantClient
 from src.interface import VoiceAssistantInterface
 from src.configuration import configuration as cfg

@@ -5,11 +5,9 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-import os
-from sqlalchemy.orm import relationship, mapped_column, declarative_base
-from sqlalchemy import Engine, Column, String, JSON, Float, ForeignKey, Integer, DateTime, func, Uuid, Text, event, Boolean, UUID
+from sqlalchemy.orm import declarative_base
+from sqlalchemy import Engine, Column, String, JSON, Integer, DateTime, func, Boolean, UUID
 from uuid import uuid4
-from typing import Any
 from src.configuration import configuration as cfg
 
 

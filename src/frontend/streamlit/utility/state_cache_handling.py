@@ -8,7 +8,6 @@
 import os
 import streamlit as st
 from typing import List, Any
-from time import sleep
 from copy import deepcopy
 from src.utility import json_utility
 from src.configuration import configuration as cfg

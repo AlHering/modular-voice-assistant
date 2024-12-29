@@ -10,20 +10,17 @@ from enum import Enum
 from datetime import datetime as dt
 from sqlalchemy import Column, String, Boolean, Integer, JSON, Text, DateTime, VARCHAR, CHAR, ForeignKey, Table, Float, BLOB, Uuid
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy import and_, or_, not_, select
 from sqlalchemy import create_engine
 from sqlalchemy.ext.automap import automap_base, classname_for_table
-from sqlalchemy.dialects.mysql import LONGTEXT
-from sqlalchemy import orm, inspect
+from sqlalchemy import orm
 from sqlalchemy.engine import create_engine, Engine
 from sqlalchemy.sql import text
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.automap import automap_base
-from sqlalchemy.exc import ProgrammingError, OperationalError
 from datetime import datetime as dt
 from uuid import UUID
-from typing import List, Union, Any, Optional
+from typing import List, Any, Optional
 
 # Dictionary, mapping filter types of filters to SQLAlchemy-compatible filters
 SQLALCHEMY_FILTER_CONVERTER = {

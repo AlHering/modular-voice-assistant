@@ -15,8 +15,7 @@ from gc import collect
 from src.configuration import configuration as cfg
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
-from src.voice_assistant import AVAILABLE_MODULES, BasicVoiceAssistant, BasicHandlerModule, SpeechRecorderModule, TranscriberModule, SynthesizerModule, LocalChatModule, WaveOutputModule, RemoteChatModule
-from src.modules.abstractions import PipelineModule, PipelinePackage
+from src.voice_assistant import AVAILABLE_MODULES, BasicVoiceAssistant, TranscriberModule, SynthesizerModule, LocalChatModule, RemoteChatModule
 
 
 class VoiceAssistantInterface(object):
