@@ -82,6 +82,7 @@ DEFAULT_REMOTE_CHAT = {
     "stream": True
 }
 DEFAULT_LOCAL_CHAT = {
+    "backend": "llama-cpp",
     "model_path": os.path.join(PATHS.MODEL_PATH, 
                                     "text_generation/models/mradermacher_Llama-3.1-Storm-8B-i1-GGUF"),
     "model_file": "Llama-3.1-Storm-8B.i1-Q4_K_M.gguf",
