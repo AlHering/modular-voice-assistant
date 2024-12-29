@@ -24,8 +24,10 @@ def wait_for_setup() -> None:
             try:
                 populate_state_cache()
                 backend_interaction.MODE = st.session_state["CACHE"].get("MODE", "direct")
-                backend_interaction.setup()
-                st.rerun()
+                if not backend_interaction.setup():
+                    st.warning("Setup failed! Probably the assistant is set to 'API' mode but the backend server is not running.")
+                else:
+                    st.rerun()
             except ConnectionError:
                 sleep(3)
 

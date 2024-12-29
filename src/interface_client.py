@@ -59,6 +59,20 @@ class VoiceAssistantClient(object):
         """
         self.client.close()
 
+    def check_connection(self) -> bool:
+        """
+        Checks connection to backend.
+        :return: True, if available, else False.
+        """
+        try:
+            resp = self.client.get(Endpoints.get_configs, json={
+                "module_type": "transcriber"
+            }).json()
+            return True
+        except:
+            return False
+
+
     """
     Config handling
     """

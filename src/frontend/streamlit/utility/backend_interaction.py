@@ -7,27 +7,37 @@
 """
 import os
 import streamlit as st
+import httpx
 from src.voice_assistant import BaseModuleSet, BasicVoiceAssistant, ModularConversationHandler, AVAILABLE_MODULES, setup_default_voice_assistant
+from src.interface_client import VoiceAssistantClient
+from src.interface import VoiceAssistantInterface
 from src.configuration import configuration as cfg
 
 
 # MODES:
-#   default: Backend is running on default network address
+#   api: Backend is running on default network address
 #   direct: Controller in session cache
 #
 MODE: str = "direct"
 
 
-def setup() -> None:
+def setup() -> bool:
     """
     Sets up and assistant.
+    :return: True, if successful, else False.
     """
     if "ASSISTANT" in st.session_state:
         st.session_state.pop("ASSISTANT")
+    st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
     if MODE == "direct":
-        st.session_state["WORKDIR"] = cfg.PATHS.DATA_PATH
+        st.session_state["CLIENT"] = VoiceAssistantInterface()
+    elif MODE == "api":
+        st.session_state["CLIENT"] = VoiceAssistantClient()
+        if not st.session_state["CLIENT"].check_connection():
+            return False
     else:
-        raise NotImplementedError("API mode is not implemented yet.")
+        raise NotImplementedError(f"Mode '{MODE}' is not implemented.")
+    return True
 
 
 def load_conversation_handler(module_set: BaseModuleSet, loop_pause: float = .1) -> BasicVoiceAssistant:
