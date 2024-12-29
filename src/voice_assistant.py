@@ -119,9 +119,9 @@ class BasicVoiceAssistant(object):
                 self.pipeline_kwargs["greeting"] = worker.chat_model.history[-1]["content"]
         self.pipeline_kwargs["report"] = report
 
-    def setup(self) -> None:
+    def reset(self) -> None:
         """
-        Method for setting up conversation pipeline.
+        Method for resetting the conversation pipeline.
         """
         self.pipeline.reset()
 
