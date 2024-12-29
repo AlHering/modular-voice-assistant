@@ -10,7 +10,7 @@ from typing import List, Any
 from inspect import getfullargspec
 import json
 from src.utility.streamlit_utility import render_json_input
-from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES, put_config, delete_config, get_configs, patch_config
+from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES, validate_config, put_config, delete_config, get_configs, patch_config
 from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 
@@ -190,18 +190,34 @@ def render_header_buttons(parent_widget: Any,
     """
     current_config = st.session_state.get(f"{tab_key}_current")
     
-    notification_status = parent_widget.empty()
-    notification_info = parent_widget.empty()
     header_button_columns = parent_widget.columns([.2, .2, .2, .2, .2])
 
     object_title = " ".join(object_type.split("_")).title()
     header_button_columns[0].write("#####")
-    with header_button_columns[0].popover("Overwrite",
+    with header_button_columns[0].popover("Validate",
+                                          help="Validates the current configuration"):
+            st.write(f"Validations can result in errors or warnings.")
+            
+            if st.button("Approve", key=f"{tab_key}_validate_approve_btn",):
+                config = gather_config(object_type)
+                result = validate_config(config_type=object_type, config=config)
+                if result[0] is None:
+                    st.warning("Warning")
+                    st.warning(result[1])
+                elif result[0]:
+                    st.info("Success")
+                    st.info(result[1])
+                else:
+                    st.error("Error")
+                    st.error(result[1])
+                
+    header_button_columns[1].write("#####")
+    with header_button_columns[1].popover("Overwrite",
                                           disabled=current_config is None, 
                                           help="Overwrite the current configuration"):
             st.write(f"{object_title} configuration {st.session_state[f'{object_type}_config_selectbox']} will be overwritten.")
             
-            if st.button("Approve", key=f"{tab_key}_approve_btn",):
+            if st.button("Approve", key=f"{tab_key}_overwrite_approve_btn",):
                 obj_id = patch_config(
                     config_type=object_type,
                     config_data=gather_config(object_type),
@@ -209,8 +225,8 @@ def render_header_buttons(parent_widget: Any,
                 ).get("id")
                 st.info(f"Updated {object_title} configuration {obj_id}.")
 
-    header_button_columns[1].write("#####")
-    if header_button_columns[1].button("Add new", 
+    header_button_columns[2].write("#####")
+    if header_button_columns[2].button("Add new", 
                                        key=f"{tab_key}_add_btn",
                                        help="Add new entry with the below configuration if it does not exist yet."):
         obj_id = put_config(
@@ -223,13 +239,13 @@ def render_header_buttons(parent_widget: Any,
             st.info(f"Created new configuration with ID {obj_id}.")
         st.session_state[f"{tab_key}_overwrite_config_id"] = obj_id
     
-    header_button_columns[2].write("#####")
-    with header_button_columns[2].popover("Delete",
+    header_button_columns[3].write("#####")
+    with header_button_columns[3].popover("Delete",
                                           disabled=current_config is None, 
                                           help="Delete the current configuration"):
             st.write(f"{object_title} configuration {st.session_state[f'{object_type}_config_selectbox']} will be deleted!")
             
-            if st.button("Approve", key=f"{tab_key}_delapprove_btn",):
+            if st.button("Approve", key=f"{tab_key}_delete_approve_btn",):
                 obj_id = delete_config(
                     config_type=object_type,
                     config_id=st.session_state[f"{object_type}_config_selectbox"]
