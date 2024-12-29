@@ -304,6 +304,7 @@ if __name__ == "__main__":
         st.write("Please choose a mode in the sidebar and press the setup button.")
     else:
         tabs = list(AVAILABLE_MODULES.keys())
+        tabs.remove("wave_output")
         for index, tab in enumerate(st.tabs([" ".join(elem.split("_")).title()+"s" for elem in tabs])):
             with tab:
                 render_config(tabs[index])
