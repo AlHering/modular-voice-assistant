@@ -90,9 +90,9 @@ class VoiceAssistantInterface(object):
         :return: Response.
         """
         if module_type is None:
-            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_type(object_type="module_config")]
+            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="module_config", filtermasks=[FilterMask([["inactive", "==", False]])])]
         else:
-            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="module_config", filtermasks=[FilterMask([["module_type", "==", module_type]])])]
+            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="module_config", filtermasks=[FilterMask([["module_type", "==", module_type], ["inactive", "==", False]])])]
         
     """
     Module handling
