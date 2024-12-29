@@ -334,7 +334,6 @@ class LocalVoiceAssistantClient(object):
         :return: Response.
         """
         response = asyncio.run(self.interface.get_configs(payload={"module_type": module_type}))
-        print(response)
         return response.get("result")
 
     """
