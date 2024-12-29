@@ -17,7 +17,6 @@ from src.modules.abstractions import BaseModuleSet, VAPackage
 
 
 class ModularConversationHandler(object):
-
     """
     Represents a modular conversation handler for handling audio based interaction.
     A conversation handler manages the following modules:
