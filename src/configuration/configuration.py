@@ -79,6 +79,7 @@ DEFAULT_REMOTE_CHAT = {
     "api_base": "http://localhost:8123/v1",
     "chat_parameters": {"model": "llama-3.1-storm-8B-i1-Q4KM"},
     "system_prompt": "You are a helpful and sentient assistant. Your task is to help the user in an effective and concise manner.",
+    "stream": True
 }
 DEFAULT_LOCAL_CHAT = {
     "model_path": os.path.join(PATHS.MODEL_PATH, 
@@ -92,7 +93,8 @@ DEFAULT_LOCAL_CHAT = {
     },
     "generating_parameters": {
         "max_tokens": 256
-    }
+    },
+    "stream": True
 }
 DEFAULT_SYNTHESIZER = {
     "backend": "coqui-tts",
