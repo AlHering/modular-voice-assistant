@@ -26,6 +26,8 @@ class BasicSQLAlchemyInterface(object):
                  default_entries: Dict[str, List[dict]] = None,
                  schema: str = "", 
                  handle_objects_as_dicts: bool = False,
+                 convert_timestamps: bool = False,
+                 convert_uuids: bool = False,
                  logger: Any = None) -> None:
         """
         Initiation method.
@@ -36,6 +38,8 @@ class BasicSQLAlchemyInterface(object):
         :param default_entries: Default entries to populate database with.
         :param handle_objects_as_dicts: Declares, whether to handle (mostly return) objects as dictionaries by default.
             Defaults to False.
+        :param convert_timestamps: Declares, whether to convert timestamps into strings if objects are handled as dictionaries.
+        :param convert_uuids: Declares, whether to convert UUIDs into strings if objects are handled as dictionaries.
         :param logger: Logger instance. 
             Defaults to None in which case separate logging is disabled.
         """
@@ -47,6 +51,8 @@ class BasicSQLAlchemyInterface(object):
         self.population_function = population_function
         self.default_entries = default_entries
         self.handle_objects_as_dicts = handle_objects_as_dicts
+        self.convert_timestamps = convert_timestamps
+        self.convert_uuids = convert_uuids
 
         # Database infrastructure
         self.base = None
@@ -126,25 +132,21 @@ class BasicSQLAlchemyInterface(object):
                                                                        exp[2]) for exp in filtermask.expressions))
         return converted_filtermasks
     
-    def obj_as_dict(self, obj: Any, convert_timestamps: bool = False, convert_uuids: bool = False) -> dict:
+    def obj_as_dict(self, obj: Any) -> dict:
         """
         Method for converting SQLAlchemy ORM object to a dictionary.
         :param obj: Object.
-        :param convert_timestamps: Flag for declaring, whether to convert timestamps to string.
-            Defaults to False.
-        :param convert_uuids: Flag for declaring, whether to convert UUIDs to string.
-            Defaults to False.
         :return: Object entry as dictionary.
         """
         data = {
             col.key: getattr(obj, col.key) for col in sqlalchemy_utility.inspect(obj).mapper.column_attrs
         }
-        if convert_timestamps:
+        if self.convert_timestamps is not None:
             for key in data:
                 if isinstance(data[key], dt):
                     data[key] = data[key].strftime(
                         time_utility.DEFAULTS_TS_FORMAT)
-        if convert_uuids:
+        if self.convert_uuids:
             for key in data:
                 if isinstance(data[key], UUID):
                     data[key] = str(data[key])
