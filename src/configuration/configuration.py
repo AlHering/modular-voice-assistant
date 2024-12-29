@@ -131,7 +131,6 @@ DEFAULT_COMPONENT_CONFIG = {
 }
 
 
-
 """
 Others
 """
