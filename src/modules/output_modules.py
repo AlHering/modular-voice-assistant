@@ -59,7 +59,7 @@ class SynthesizerModule(BasicHandlerModule):
         :return: True or False and validation report depending on validation success. 
             None and validation report in case of warnings. 
         """
-        if not config["backend"] in Synthesizer.supported_backends:
+        if not config["backend"] in cls.supported_backends:
             return False, f"Synthesizer backend '{config['backend']}' is not supported."
         model_path = Synthesizer.default_models[config["backend"]][0] if config.get("model_path") is None else config.get("model_path")
         if not os.path.exists(model_path):

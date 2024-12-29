@@ -21,6 +21,7 @@ class LocalChatModule(BasicHandlerModule):
     default_models = LanguageModelInstance.default_models
 
     def __init__(self, 
+                 backend: str,
                  model_path: str,
                  model_file: str | None = None,
                  model_parameters: dict | None = None,
@@ -37,6 +38,7 @@ class LocalChatModule(BasicHandlerModule):
                  **kwargs: Any | None) -> None:
         """
         Initiates an instance.
+        :param backend: Backend.
         :param model_path: Path to model files.
         :param model_file: Model file to load.
             Defaults to None.
@@ -68,15 +70,16 @@ class LocalChatModule(BasicHandlerModule):
         :param args: Arbitrary arguments.
         :param kwargs: Arbitrary keyword arguments.
         """
-        self.language_model = LlamaCPPModelInstance(
-            model_path=model_path,
-            model_file=model_file,
-            model_parameters=model_parameters,
-            encoding_parameters=encoding_parameters,
-            embedding_parameters=embedding_parameters,
-            generating_parameters=generating_parameters,
-            decoding_parameters=decoding_parameters
-        )
+        if backend == "llama-cpp":
+            self.language_model = LlamaCPPModelInstance(
+                model_path=model_path,
+                model_file=model_file,
+                model_parameters=model_parameters,
+                encoding_parameters=encoding_parameters,
+                embedding_parameters=embedding_parameters,
+                generating_parameters=generating_parameters,
+                decoding_parameters=decoding_parameters
+            )
         self.chat_model = ChatModelInstance(
             language_model=self.language_model,
             chat_parameters=chat_parameters,
@@ -94,6 +97,8 @@ class LocalChatModule(BasicHandlerModule):
         :return: True or False and validation report depending on validation success. 
             None and validation report in case of warnings. 
         """
+        if config["backend"] not in cls.supported_backends:
+            return False, f"Language model backend '{config['backend']}' is not supported."
         model_path = config["model_path"]
         if not os.path.exists(model_path):
             return None, f"Model path '{model_path}' is not in local filesystem.\nModel access must be handled remotely by the chosen backend."

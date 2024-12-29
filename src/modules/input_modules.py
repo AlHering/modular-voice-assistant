@@ -114,7 +114,7 @@ class TranscriberModule(BasicHandlerModule):
         :return: True or False and validation report depending on validation success. 
             None and validation report in case of warnings. 
         """
-        if not config["backend"] in Transcriber.supported_backends:
+        if not config["backend"] in cls.supported_backends:
             return False, f"Transcriber backend '{config['backend']}' is not supported."
         model_path = Transcriber.default_models[config["backend"]][0] if config.get("model_path") is None else config.get("model_path")
         if not os.path.exists(model_path):
