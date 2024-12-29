@@ -6,17 +6,11 @@
 ****************************************************
 """
 import os
-import sys
-import json
 import click
-from typing import Tuple, Generator, Union
 from src.configuration import configuration as cfg
 from src.utility import json_utility
-
 from src.voice_assistant import BasicVoiceAssistant, setup_default_voice_assistant
-
-
-
+from src.interface import run
 
 
 def get_valid_config_path(config_path: str | None) -> str | None:
@@ -48,11 +42,10 @@ def run_voice_assistant(config: str, mode:int) -> None:
     if config_path is not None:
         print(f"\nValid config path given: {config_path}.")
         config_data = json_utility.load(config_path)
-        
-        voice_assistant = setup_default_voice_assistant(**config_data)
+        voice_assistant: BasicVoiceAssistant = setup_default_voice_assistant(**config_data)
     else:
         print(f"\nNo valid config path given, using default configuration.")
-        voice_assistant = setup_default_voice_assistant(use_remote_llm=True)
+        voice_assistant: BasicVoiceAssistant = setup_default_voice_assistant(use_remote_llm=True)
     if mode == 2:
         voice_assistant.run_interaction()
     elif mode == 3:
@@ -62,4 +55,4 @@ def run_voice_assistant(config: str, mode:int) -> None:
 
 
 if __name__ == "__main__":
-    run_voice_assistant()
+    run()
