@@ -303,8 +303,8 @@ class VoiceAssistantInterface(object):
                 target_worker=target_worker,
                 prompt=prompt,
                 chat_parameters=chat_parameters
-            ))
+            ),
+            media_type="application/x-ndjson")
         else:
             return {"error": f"No active {self.module_titles[target_worker]} set."}
         
-    
