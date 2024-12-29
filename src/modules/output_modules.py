@@ -60,6 +60,16 @@ class WaveOutputModule(VAModule):
     Takes in VAPackages with wave audio data and outputs it. 
     Note, that the last metadata stack element must be stream parameters for outputting.
     """
+    def __init__(self,
+                 *args: Any | None, 
+                 **kwargs: Any | None) -> None:
+        """
+        Wrapper initiation method. DO NOT REMOVE! Necessary for later inspection and parameter mapping.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
+        """
+        super().__init__(*args, **kwargs)
+
     def process(self) -> VAPackage | Generator[VAPackage, None, None] | None:
         """
         Module processing method.
