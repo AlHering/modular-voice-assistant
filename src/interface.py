@@ -48,6 +48,7 @@ class VoiceAssistantInterface(object):
 
         # Config and module handling
         self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
+        self.router.add_api_route(path="/configs/patch", endpoint=self.overwrite_config, methods=["POST"])
         self.router.add_api_route(path="/configs/get", endpoint=self.get_configs, methods=["GET"])
         self.router.add_api_route(path="/modules/load", endpoint=self.load_module, methods=["POST"])
         self.router.add_api_route(path="/modules/unload", endpoint=self.unload_module, methods=["POST"])
@@ -81,6 +82,17 @@ class VoiceAssistantInterface(object):
         """
         return self.database.obj_as_dict(self.database.put_object(object_type="module_config", module_type=module_type, **config))
     
+    def overwrite_config(self,
+                   module_type: str,
+                   config: dict) -> dict:
+        """
+        Overwrites a config in the database.
+        :param module_type: Target module type.
+        :param config: Config.
+        :return: Response.
+        """
+        return self.database.obj_as_dict(self.database.patch_object(object_type="module_config", object_id=config.pop("id"), module_type=module_type, **config))
+    
     def get_configs(self,
                     module_type: str = None) -> List[dict]:
         """
@@ -90,9 +102,9 @@ class VoiceAssistantInterface(object):
         :return: Response.
         """
         if module_type is None:
-            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="module_config", filtermasks=[FilterMask([["inactive", "==", False]])])]
+            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_type(object_type="module_config")]
         else:
-            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="module_config", filtermasks=[FilterMask([["module_type", "==", module_type], ["inactive", "==", False]])])]
+            return [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="module_config", filtermasks=[FilterMask([["module_type", "==", module_type]])])]
         
     """
     Module handling

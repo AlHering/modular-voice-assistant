@@ -19,6 +19,7 @@ class Endpoints(str, Enum):
     Endpoints config.
     """
     add_configs = API_BASE + "/configs/add"
+    patch_configs = API_BASE + "/configs/patch"
     get_configs = API_BASE + "/configs/get"
     load_modules = API_BASE + "/modules/load"
     unload_modules = API_BASE + "/modules/unload"
@@ -88,6 +89,24 @@ class VoiceAssistantClient(object):
             }).json()
         except:
             pass
+
+    def overwrite_config(self,
+                   module_type: str,
+                   config: dict) -> dict:
+        """
+        Overwrites a config in the database.
+        :param module_type: Target module type.
+        :param config: Config.
+        :return: Response.
+        """
+        try:
+            return self.client.post(Endpoints.patch_configs, json={
+                "module_type": module_type,
+                "config": config
+            }).json()
+        except:
+            pass
+    
 
     
     def get_configs(self,
