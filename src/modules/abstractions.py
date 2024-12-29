@@ -262,9 +262,9 @@ class BasicHandlerModule(PipelineModule):
                 pass
 
 
-class BaseModuleSet(object):
+class ModularPipeline(object):
     """
-    Base module set.
+    Modular Pipeline class.
     Holds PipelineModules in four different categories:
     - input modules resemble a pipeline for inputting user data, e.g. SpeechRecorderModule->TranscriberModule
     - worker modules resemble a pipeline for processing the ingoing user data, e.g. a ChatModelModule
@@ -281,7 +281,12 @@ class BaseModuleSet(object):
                  logger: Logger | None = None) -> None:
         """
         Initiation method.
-
+        :param input_modules: Input modules.
+        :param worker_modules: Worker modules. 
+        :param output_modules: Output modules.
+        :param additional_modules: Additional modules.
+        :param base_loop_pause: Pipeline base loop pause.
+        :param logger: Logger if logging is desired.
         """
         self.input_modules = input_modules
         self.worker_modules = worker_modules
