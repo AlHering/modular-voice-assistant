@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field
 from logging import Logger
 from uuid import uuid4
+import gc
 import numpy as np
 from typing import Any, Tuple, List, Callable, Generator
 import time
@@ -264,17 +265,41 @@ class BasicHandlerModule(PipelineModule):
 class BaseModuleSet(object):
     """
     Base module set.
-    Holds pipelineModules in four different categories:
+    Holds PipelineModules in four different categories:
     - input modules resemble a pipeline for inputting user data, e.g. SpeechRecorderModule->TranscriberModule
     - worker modules resemble a pipeline for processing the ingoing user data, e.g. a ChatModelModule
     - output modules resemble a pipeline for outputting the results of the worker module pipeline, e.g. SynthesizerModule->WaveOutputModule
     - additional (passive) modules can be "inserted" into a pipeline to branch out operations, which do not reintroduce transformed data back into 
         the pipeline, e.g. for animating a character alongside the output module pipeline or running additional reporting.
     """
-    input_modules: List[PipelineModule] = []
-    worker_modules: List[PipelineModule] = []
-    output_modules: List[PipelineModule] = []
-    additional_modules: List[PassivePipelineModule] = []
+    def __init__(self,
+                 input_modules: List[PipelineModule] = [],
+                 worker_modules: List[PipelineModule] = [],
+                 output_modules: List[PipelineModule] = [],
+                 additional_modules: List[PassivePipelineModule] = [],
+                 base_loop_pause: float = 0.1,
+                 logger: Logger | None = None) -> None:
+        """
+        Initiation method.
+
+        """
+        self.input_modules = input_modules
+        self.worker_modules = worker_modules
+        self.output_modules = output_modules
+        self.additional_modules = additional_modules
+        self.base_loop_pause = base_loop_pause
+        self.logger = logger
+
+        self.input_threads = None
+        self.worker_threads = None
+        self.output_threads = None
+        self.additional_threads = None
+        self.stop = None
+        self.setup_modules()
+
+    """
+    Pipeline management
+    """
 
     @classmethod
     def get_all(cls) -> List[PipelineModule]:
@@ -296,3 +321,173 @@ class BaseModuleSet(object):
             self.worker_modules[0].input_queue = self.input_modules[-1].output_queue
         if self.worker_modules and self.output_modules:
             self.output_modules[0].input_queue = self.worker_modules[-1].output_queue
+
+    """
+    Module management
+    """
+    def stop_modules(self) -> None:
+        """
+        Stops process modules.
+        """
+        self.stop.set()
+        for module in self.get_all():
+            module.interrupt.set()
+            module.pause.set()
+        for thread in self.get_all_threads():
+            try:
+                thread.join(.12) 
+            except RuntimeError:
+                pass
+
+    def setup_modules(self) -> None:
+        """
+        Sets up modules.
+        """
+        self.stop = TEvent()
+        for module in self.get_all():
+            module.pause.clear()
+            module.interrupt.clear()
+        self.input_threads = [module.to_thread() for module in self.input_modules]
+        self.worker_threads = [module.to_thread() for module in self.worker_modules]
+        self.output_threads = [module.to_thread() for module in self.output_modules]
+        self.additional_threads = [module.to_thread() for module in self.additional_modules]
+
+    def get_all_threads(self) -> List[Thread]:
+        """
+        Returns all threads.
+        :returns: List of threads.
+        """
+        res = []
+        for threads in [self.input_threads, self.worker_threads, self.output_threads, self.additional_threads]:
+            if threads is not None:
+                res.extend(threads)
+        return threads
+
+    def stop_modules(self) -> None:
+        """
+        Stops process modules.
+        """
+        self.stop.set()
+        for module in self.get_all():
+            module.interrupt.set()
+            module.pause.set()
+        for thread in self.get_all_threads():
+            try:
+                thread.join(.12) 
+            except RuntimeError:
+                pass
+
+    def reset(self) -> None:
+        """
+        Sets up and resets handler. 
+        """
+        if self.logger:
+            self.logger.info("(Re)setting Conversation Handler...")
+        self.stop_modules()
+        gc.collect()
+        self.setup_modules()
+        if self.logger:
+            self.logger.info("(Re)setting Conversation Handler...")
+
+    def _run_nonblocking_pipeline(self, loop: bool) -> None:
+        """
+        Runs a non-blocking pipeline.
+        :param loop: Declares, whether to loop pipeline or stop after a single interaction.
+        """
+        for thread in self.worker_threads + self.input_threads:
+            thread.start()         
+        if not loop:
+            while self.input_modules[0].output_queue.qsize() == 0 and self.input_modules[-1].output_queue.qsize() == 0:
+                time.sleep(self.base_loop_pause/16)
+            self.input_modules[0].pause.set()
+            while self.worker_modules[-1].output_queue.qsize() == 0:
+                time.sleep(self.base_loop_pause/16)
+            while self.output_modules[-1].input_queue.qsize() > 0 or self.output_modules[-1].pause.is_set():
+                time.sleep(self.base_loop_pause/16)
+            self.reset()
+    
+    def _run_blocking_pipeline(self, loop: bool) -> None:
+        """
+        Runs a blocking pipeline.
+        :param loop: Declares, whether to loop pipeline or stop after a single interaction.
+        """
+        # TODO: Trace inputs via PipelinePackage UUIDs
+        while not self.stop.is_set():
+            for module in self.input_modules:
+                while not module.run():
+                    time.sleep(self.base_loop_pause//16)
+            for module in self.worker_modules:
+                while not module.run():
+                    time.sleep(self.base_loop_pause//16)
+            while any(module.queues_are_busy() for module in self.output_modules):
+                time.sleep(self.base_loop_pause//16)
+            if not loop:
+                self.stop.set()
+        self.reset()
+
+    def run_pipeline(self, 
+                         blocking: bool = True, 
+                         loop: bool = True, 
+                         greeting: str = "Hello there, how may I help you today?",
+                         report: bool = False) -> None:
+        """
+        Runs pipeline.
+        :param blocking: Declares, whether or not to wait for each step.
+            Defaults to True.
+        :param loop: Declares, whether to loop pipeline or stop after a single interaction.
+            Defaults to True.
+        :param greeting: Assistant greeting.
+            Defaults to "Hello there, how may I help you today?".
+        :param report: Flag for logging reports.
+        """
+        if self.logger:
+            self.logger.info(f"Starting pipeline loop...")
+        if report:
+            self.run_report_thread()
+
+        for thread in self.output_threads:
+            thread.start()
+        if self.output_modules:
+            self.output_modules[0].input_queue.put(PipelinePackage(content=greeting))
+
+        try:
+            if not blocking:
+                self._run_nonblocking_conversation(loop=loop)
+            else:
+                self._run_blocking_conversation(loop=loop)
+        except KeyboardInterrupt:
+            if self.logger:
+                self.logger.info(f"Received keyboard interrupt, shutting down handler ...")
+            self.stop_modules()
+
+    def run_report_thread(self) -> None:
+        """
+        Runs a thread for logging reports.
+        """ 
+        def log_report(wait_time: float = 10.0) -> None:
+            while not self.stop.is_set():
+                module_info = "\n".join([
+                    "==========================================================",
+                    f"#                    {get_timestamp()}                   ",
+                    f"#                    {self}                              ",
+                    f"#                Running: {not self.stop.is_set()}       ",
+                    "=========================================================="
+                ])
+                for threads in ["input_threads", "worker_threads", "output_threads", "additional_threads"]:
+                    for thread_index, thread in enumerate(getattr(self, threads)):
+                        module = getattr(self, f"{threads.split('_')[0]}_modules")[thread_index]
+                        module_info += f"\n\t[{type(module).__name__}<{module.name}>] Thread '{thread}: {thread.is_alive()}'"
+                        module_info += f"\n\t\t Inputs: {module.input_queue.qsize()}'"
+                        module_info += f"\n\t\t Outputs: {module.output_queue.qsize()}'"
+                        module_info += f"\n\t\t Received: {module.received}'"
+                        module_info += f"\n\t\t Sent: {module.sent}'"
+                        module_info += f"\n\t\t Pause: {module.pause.is_set()}'"
+                        module_info += f"\n\t\t Interrupt: {module.interrupt.is_set()}'"
+                if self.logger:
+                    self.logger.info(module_info)
+                else:
+                    print(module_info)
+                time.sleep(wait_time)
+        thread = Thread(target=log_report)
+        thread.daemon = True
+        thread.start()    
