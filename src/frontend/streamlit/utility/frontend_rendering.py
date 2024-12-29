@@ -9,6 +9,8 @@ from typing import Any
 from uuid import uuid4
 import streamlit as st
 import random
+import requests
+from src.configuration import configuration as cfg
 from src.frontend.streamlit.utility.state_cache_handling import wait_for_setup
 from streamlit_flow import streamlit_flow
 from streamlit_flow.elements import StreamlitFlowNode, StreamlitFlowEdge
@@ -38,8 +40,12 @@ def render_sidebar() -> None:
         with st.spinner("Waiting for backend to finish startup..."):
             wait_for_setup(mode.lower())
     if mode == "API":
-        st.sidebar.warning("Backend server must be running!")
-
+        api_base = f"http://{cfg.BACKEND_HOST}:{cfg.BACKEND_PORT}{cfg.BACKEND_ENDPOINT_BASE}/check"
+        try:
+            if requests.get(api_base).status_code == 200:
+                st.sidebar.info("Backend server is running!")
+        except requests.exceptions.ConnectionError:
+            st.sidebar.error("Backend server is not available!")
 
     st.sidebar.write("#")
     st.sidebar.write("#")
