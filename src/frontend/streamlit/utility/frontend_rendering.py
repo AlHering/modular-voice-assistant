@@ -12,7 +12,7 @@ from streamlit_flow import streamlit_flow
 from streamlit_flow.elements import StreamlitFlowNode
 from streamlit_flow.layouts import TreeLayout
 from src.configuration import configuration as cfg
-from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES, get_configs
+from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES, MODULE_TITLES, get_configs
 from src.frontend.streamlit.utility.state_cache_handling import wait_for_setup
 from streamlit_flow.state import StreamlitFlowState
 
@@ -56,6 +56,14 @@ def render_sidebar() -> None:
             st.sidebar.write(f"{key}: {value}")
 
 
+def setup_default_flow() -> None:
+    """
+    Sets up default flow.
+    """
+    #TODO: Implement
+    pass
+
+
 def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_state_key: str | None = None) -> None:
     """
     Renders a interactive node plane.
@@ -64,13 +72,16 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
     """
     if "flow" not in st.session_state:
         st.session_state["flow"] = StreamlitFlowState(nodes=[], edges=[])
-    st.session_state["flow_modules"] = {key: {
-        "available": [entry["id"] for entry in get_configs(config_type=key)
-                       if not  entry["inactive"]],
-        "active": []
-        } for key in AVAILABLE_MODULES
-    }
-    node_menu_columns = st.columns([.25, .25, .10, .10, .10, .10, .10])
+    if "flow_modules" not in st.session_state:
+        st.session_state["flow_modules"] = {key: {
+            "available": {entry["id"]: entry for entry in get_configs(config_type=key)
+                        if not  entry["inactive"]},
+            "active": []
+            } for key in AVAILABLE_MODULES
+        }
+
+
+    node_menu_columns = parent_widget.columns([.25, .25, .10, .10, .10, .10, .10])
     
     node_menu_columns[0].write("")
     node_object_type = node_menu_columns[0].selectbox(
@@ -90,11 +101,11 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
         disabled=node_object_id in st.session_state["flow_modules"][node_object_type]["active"]):
         node_type = "input" if node_object_type in [
             "speech_recorder"] else "output" if node_object_type in ["wave_output"] else "default"
-
+        node_content = str(node_object_id)
         new_node = StreamlitFlowNode(
             id=target_node_flow_id, 
             pos=(0, 0), 
-            data={"content": f"{node_object_type}: {node_object_id}"}, 
+            data={"content": f"{MODULE_TITLES[node_object_type]}\n\n{node_content}"}, 
             node_type=node_type, 
             source_position="right",
             target_position="left",
@@ -124,12 +135,32 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
         layout=TreeLayout(direction="right"), 
         fit_view=True, 
         height=500, 
-        enable_node_menu=True,
+        enable_node_menu=False,
         enable_edge_menu=True,
-        enable_pane_menu=True,
+        enable_pane_menu=False,
         get_edge_on_click=True,
         get_node_on_click=True, 
         show_minimap=True, 
         hide_watermark=True, 
         allow_new_edges=True,
         min_zoom=0.1)
+    if "flow_initiated" not in st.session_state:
+        st.session_state["flow_initiated"] = True
+        node_type = "input" if node_object_type in [
+            "speech_recorder"] else "output" if node_object_type in ["wave_output"] else "default"
+        node_content = str(node_object_id)
+        new_node = StreamlitFlowNode(
+            id=target_node_flow_id, 
+            pos=(0, 0), 
+            data={"content": f"{MODULE_TITLES[node_object_type]}\n\n{node_content}"}, 
+            node_type=node_type, 
+            source_position="right",
+            target_position="left",
+            selectable=True,
+            connectable=True,
+            draggable=True,
+            resizing=True,
+            deletable=True)
+        st.session_state["flow"].nodes.append(new_node)
+        st.session_state["flow_modules"][node_object_type]["active"].append(node_object_id)
+        st.rerun()
