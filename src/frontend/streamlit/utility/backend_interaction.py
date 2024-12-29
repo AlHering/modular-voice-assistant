@@ -6,7 +6,8 @@
 ****************************************************
 """
 import os
-from typing import List
+from typing import List, Tuple
+import traceback
 import streamlit as st
 from uuid import UUID
 from src.voice_assistant import BasicVoiceAssistant, setup_default_voice_assistant
@@ -40,6 +41,20 @@ def setup() -> bool:
     else:
         raise NotImplementedError(f"Mode '{MODE}' is not implemented.")
     return True
+
+
+def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:
+    """
+    Validates an configuration.
+    :param config_type: Config type.
+    :param config: Module configuration.
+    :return: True or False and validation report depending on validation success. 
+        None and validation report in case of warnings. 
+    """
+    try:
+        return AVAILABLE_MODULES[config_type].validate_configuration(config=config)
+    except Exception as ex:
+        return False, f"Exception {ex} appeared: {traceback.format_exc()}."
 
 
 def fetch_default_config() -> dict:
