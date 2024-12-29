@@ -5,21 +5,28 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
+from __future__ import annotations
 import os
 from typing import List, Generator, Any
 import logging
-from fastapi import APIRouter
+from fastapi import FastAPI, APIRouter
 from fastapi.responses import StreamingResponse
 from uuid import UUID
 import traceback
 from datetime import datetime as dt
 from gc import collect
 import numpy as np
+import uvicorn
 from functools import wraps
 from src.configuration import configuration as cfg
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
 from src.voice_assistant import AVAILABLE_MODULES, BasicVoiceAssistant, TranscriberModule, SynthesizerModule, LocalChatModule, RemoteChatModule
+
+
+APP = FastAPI(title=cfg.PROJECT_NAME, version=cfg.PROJECT_VERSION,
+              description=cfg.PROJECT_DESCRIPTION)
+INTERFACE: VoiceAssistantInterface | None = None
 
 
 def interaction_log() -> Any | None:
@@ -389,3 +396,22 @@ class VoiceAssistantInterface(object):
         else:
             return {"error": f"No active {self.module_titles[target_worker]} set."}
         
+
+"""
+Backend server
+"""
+def run() -> None:
+    """
+    Runs backend server.
+    """
+    global APP, INTERFACE
+    INTERFACE = VoiceAssistantInterface()
+    APP.include_router(INTERFACE.router)
+    uvicorn.run("src.interface:APP",
+                host=cfg.BACKEND_HOST,
+                port=cfg.BACKEND_PORT,
+                log_level="debug")
+
+
+if __name__ == "__main__":
+    run()
