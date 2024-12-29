@@ -5,15 +5,8 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from abc import ABC, abstractmethod
-from pydantic import BaseModel, Field
-from logging import Logger
-from uuid import uuid4
-from typing import Any, Tuple, List, Callable, Generator
+from typing import Tuple
 import os
-import gc
-import time
-import numpy as np
 from prompt_toolkit import PromptSession, HTML, print_formatted_text
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
@@ -21,15 +14,12 @@ from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style as PTStyle
 from src.configuration import configuration as cfg
-from threading import Thread, Event as TEvent
-from queue import Empty, Queue as TQueue
-from src.utility.time_utility import get_timestamp
+from threading import Event as TEvent
 from src.utility.string_utility import separate_pattern_from_text, extract_matches_between_bounds, remove_multiple_spaces, EMOJI_PATTERN
-from src.modules.abstractions import BaseModuleSet, PipelinePackage
+from src.modules.abstractions import PipelinePackage, ModularPipeline
 from src.modules.input_modules import SpeechRecorderModule, TranscriberModule
 from src.modules.worker_modules import BasicHandlerModule, LocalChatModule, RemoteChatModule
 from src.modules.output_modules import SynthesizerModule, WaveOutputModule
-from src.conversation_handler import ModularConversationHandler
 
 
 AVAILABLE_MODULES = {
@@ -112,43 +102,34 @@ class BasicVoiceAssistant(object):
         for va_module in [speech_recorder, transcriber, worker, synthesizer, wave_output]:
             va_module.logger = forward_logging
 
-        self.module_set = BaseModuleSet()
-        self.module_set.input_modules.append(speech_recorder)
-        self.module_set.input_modules.append(transcriber)
-        self.module_set.worker_modules.append(worker)
-        self.module_set.output_modules.append(
-            BasicHandlerModule(handler_method=clean_worker_output,
+        self.pipeline = ModularPipeline(
+            input_modules=[speech_recorder, transcriber],
+            worker_modules=[worker, 
+                            BasicHandlerModule(handler_method=clean_worker_output,
                                input_queue=self.module_set.worker_modules[-1].output_queue,
                                logger=forward_logging,
-                               name="Cleaner")
+                               name="Cleaner")],
+            output_modules=[synthesizer, wave_output]
         )
-        self.module_set.output_modules.append(synthesizer)
-        self.module_set.output_modules.append(wave_output)
+        self.pipeline.reroute_pipeline_queues()
 
-        self.module_set.reroute_pipeline_queues()
-
-        self.conversation_kwargs = {}
+        self.pipeline_kwargs = {}
         if isinstance(worker, LocalChatModule) or isinstance(worker, RemoteChatModule):
             if worker.chat_model.history[-1]["role"] == "assistant":
-                self.conversation_kwargs["greeting"] = worker.chat_model.history[-1]["content"]
-        self.conversation_kwargs["report"] = report
-        self.handler = None
+                self.pipeline_kwargs["greeting"] = worker.chat_model.history[-1]["content"]
+        self.pipeline_kwargs["report"] = report
 
     def setup(self) -> None:
         """
-        Method for setting up conversation handler.
+        Method for setting up conversation pipeline.
         """
-        if self.handler is None:
-            self.handler = ModularConversationHandler(working_directory=self.working_directory,
-                                                      module_set=self.module_set)
-        else:
-            self.handler.reset()
+        self.pipeline.reset()
 
     def stop(self) -> None:
         """
-        Method for stopping conversation handler.
+        Method for stopping conversation pipeline.
         """
-        self.handler.stop_modules()
+        self.pipeline.stop_modules()
 
     def run_conversation(self, blocking: bool = True) -> None:
         """
@@ -156,7 +137,7 @@ class BasicVoiceAssistant(object):
         :param blocking: Flag which declares whether or not to wait for each conversation step.
             Defaults to True.
         """
-        self.handler.run_conversation(blocking=blocking, **self.conversation_kwargs)
+        self.pipeline.run_pipeline(blocking=blocking, **self.pipeline_kwargs)
 
     def run_interaction(self, blocking: bool = True) -> None:
         """
@@ -164,29 +145,29 @@ class BasicVoiceAssistant(object):
         :param blocking: Flag which declares whether or not to wait for each conversation step.
             Defaults to True.
         """
-        self.handler.run_conversation(blocking=blocking, loop=False, **self.conversation_kwargs)
+        self.pipeline.run_pipeline(blocking=blocking, loop=False, **self.pipeline_kwargs)
 
     def inject_prompt(self, prompt: str) -> None:
         """
         Injects a prompt into a running conversation.
         :param prompt: Prompt to inject.
         """
-        self.module_set.input_modules[-1].output_queue.put(PipelinePackage(content=prompt))
+        self.pipeline.input_modules[-1].output_queue.put(PipelinePackage(content=prompt))
 
     def run_terminal_conversation(self) -> None:
         """
         Runs conversation loop with terminal input.
         """
-        run_terminal_conversation(handler=self.handler, conversation_kwargs=self.conversation_kwargs)
+        run_terminal_conversation(pipeline=self.pipeline, pipeline_kwargs=self.pipeline_kwargs)
 
 
-def run_terminal_conversation(handler: ModularConversationHandler, conversation_kwargs: dict = None) -> None:
+def run_terminal_conversation(pipeline: ModularPipeline, pipeline_kwargs: dict = None) -> None:
     """
     Runs conversation loop with terminal input.
-    :param handler: Conversation handler.
-    :param conversation_kwargs: Conversation keyword arguments, such as a 'greeting'.
+    :param pipeline: Pipeline.
+    :param pipeline_kwargs: Pipeline keyword arguments, such as a 'greeting'.
     """
-    conversation_kwargs = {} if conversation_kwargs is None else conversation_kwargs
+    pipeline_kwargs = {} if pipeline_kwargs is None else pipeline_kwargs
     stop = TEvent()
     bindings = KeyBindings()
 
@@ -197,22 +178,22 @@ def run_terminal_conversation(handler: ModularConversationHandler, conversation_
         Function for exiting session.
         :param event: Event that resulted in entering the function.
         """
-        cfg.LOGGER.info(f"Received keyboard interrupt, shutting down handler ...")
-        handler.reset()
+        cfg.LOGGER.info(f"Received keyboard interrupt, shutting down pipeline ...")
+        pipeline.reset()
         print_formatted_text(HTML("<b>Bye...</b>"))
         event.app.exit()
         stop.set()
 
     session = setup_prompt_session(bindings)
-    handler.module_set.input_modules[0].pause.set()
-    handler.run_conversation(blocking=False, loop=True, **conversation_kwargs)
+    pipeline.input_modules[0].pause.set()
+    pipeline.run_pipeline(blocking=False, loop=True, **pipeline_kwargs)
     
     while not stop.is_set():
         with patch_stdout():
             user_input = session.prompt(
                 "User: ")
             if user_input is not None:
-                handler.module_set.input_modules[-1].output_queue.put(PipelinePackage(content=user_input))
+                pipeline.input_modules[-1].output_queue.put(PipelinePackage(content=user_input))
 
 
 def setup_default_voice_assistant(config: dict | None = None) -> BasicVoiceAssistant:
