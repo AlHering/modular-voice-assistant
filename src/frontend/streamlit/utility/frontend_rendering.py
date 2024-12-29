@@ -35,7 +35,7 @@ def render_sidebar() -> None:
     mode = st.sidebar.selectbox(
         label="Setup Mode",
         options=["DIRECT", "API"])
-    if st.sidebar.button(" Setup " + "(Status: " + ("Active)" if st.session_state.get("SETUP") else "Inactive)"), help="Sets up assistant infrastructure."):
+    if st.sidebar.button(" Setup " + "(Status: " + ("Active)" if st.session_state.get("SETUP") else "Inactive)")):
         with st.spinner("Waiting for backend to finish startup..."):
             wait_for_setup(mode.lower())
     if mode == "API":
