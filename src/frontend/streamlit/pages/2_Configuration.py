@@ -9,10 +9,9 @@ import streamlit as st
 from typing import List, Any
 from inspect import getfullargspec
 import json
-from copy import deepcopy
 from src.utility.streamlit_utility import render_json_input
-from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES, fetch_default_config
-from src.frontend.streamlit.utility.state_cache_handling import save_config
+from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES, put_config, delete_config, get_configs, patch_config
+from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 
 
@@ -77,14 +76,14 @@ def retrieve_parameter_specification(func: callable, ignore: List[str] | None = 
 
     spec = {}
     arg_spec = getfullargspec(func)
-    default_offset = len(arg_spec.args) - len(arg_spec.defaults)
+    default_offset = len(arg_spec.args) - len(arg_spec.defaults) if arg_spec.defaults else None
 
     for param_index, param in enumerate(arg_spec.args):
         spec[param] = {}
         if param in arg_spec.annotations:
             spec[param]["type"] = retrieve_type(arg_spec.annotations[param])
-        if param_index < default_offset:
-            spec[param]["default"] = arg_spec.defaults[param_index]
+        if default_offset and param_index > default_offset:
+            spec[param]["default"] = arg_spec.defaults[param_index-default_offset]
     for ignored_param in ignore:
         if ignored_param in spec:
             spec.pop(ignored_param)
@@ -100,6 +99,7 @@ def render_config_inputs(parent_widget: Any,
     :param tab_key: Current tab key.
     :param object_type: Target object type.
     """
+    current_config = st.session_state.get(f"{tab_key}_current")
     object_class = AVAILABLE_MODULES[object_type]
     backends = object_class.supported_backends if hasattr(object_class, "supported_backends") else None
     default_models = object_class.default_models if hasattr(object_class, "default_models") else None
@@ -109,10 +109,17 @@ def render_config_inputs(parent_widget: Any,
                              AVAILABLE_MODULES[object_type].supported_input_devices,
                              key=lambda x: x["index"])}
         input_device_column, loop_pause_column, _ = parent_widget.columns([.25, .25, .50])
+        current_device_index = 0 
+        if current_config is not None:
+            for device_name in input_devices:
+                if current_config["input_device_index"] == input_devices[device_name]:
+                    current_device_index = input_devices[device_name]
+                    break
         device_name = input_device_column.selectbox(
             key=f"{tab_key}_input_device_name", 
             label="Input device", 
-            options=list(input_devices.keys()))
+            options=list(input_devices.keys()), 
+            index=current_device_index)
         st.session_state[f"{tab_key}_input_device_index"] = input_devices[device_name]
         parent_widget.markdown("""
         <style>
@@ -128,39 +135,48 @@ def render_config_inputs(parent_widget: Any,
             step=0.1,
             min_value=0.01,
             max_value=10.1,
+            value=.1 if current_config is None else current_config["recorder_loop_pause"]
         )
     elif object_type in AVAILABLE_MODULES:
         if backends is not None:
             parent_widget.selectbox(
                 key=f"{tab_key}_backend", 
                 label="Backend", 
-                options=backends)
+                options=backends,
+                index=0 if current_config is None else backends.index(current_config["backend"]))
         if default_models is not None:
             if f"{tab_key}_model_path" not in st.session_state:
-                st.session_state[f"{tab_key}_model_path"] = default_models[st.session_state[f"{tab_key}_backend"]][0]
+                st.session_state[f"{tab_key}_model_path"] = default_models[st.session_state[f"{tab_key}_backend"]][0] if (
+                current_config is None or current_config["model_path"] is None) else current_config["model_path"]
             parent_widget.text_input(
                 key=f"{tab_key}_model_path", 
                 label="Model (Model name or path)")
 
         parent_widget.write("")
-        
-    param_spec = retrieve_parameter_specification(object_class.__init__, ignore=["self", "backend", "model_path", "recorder_loop_pause", "input_device_index"])
+    
+    if object_type not in st.session_state["CACHE"]["PARAM_SPECS"]:
+        st.session_state["CACHE"]["PARAM_SPECS"][object_type] = retrieve_parameter_specification(
+            object_class.__init__, ignore=["self", "backend", "model_path", "recorder_loop_pause", "input_device_index"])
+
+    param_spec = st.session_state["CACHE"]["PARAM_SPECS"][object_type]
     for param in param_spec:
         if param_spec[param]["type"] == str:
+            default_value = param_spec[param].get("default", "")
             parent_widget.text_input(
                 key=f"{tab_key}_{param}", 
                 label=" ".join(param.split("_")).title(),
-                value=param_spec[param].get("default", ""))
+                value=current_config[param] if current_config and param in current_config else default_value)
         elif param_spec[param]["type"] in [int, float]:
+            default_value = param_spec[param].get("default", .0 if param_spec[param]["type"] == float else 0)
             parent_widget.number_input(
                 key=f"{tab_key}_{param}", 
                 label=" ".join(param.split("_")).title(),
-                value=param_spec[param].get("default", .0 if param_spec[param]["type"] == float else 0))
+                value=current_config[param] if current_config and param in current_config else default_value)
         elif param_spec[param]["type"]  == dict:
             render_json_input(parent_widget=parent_widget, 
                     key=f"{tab_key}_{param}", 
                     label=" ".join(param.split("_")).title(),
-                    default_data={})
+                    default_data={} if current_config is None or not current_config.get(param, {}) else current_config[param])
         
 
 def render_header_buttons(parent_widget: Any, 
@@ -172,42 +188,66 @@ def render_header_buttons(parent_widget: Any,
     :param parent_widget: Parent widget.
     :param object_type: Target object type.
     """
-    changed = False
+    current_config = st.session_state.get(f"{tab_key}_current")
+    
     notification_status = parent_widget.empty()
     notification_info = parent_widget.empty()
     header_button_columns = parent_widget.columns([.2, .2, .2, .2, .2])
 
     object_title = " ".join(object_type.split("_")).title()
     header_button_columns[0].write("#####")
-    if header_button_columns[0].button("Save", key=f"{tab_key}_approve_btn", help="Saves the current configuration"):
-        st.session_state["CACHE"][object_type] = deepcopy(gather_config(object_type=object_type))
-        save_config(object_type=object_type)
-        st.info(f"Updated {object_title} configuration.")
-        changed = True
+    with header_button_columns[0].popover("Overwrite",
+                                          disabled=current_config is None, 
+                                          help="Overwrite the current configuration"):
+            st.write(f"{object_title} configuration {st.session_state[f'{object_type}_config_selectbox']} will be overwritten.")
+            
+            if st.button("Approve", key=f"{tab_key}_approve_btn",):
+                obj_id = patch_config(
+                    config_type=object_type,
+                    config_data=gather_config(object_type),
+                    config_id=st.session_state[f"{object_type}_config_selectbox"]
+                ).get("id")
+                st.info(f"Updated {object_title} configuration {obj_id}.")
 
     header_button_columns[1].write("#####")
-    with header_button_columns[1].popover("Validate",
-                                          help="Reset the current configuration"):
-        st.write(f"{object_title} configuration will be reset!")
-        if st.button("Approve", 
-                                        key=f"{tab_key}_validate_btn",
-                                        help="Validate the current configuration."):
-            pass
+    if header_button_columns[1].button("Add new", 
+                                       key=f"{tab_key}_add_btn",
+                                       help="Add new entry with the below configuration if it does not exist yet."):
+        obj_id = put_config(
+            config_type=object_type,
+            config_data=gather_config(object_type)
+        ).get("id")
+        if obj_id in st.session_state[f"{tab_key}_available"]:
+            st.info(f"Configuration already found under ID {obj_id}.")
+        else:
+            st.info(f"Created new configuration with ID {obj_id}.")
+        st.session_state[f"{tab_key}_overwrite_config_id"] = obj_id
     
     header_button_columns[2].write("#####")
-    with header_button_columns[2].popover("Reset",
-                                          help="Reset the current configuration"):
-        st.write(f"{object_title} configuration will be reset!")
-        
-        if st.button("Approve", key=f"{tab_key}_delapprove_btn",):
-            st.session_state["CACHE"][object_type] = deepcopy(fetch_default_config()[object_type])
-            save_config(object_type=object_type)
-            st.info(f"{object_title} configuration was reset.")
-            changed = True
+    with header_button_columns[2].popover("Delete",
+                                          disabled=current_config is None, 
+                                          help="Delete the current configuration"):
+            st.write(f"{object_title} configuration {st.session_state[f'{object_type}_config_selectbox']} will be deleted!")
+            
+            if st.button("Approve", key=f"{tab_key}_delapprove_btn",):
+                obj_id = delete_config(
+                    config_type=object_type,
+                    config_id=st.session_state[f"{object_type}_config_selectbox"]
+                ).get("id")
+                st.info(f"Deleted {object_title} configuration {obj_id}.")
+                ids = [st.session_state[f"{tab_key}_available"][elem]["id"] 
+                       for elem in st.session_state[f"{tab_key}_available"]]
+                deleted_index = ids.index(st.session_state[f"{object_type}_config_selectbox"])
+                if len(ids) > deleted_index+1:
+                    st.session_state[f"{tab_key}_overwrite_config_id"] = ids[deleted_index+1]
+                elif len(ids) > 1:
+                    st.session_state[f"{tab_key}_overwrite_config_id"] = ids[deleted_index-1]
+                else:
+                    st.session_state[f"{tab_key}_overwrite_config_id"] = ">> New <<"
 
-    if changed:
+    if st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state[f"{object_type}_config_selectbox"]) != st.session_state[f"{object_type}_config_selectbox"]:
         st.rerun()
-
+        
 
 def render_config(object_type: str) -> None:
     """
@@ -215,13 +255,29 @@ def render_config(object_type: str) -> None:
     :param object_type: Target object type.
     """
     tab_key = f"new_{object_type}"
-    header = st.empty()
+    st.session_state[f"{tab_key}_available"] = {
+        entry["id"]: entry for entry in get_configs(config_type=object_type)
+        if not entry["inactive"]}
+    options = [">> New <<"] + list(st.session_state[f"{tab_key}_available"].keys())
+    default = st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state.get(f"{object_type}_config_selectbox", ">> New <<"))
+    
+    header_columns = st.columns([.25, .10, .65])
+    header_columns[0].write("")
+    header_columns[0].selectbox(
+        key=f"{object_type}_config_selectbox",
+        label="Configuration",
+        options=options,
+        on_change=clear_tab_config,
+        kwargs={"tab_key": tab_key},
+        index=options.index(default)
+    )
+    st.session_state[f"{tab_key}_current"] = st.session_state[f"{tab_key}_available"].get(st.session_state[f"{object_type}_config_selectbox"])
     
     render_config_inputs(parent_widget=st,
                          tab_key=tab_key,
                          object_type=object_type)
 
-    render_header_buttons(parent_widget=header,
+    render_header_buttons(parent_widget=header_columns[2],
                           tab_key=tab_key,
                           object_type=object_type)
     
