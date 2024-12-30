@@ -199,21 +199,6 @@ class PipelineModule(ABC):
         pass
 
 
-class PassivePipelineModule(PipelineModule):
-    """
-    Passive pipeline module.
-    This module follows the same functionality as a conventional pipelineModule but forwards the incoming packages in its received state.
-    It can be used for fetching and processing pipeline data without the results being fed back into the module pipeline.
-    """
-    @abstractmethod
-    def process(self) -> PipelinePackage | Generator[PipelinePackage, None, None] | None:
-        """
-        Passive module processing method.
-        :returns: The input data, as taken from the input queue.
-        """
-        pass
-
-
 class BasicHandlerModule(PipelineModule):
     """
     Basic handler module.
@@ -263,14 +248,11 @@ class ModularPipeline(object):
     - input modules resemble a pipeline for inputting user data, e.g. SpeechRecorderModule->TranscriberModule
     - worker modules resemble a pipeline for processing the ingoing user data, e.g. a ChatModelModule
     - output modules resemble a pipeline for outputting the results of the worker module pipeline, e.g. SynthesizerModule->WaveOutputModule
-    - additional (passive) modules can be "inserted" into a pipeline to branch out operations, which do not reintroduce transformed data back into 
-        the pipeline, e.g. for animating a character alongside the output module pipeline or running additional reporting.
     """
     def __init__(self,
                  input_modules: List[PipelineModule] = [],
                  worker_modules: List[PipelineModule] = [],
                  output_modules: List[PipelineModule] = [],
-                 additional_modules: List[PassivePipelineModule] = [],
                  base_loop_pause: float = 0.1,
                  logger: Logger | None = None) -> None:
         """
@@ -278,21 +260,18 @@ class ModularPipeline(object):
         :param input_modules: Input modules.
         :param worker_modules: Worker modules. 
         :param output_modules: Output modules.
-        :param additional_modules: Additional modules.
         :param base_loop_pause: Pipeline base loop pause.
         :param logger: Logger if logging is desired.
         """
         self.input_modules = input_modules
         self.worker_modules = worker_modules
         self.output_modules = output_modules
-        self.additional_modules = additional_modules
         self.base_loop_pause = base_loop_pause
         self.logger = logger
 
         self.input_threads = None
         self.worker_threads = None
         self.output_threads = None
-        self.additional_threads = None
         self.stop = None
         self.setup_modules()
 
@@ -306,12 +285,11 @@ class ModularPipeline(object):
         Returns all available modules.
         :returns: List of pipeline modules.
         """
-        return cls.input_modules + cls.worker_modules + cls.output_modules + cls.additional_modules
+        return cls.input_modules + cls.worker_modules + cls.output_modules
     
     def reroute_pipeline_queues(self) -> List[PipelineModule]:
         """
         Reroutes queues between the pipelines.
-        Note, that the queues of additional (passive) modules are not rerouted.
         """
         for module_list in [self.input_modules, self.worker_modules, self.output_modules]:
             for previous_module_index in range(len(module_list)-1):
@@ -349,7 +327,6 @@ class ModularPipeline(object):
         self.input_threads = [module.to_thread() for module in self.input_modules]
         self.worker_threads = [module.to_thread() for module in self.worker_modules]
         self.output_threads = [module.to_thread() for module in self.output_modules]
-        self.additional_threads = [module.to_thread() for module in self.additional_modules]
 
     def get_all_threads(self) -> List[Thread]:
         """
@@ -357,7 +334,7 @@ class ModularPipeline(object):
         :returns: List of threads.
         """
         res = []
-        for threads in [self.input_threads, self.worker_threads, self.output_threads, self.additional_threads]:
+        for threads in [self.input_threads, self.worker_threads, self.output_threads]:
             if threads is not None:
                 res.extend(threads)
         return threads
@@ -472,7 +449,7 @@ class ModularPipeline(object):
                     f"#                Running: {not self.stop.is_set()}       ",
                     "=========================================================="
                 ])
-                for threads in ["input_threads", "worker_threads", "output_threads", "additional_threads"]:
+                for threads in ["input_threads", "worker_threads", "output_threads"]:
                     for thread_index, thread in enumerate(getattr(self, threads)):
                         module = getattr(self, f"{threads.split('_')[0]}_modules")[thread_index]
                         module_info += f"\n\t[{type(module).__name__}<{module.name}>] Thread '{thread}: {thread.is_alive()}'"
