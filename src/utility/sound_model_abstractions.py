@@ -12,6 +12,7 @@ import pyaudio
 import numpy as np
 import time
 from src.utility.sounddevice_utility import get_input_devices, get_output_devices
+from pyaudio_utility import play_wave
 from src.utility.time_utility import get_timestamp
 from src.utility.whisper_utility import load_whisper_model, transcribe as transcribe_with_whisper
 from src.utility.faster_whisper_utility import load_faster_whisper_model, transcribe as transcribe_with_faster_whisper
@@ -316,4 +317,19 @@ class AudioPlayer(object):
             pya.terminate()
         self.output_device_index = output_device_index
         self.playback_parameters = {} if playback_parameters is None else playback_parameters
-            
+
+    def play(self, 
+             audio_input: Union[str, list], 
+             playback_parameters: dict | None = None) -> None:
+        """
+        Plays audio.
+        :param audio_input: Wave file path or waveform.
+        :param playback_parameters: Playback parameters as dictionary.
+            Defaults to None.
+        """
+        playback_parameters = self.playback_parameters if playback_parameters is None else playback_parameters
+        if self.backend == "pyaudio":
+            play_wave(wave=audio_input,
+                      stream_kwargs=playback_parameters)
+        
+        
