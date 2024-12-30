@@ -265,7 +265,7 @@ class VoiceAssistantInterface(object):
         entry = self.database.obj_as_dict(self.database.get_object_by_id("service_config", object_id=config_uuid))
         if entry:
             self.services[service_type] = AVAILABLE_SERVICES[service_type](**entry["config"])
-            self.service_uuids[service_type] = UUID(entry["id"])
+            self.service_uuids[service_type] = entry["id"]
             return {"success": f"Set active {self.service_titles[service_type]} to UUID '{config_uuid}':\n{entry}"}
         else:
             return {"error": f"No {self.service_titles[service_type]} with UUID '{config_uuid}'"}
