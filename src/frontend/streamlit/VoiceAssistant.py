@@ -8,7 +8,7 @@
 import streamlit as st
 
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar, render_pipeline_node_plane
-from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES
+from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES
 
 
 ###################
@@ -37,7 +37,7 @@ if __name__ == "__main__":
         st.info("System inactive. Please choose a Setup Mode in the sidebar and press the Setup button.")
     else:    
         render_pipeline_node_plane(parent_widget=st.container(),
-                                block_dict=AVAILABLE_MODULES,
+                                block_dict=AVAILABLE_SERVICES,
                                 session_state_key="pipeline_schema")
     
     render_sidebar()

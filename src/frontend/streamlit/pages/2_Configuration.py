@@ -10,7 +10,7 @@ from typing import List, Any
 from inspect import getfullargspec
 import json
 from src.utility.streamlit_utility import render_json_input
-from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_MODULES, MODULE_TITLES, validate_config, put_config, delete_config, get_configs, patch_config
+from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, SERVICE_TITLES, validate_config, put_config, delete_config, get_configs, patch_config
 from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 
@@ -24,7 +24,7 @@ def gather_config(object_type: str) -> dict:
     :param object_type: Target object type.
     :return: Object config.
     """
-    object_class = AVAILABLE_MODULES[object_type]
+    object_class = AVAILABLE_SERVICES[object_type]
     data = {}
     param_spec = retrieve_parameter_specification(object_class.__init__, ignore=["self"])
     for param in param_spec:
@@ -117,13 +117,13 @@ def render_config_inputs(parent_widget: Any,
     :param object_type: Target object type.
     """
     current_config = st.session_state.get(f"{tab_key}_current")
-    object_class = AVAILABLE_MODULES[object_type]
+    object_class = AVAILABLE_SERVICES[object_type]
     backends = object_class.supported_backends if hasattr(object_class, "supported_backends") else None
     default_models = object_class.default_models if hasattr(object_class, "default_models") else None
     if object_type == "speech_recorder":
         input_devices = {entry["name"]: entry["index"] 
                          for entry in sorted(
-                             AVAILABLE_MODULES[object_type].supported_input_devices,
+                             AVAILABLE_SERVICES[object_type].supported_input_devices,
                              key=lambda x: x["index"])}
         input_device_column, loop_pause_column, _ = parent_widget.columns([.25, .25, .50])
         current_device_index = 0 
@@ -156,7 +156,7 @@ def render_config_inputs(parent_widget: Any,
                                     current_config=current_config,
                                     default=.1)
         )
-    elif object_type in AVAILABLE_MODULES:
+    elif object_type in AVAILABLE_SERVICES:
         if backends is not None:
             parent_widget.selectbox(
                 key=f"{tab_key}_backend", 
@@ -223,7 +223,7 @@ def render_header_buttons(parent_widget: Any,
     
     header_button_columns = parent_widget.columns([.2, .2, .2, .2, .2])
 
-    object_title = MODULE_TITLES[object_type]
+    object_title = SERVICE_TITLES[object_type]
     header_button_columns[0].write("#####")
     with header_button_columns[0].popover("Validate",
                                           help="Validates the current configuration"):
@@ -350,9 +350,9 @@ if __name__ == "__main__":
     if "SETUP" not in st.session_state or not st.session_state["SETUP"]:
         st.info("System inactive. Please choose a Setup Mode in the sidebar and press the Setup button.")
     else:
-        tabs = list(AVAILABLE_MODULES.keys())
+        tabs = list(AVAILABLE_SERVICES.keys())
         tabs.remove("wave_output")
-        for index, tab in enumerate(st.tabs([MODULE_TITLES[elem]+"s" for elem in tabs])):
+        for index, tab in enumerate(st.tabs([SERVICE_TITLES[elem]+"s" for elem in tabs])):
             with tab:
                 render_config(tabs[index])
             

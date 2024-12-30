@@ -10,8 +10,7 @@ from typing import List, Tuple
 import traceback
 import streamlit as st
 from uuid import UUID
-from src.voice_assistant import BasicVoiceAssistant, setup_default_voice_assistant
-from src.voice_assistant import AVAILABLE_MODULES as AVAILABLE_MODULES
+from src.service_interface import AVAILABLE_SERVICES
 from src.interface_client import RemoteVoiceAssistantClient, LocalVoiceAssistantClient
 from src.configuration import configuration as cfg
 
@@ -21,7 +20,7 @@ from src.configuration import configuration as cfg
 #   direct: Controller in session cache
 #
 MODE: str = "direct"
-MODULE_TITLES =  {key: " ".join(key.split("_")).title() for key in AVAILABLE_MODULES}
+SERVICE_TITLES =  {key: " ".join(key.split("_")).title() for key in AVAILABLE_SERVICES}
 
 
 def setup() -> bool:
@@ -50,7 +49,7 @@ def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:
         None and validation report in case of warnings. 
     """
     try:
-        return AVAILABLE_MODULES[config_type].validate_configuration(config=config)
+        return AVAILABLE_SERVICES[config_type].validate_configuration(config=config)
     except Exception as ex:
         return False, f"Exception {ex} appeared: {traceback.format_exc()}."
 
@@ -61,18 +60,6 @@ def fetch_default_config() -> dict:
     :return: Config.
     """
     return cfg.DEFAULT_COMPONENT_CONFIG
-
-
-def load_voice_assistant(
-    config: dict
-) -> BasicVoiceAssistant:
-    """
-    Loads a basic voice assistant.
-    :param module_set: Module set.
-    :param loop_pause: Loop pause for modules.
-    :return: Conversation handler.
-    """
-    return setup_default_voice_assistant(config=config)
 
 
 def flatten_config(config: dict) -> None:
