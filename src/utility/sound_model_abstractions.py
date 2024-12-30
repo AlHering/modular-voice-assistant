@@ -164,7 +164,7 @@ class SpeechRecorder(object):
                  input_device_index: int | None = None,
                  recognizer_parameters: dict | None = None,
                  microphone_parameters: dict | None = None,
-                 loop_pause = .1) -> None:
+                 loop_pause: float = .1) -> None:
         """
         Initiation method.
         :param input_device_index: Input device index.
