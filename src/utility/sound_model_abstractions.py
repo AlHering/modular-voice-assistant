@@ -195,8 +195,8 @@ class SpeechRecorder(object):
             "sample_rate": 16000,
             "chunk_size": 1024
         } if microphone_parameters is None else microphone_parameters
-        if "device_index" not in microphone_parameters:
-            microphone_parameters["device_index"] = self.input_device_index,
+        if "device_index" not in self.microphone_parameters:
+            self.microphone_parameters["device_index"] = self.input_device_index,
 
     def record_single_input(self,
                             recognizer_parameters: dict | None = None,
