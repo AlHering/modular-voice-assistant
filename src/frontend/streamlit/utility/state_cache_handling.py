@@ -14,19 +14,15 @@ from src.configuration import configuration as cfg
 from src.frontend.streamlit.utility import backend_interaction
 
 
-def wait_for_setup(mode: str) -> None:
+def wait_for_setup(api_base: str | None = None) -> None:
     """
     Waits for setup to finish.
-    :param mode: Assistant mode.
+    :param api_base: API Base.
     """
     populate_state_cache()
-    backend_interaction.MODE = mode
-    if not backend_interaction.setup():
-        st.warning("Setup failed! Probably the assistant is set to 'API' mode but the backend server is not running.")
-        st.session_state["SETUP"] = False
-    else:
-        st.session_state["SETUP"] = True
-        st.rerun()
+    backend_interaction.setup(api_base=api_base)
+    st.session_state["SETUP"] = True
+    st.rerun()
 
 def save_config(object_type: str) -> None:
     """

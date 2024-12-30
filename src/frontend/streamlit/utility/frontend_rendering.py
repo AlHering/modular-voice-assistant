@@ -35,16 +35,25 @@ def render_sidebar() -> None:
     mode = st.sidebar.selectbox(
         label="Setup Mode",
         options=["DIRECT", "API"])
+    api_base = None
+    if mode == "DIRECT":
+        api_base = f"http://{cfg.BACKEND_HOST}:{cfg.BACKEND_PORT}{cfg.BACKEND_ENDPOINT_BASE}"
+    elif mode == "API":
+        api_base = st.sidebar.text_input(
+            label="API Base"
+        )
+    
+    if st.sidebar.button(" Check Connection"):
+        try:
+            if requests.get(api_base + "/check").status_code == 200:
+                st.sidebar.info("Backend server is available!")
+            else:
+                st.sidebar.error("Backend server is not available!")
+        except:
+            st.sidebar.error("Backend server is not available!")
     if st.sidebar.button(" Setup " + "(Status: " + ("Active)" if st.session_state.get("SETUP") else "Inactive)")):
         with st.spinner("Waiting for backend to finish startup..."):
-            wait_for_setup(mode.lower())
-    if mode == "API":
-        api_base = f"http://{cfg.BACKEND_HOST}:{cfg.BACKEND_PORT}{cfg.BACKEND_ENDPOINT_BASE}/check"
-        try:
-            if requests.get(api_base).status_code == 200:
-                st.sidebar.info("Backend server is running!")
-        except requests.exceptions.ConnectionError:
-            st.sidebar.error("Backend server is not available!")
+            wait_for_setup(api_base=api_base)
 
     st.sidebar.write("#")
     st.sidebar.write("#")

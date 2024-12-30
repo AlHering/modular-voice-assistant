@@ -6,36 +6,35 @@
 ****************************************************
 """
 from enum import Enum
-from typing import List, Generator
-import json
+from typing import Generator
+from uuid import UUID
 import requests
-import asyncio
-from src.interface import VoiceAssistantInterface
+import json
 from src.configuration import configuration as cfg
 
 
-API_BASE = f"http://{cfg.BACKEND_HOST}:{cfg.BACKEND_PORT}{cfg.BACKEND_ENDPOINT_BASE}"
 class Endpoints(str, Enum):
     """
     Endpoints config.
     """
-    check_connection = API_BASE + "/check"
-    add_configs = API_BASE + "/configs/add"
-    patch_configs = API_BASE + "/configs/patch"
-    get_configs = API_BASE + "/configs/get"
-    load_modules = API_BASE + "/modules/load"
-    unload_modules = API_BASE + "/modules/unload"
-    setup_assistant = API_BASE + "/assistant/setup"
-    reset_assistant = API_BASE + "/assistant/reset"
-    stop_assistant = API_BASE + "/assistant/stop"
-    inject_prompt = API_BASE + "/assistant/inject-prompt"
-    interaction = API_BASE + "/assistant/interaction"
-    conversation = API_BASE + "/assistant/conversation"
-    terminal_conversation = API_BASE + "/assistant/terminal-conversation"
-    transcribe = API_BASE + "/services/transcribe"
-    synthesize = API_BASE + "/services/synthesize"
-    chat = API_BASE + "/services/chat"
-    chat_stream = API_BASE + "/services/chat-stream"
+    check_connection = "/check"
+    add_configs = "/configs/add"
+    patch_configs = "/configs/patch"
+    get_configs = "/configs/get"
+    load_services = "/services/load"
+    unload_services = "/services/unload"
+
+    run_input_pipeline = "/assistant/run_input_pipeline"
+    run_output_pipeline = "/assistant/run_output_pipeline"
+
+    record_speech = "/services/record"
+    play_audio = "/services/play-audio"
+    transcribe = "/services/transcribe"
+    synthesize = "/services/synthesize"
+    local_chat = "/services/local-chat"
+    local_chat_streamed = "/services/local-chat-stream"
+    remote_chat = "/services/remote-chat"
+    remote_chat_streamed = "/services/remote-chat-stream"
 
     def __str__(self) -> str:
         """
@@ -48,6 +47,13 @@ class RemoteVoiceAssistantClient(object):
     """
     Remote voice assistant client.
     """
+    def __init__(self, api_base: str | None = None) -> None:
+        """
+        Initiation method.
+        :param api_base: API Base.
+        """
+        self.api_base = f"http://{cfg.BACKEND_HOST}:{cfg.BACKEND_PORT}{cfg.BACKEND_ENDPOINT_BASE}" if api_base is None else api_base
+        
 
     def check_connection(self) -> bool:
         """
@@ -65,411 +71,168 @@ class RemoteVoiceAssistantClient(object):
     """
 
     def add_config(self,
-                   module_type: str,
-                   config: dict) -> dict | None:
+                   service_type: str,
+                   config: dict) -> dict:
         """
         Adds a config to the database.
-        :param module_type: Target module type.
+        :param service_type: Target service type.
         :param config: Config.
         :return: Response.
         """
-        return requests.post(Endpoints.add_configs, json={
-            "module_type": module_type,
+        return requests.post(self.api_base + Endpoints.add_configs, json={
+            "service_type": service_type,
             "config": config
-        }).json().get("result")
+        }).json()
 
     def overwrite_config(self,
-                   module_type: str,
+                   service_type: str,
                    config: dict) -> dict:
         """
         Overwrites a config in the database.
-        :param module_type: Target module type.
+        :param service_type: Target service type.
         :param config: Config.
         :return: Response.
         """
-        return requests.post(Endpoints.patch_configs, json={
-            "module_type": module_type,
+        return requests.post(self.api_base + Endpoints.patch_configs, json={
+            "service_type": service_type,
             "config": config
-        }).json().get("result")
+        }).json()
     
     def get_configs(self,
-                    module_type: str = None) -> List[dict] | None:
+                    service_type: str = None) -> dict:
         """
         Adds a config to the database.
-        :param module_type: Target module type.
+        :param service_type: Target service type.
             Defaults to None in which case all configs are returned.
         :return: Response.
         """
         return requests.post(
-            Endpoints.get_configs, json={"module_type": module_type}).json().get("result")
+            self.api_base + Endpoints.get_configs, json={"service_type": service_type}).json()
 
     """
-    Module handling
+    Service handling
     """
 
-    def load_module(self,
-                    module_type: str,
+    def load_service(self,
+                    service_type: str,
                     config_uuid: str) -> dict:
         """
-        Loads a module from the given config UUID.
-        :param module_type: Target module type.
+        Loads a service from the given config UUID.
+        :param service_type: Target service type.
         :param config_uuid: Config UUID.
         :return: Response.
         """
-        try:
-            return requests.post(Endpoints.load_modules, json={
-                "module_type": module_type,
+        return requests.post(self.api_base + Endpoints.load_services, json={
+                "service_type": service_type,
                 "config_uuid": config_uuid
             }).json()
-        except:
-            pass
             
-    def unload_module(self,
-                      module_type: str,
+    def unload_service(self,
+                      service_type: str,
                       config_uuid: str) -> dict:
         """
-        Unloads a module from the given config UUID.
-        :param module_type: Target module type.
+        Unloads a service from the given config UUID.
+        :param service_type: Target service type.
         :param config_uuid: Config UUID.
         :return: Response.
         """
-        try:
-            return requests.post(Endpoints.unload_modules, json={
-                "module_type": module_type,
+        return requests.post(self.api_base + Endpoints.unload_services, json={
+                "service_type": service_type,
                 "config_uuid": config_uuid
             }).json()
-        except:
-            pass
 
     """
     Assistant handling
     """
 
-    def setup_assistant(self,
-                        speech_recorder_uuid: str,
-                        transcriber_uuid: str,
-                        worker_uuid: str,
-                        synthesizer_uuid: str,
-                        wave_output_uuid: str,
-                        stream: bool = True,
-                        forward_logging: bool = False,
-                        report: bool = False) -> dict:
-        """
-        Sets up a voice assistant from currently configured modules.
-        :param speech_recorder_uuid: Speech Recorder config UUID.
-        :param transcriber_uuid: Transcriber  config UUID.
-        :param worker_uuid: Worker config UUID, e.g. for LocalChatModule or RemoteChatModule.
-        :param synthesizer_uuid: Synthesizer config UUID.
-        :param wave_output_uuid: Wave output config UUID.
-        :param stream: Declares, whether chat model should stream its response.
-        :param forward_logging: Flag for forwarding logger to modules.
-        :param report: Flag for running report thread.
-        """
-        try:
-            return requests.post(Endpoints.setup_assistant, json={
-                "speech_recorder_uuid": speech_recorder_uuid,
-                "transcriber_uuid": transcriber_uuid,
-                "worker_uuid": worker_uuid,
-                "synthesizer_uuid": synthesizer_uuid,
-                "wave_output_uuid": wave_output_uuid,
-                "stream": stream,
-                "forward_logging": forward_logging,
-                "report": report
+    """
+    Direct service access
+    """
+    def record_speech(self, 
+                      config_uuid: str | UUID,
+                      recognizer_parameters: dict | None = None,
+                      microphone_parameters: dict | None = None) -> dict:
+        return requests.post(self.api_base + Endpoints.record_speech, json={
+                "config_uuid": config_uuid,
+                "recognizer_parameters": recognizer_parameters,
+                "microphone_parameters": microphone_parameters
             }).json()
-        except:
-            pass
-
-    """
-    Direct module access
-    """
 
     def transcribe(self, 
-                   audio_input: List[int | float] | str, 
-                   dtype: str | None = None, 
+                   config_uuid: str | UUID,
+                   audio_input: str | list, 
                    transcription_parameters: dict | None = None) -> dict:
-        """
-        Transcribes audio to text.
-        :param audio_input: Audio data or wave file path.
-        :param dtype: Dtype in case of audio data input.
-        :param transcription_parameters: Transcription parameters as dictionary.
-            Defaults to None.
-        :return: Transcript and metadata if successful, else error report.
-        """
-        try:
-            return requests.post(Endpoints.transcribe, json={
+        return requests.post(self.api_base + Endpoints.transcribe, json={
+                "config_uuid": config_uuid,
                 "audio_input": audio_input,
-                "dtype": dtype,
-                "transcription_parameters": transcription_parameters,
+                "transcription_parameters": transcription_parameters
             }).json()
-        except:
-            pass
 
-    def synthesize(self, text: str, synthesis_parameters: dict | None = None) -> dict:
-        """
-        Synthesizes audio from input text.
-        :param text: Text to synthesize to audio.
-        :param synthesis_parameters: Synthesis parameters as dictionary.
-            Defaults to None.
-        :return: Audio data, dtype and metadata if successful, else error report.
-        """
-        try:
-            return requests.post(Endpoints.synthesize, json={
+    def synthesize(self, 
+                   config_uuid: str | UUID,
+                   text: str,
+                   synthesis_parameters: dict | None = None) -> dict:
+        return requests.post(self.api_base + Endpoints.synthesize, json={
+                "config_uuid": config_uuid,
                 "text": text,
-                "synthesis_parameters": synthesis_parameters,
+                "synthesis_parameters": synthesis_parameters
             }).json()
-        except:
-            pass
+
+    def play_audio(self, 
+                    config_uuid: str | UUID,
+                    audio_input: str | list, 
+                    playback_parameters: dict | None = None) -> dict:
+        return requests.post(self.api_base + Endpoints.play_audio, json={
+                "config_uuid": config_uuid,
+                "audio_input": audio_input,
+                "playback_parameters": playback_parameters
+            }).json()
         
-    def chat(self, 
-             prompt: str, 
-             chat_parameters: dict | None = None,
-             local: bool = True) -> dict:
-        """
-        Generates a chat response.
-        :param prompt: User input.
-        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
-            Defaults to None in which case an empty dictionary is created.
-        :return: Generated response and metadata if successful, else error report.
-        """
-        try:
-            return requests.post(Endpoints.chat, json={
+    def local_chat(self, 
+                   config_uuid: str | UUID,
+                   prompt: str, 
+                   chat_parameters: dict | None = None) -> dict:
+        return requests.post(self.api_base + Endpoints.local_chat, json={
+                "config_uuid": config_uuid,
+                "prompt": prompt,
+                "chat_parameters": chat_parameters
+            }).json()
+        
+    def remote_chat(self, 
+                   config_uuid: str | UUID,
+                   prompt: str, 
+                   chat_parameters: dict | None = None) -> dict:
+        return requests.post(self.api_base + Endpoints.remote_chat, json={
+                "config_uuid": config_uuid,
+                "prompt": prompt,
+                "chat_parameters": chat_parameters
+            }).json()
+
+    def local_chat_streamed(self, 
+                   config_uuid: str | UUID,
+                   prompt: str, 
+                   chat_parameters: dict | None = None,
+                   minium_yielded_characters: int = 10) -> Generator[dict, None, None]:
+        with requests.post(self.api_base + Endpoints.local_chat_streamed, json={
+                "config_uuid": config_uuid,
                 "prompt": prompt,
                 "chat_parameters": chat_parameters,
-                "local": local,
-            }).json()
-        except:
-            pass
-        
-    def chat_stream(self, 
-             prompt: str, 
-             chat_parameters: dict | None = None,
-             local: bool = True) -> Generator[dict, None, None] | None:
-        """
-        Generates a streamed chat response.
-        :param prompt: User input.
-        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
-            Defaults to None in which case an empty dictionary is created.
-        :return: Generated response and metadata if successful, else error report.
-        """
-        try:
-            with requests.stream("POST", Endpoints.chat_stream, json={
-                "prompt": prompt,
-                "chat_parameters": chat_parameters,
-                "local": local
+                "minium_yielded_characters": minium_yielded_characters
             }) as response:
-                for chunk in response.iter_lines():
-                    if not chunk:
-                        break
-                    yield json.loads(chunk.decode("utf-8"))
-        except:
-            pass
+            for chunk in response.iter_lines():
+                yield json.loads(chunk)
 
-class LocalVoiceAssistantClient(object):
-    """
-    Local voice assistant client.
-    """
-    def __init__(self) -> None:
-        """
-        Initiation method.
-        """
-        self.interface = VoiceAssistantInterface()
 
-    def check_connection(self) -> bool:
-        """
-        Checks connection to backend.
-        :return: True, if available, else False.
-        """
-        try:
-            resp = asyncio.run(self.interface.check_connection())
-            return True
-        except Exception as ex:
-            return False
-
-    """
-    Config handling
-    """
-
-    def add_config(self,
-                   module_type: str,
-                   config: dict) -> dict | None:
-        """
-        Adds a config to the database.
-        :param module_type: Target module type.
-        :param config: Config.
-        :return: Response.
-        """
-        response = asyncio.run(self.interface.overwrite_config(payload={
-            "module_type": module_type,
-            "config": config
-        }))
-        return response.get("result")
-
-    def overwrite_config(self,
-                   module_type: str,
-                   config: dict) -> dict:
-        """
-        Overwrites a config in the database.
-        :param module_type: Target module type.
-        :param config: Config.
-        :return: Response.
-        """
-        response = asyncio.run(self.interface.overwrite_config(payload={
-            "module_type": module_type,
-            "config": config
-        })) 
-        return response.get("result")
-    
-    def get_configs(self,
-                    module_type: str = None) -> List[dict] | None:
-        """
-        Adds a config to the database.
-        :param module_type: Target module type.
-            Defaults to None in which case all configs are returned.
-        :return: Response.
-        """
-        response = asyncio.run(self.interface.get_configs(payload={"module_type": module_type}))
-        return response.get("result")
-
-    """
-    Module handling
-    """
-
-    def load_module(self,
-                    module_type: str,
-                    config_uuid: str) -> dict:
-        """
-        Loads a module from the given config UUID.
-        :param module_type: Target module type.
-        :param config_uuid: Config UUID.
-        :return: Response.
-        """
-        response = asyncio.run(self.interface.load_module(payload={
-            "module_type": module_type,
-            "config_uuid": config_uuid
-        }))
-        return response
-            
-    def unload_module(self,
-                      module_type: str,
-                      config_uuid: str) -> dict:
-        """
-        Unloads a module from the given config UUID.
-        :param module_type: Target module type.
-        :param config_uuid: Config UUID.
-        :return: Response.
-        """
-        response = asyncio.run(self.interface.unload_module(payload={
-            "module_type": module_type,
-            "config_uuid": config_uuid
-        }))
-        return response
-
-    """
-    Assistant handling
-    """
-
-    def setup_assistant(self,
-                        speech_recorder_uuid: str,
-                        transcriber_uuid: str,
-                        worker_uuid: str,
-                        synthesizer_uuid: str,
-                        wave_output_uuid: str,
-                        stream: bool = True,
-                        forward_logging: bool = False,
-                        report: bool = False) -> dict:
-        """
-        Sets up a voice assistant from currently configured modules.
-        :param speech_recorder_uuid: Speech Recorder config UUID.
-        :param transcriber_uuid: Transcriber  config UUID.
-        :param worker_uuid: Worker config UUID, e.g. for LocalChatModule or RemoteChatModule.
-        :param synthesizer_uuid: Synthesizer config UUID.
-        :param wave_output_uuid: Wave output config UUID.
-        :param stream: Declares, whether chat model should stream its response.
-        :param forward_logging: Flag for forwarding logger to modules.
-        :param report: Flag for running report thread.
-        """
-        response = asyncio.run(self.interface.setup_assistant(payload={
-            "speech_recorder_uuid": speech_recorder_uuid,
-            "transcriber_uuid": transcriber_uuid,
-            "worker_uuid": worker_uuid,
-            "synthesizer_uuid": synthesizer_uuid,
-            "wave_output_uuid": wave_output_uuid,
-            "stream": stream,
-            "forward_logging": forward_logging,
-            "report": report
-        }))
-        return response
-
-    """
-    Direct module access
-    """
-
-    def transcribe(self, 
-                   audio_input: List[int | float] | str, 
-                   dtype: str | None = None, 
-                   transcription_parameters: dict | None = None) -> dict:
-        """
-        Transcribes audio to text.
-        :param audio_input: Audio data or wave file path.
-        :param dtype: Dtype in case of audio data input.
-        :param transcription_parameters: Transcription parameters as dictionary.
-            Defaults to None.
-        :return: Transcript and metadata if successful, else error report.
-        """
-        response = asyncio.run(self.interface.transcribe(**{
-            "audio_input": audio_input,
-            "dtype": dtype,
-            "transcription_parameters": transcription_parameters,
-        }))
-        return response
-
-    def synthesize(self, text: str, synthesis_parameters: dict | None = None) -> dict:
-        """
-        Synthesizes audio from input text.
-        :param text: Text to synthesize to audio.
-        :param synthesis_parameters: Synthesis parameters as dictionary.
-            Defaults to None.
-        :return: Audio data, dtype and metadata if successful, else error report.
-        """
-        response = asyncio.run(self.interface.synthesize(**{
-            "text": text,
-            "synthesis_parameters": synthesis_parameters,
-        }))
-        return response
-        
-    def chat(self, 
-             prompt: str, 
-             chat_parameters: dict | None = None,
-             local: bool = True) -> dict:
-        """
-        Generates a chat response.
-        :param prompt: User input.
-        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
-            Defaults to None in which case an empty dictionary is created.
-        :return: Generated response and metadata if successful, else error report.
-        """
-        response = asyncio.run(self.interface.chat(**{
-            "prompt": prompt,
-            "chat_parameters": chat_parameters,
-            "local": local,
-        }))
-        return response
-        
-    def chat_stream(self, 
-             prompt: str, 
-             chat_parameters: dict | None = None,
-             local: bool = True) -> Generator[dict, None, None] | None:
-        """
-        Generates a streamed chat response.
-        :param prompt: User input.
-        :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
-            Defaults to None in which case an empty dictionary is created.
-        :return: Generated response and metadata if successful, else error report.
-        """
-        for response in asyncio.run(self.interface._wrapped_streamed_chat(**{
-            "prompt": prompt,
-            "chat_parameters": chat_parameters,
-            "local": local
-        })):
-            yield response
-        
+    def remote_chat_streamed(self, 
+                   config_uuid: str | UUID,
+                   prompt: str, 
+                   chat_parameters: dict | None = None,
+                   minium_yielded_characters: int = 10) -> Generator[dict, None, None]:
+        with requests.post(self.api_base + Endpoints.remote_chat_streamed, json={
+                "config_uuid": config_uuid,
+                "prompt": prompt,
+                "chat_parameters": chat_parameters,
+                "minium_yielded_characters": minium_yielded_characters
+            }) as response:
+            for chunk in response.iter_lines():
+                yield json.loads(chunk)

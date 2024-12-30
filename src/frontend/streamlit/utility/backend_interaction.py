@@ -11,33 +11,19 @@ import traceback
 import streamlit as st
 from uuid import UUID
 from src.service_interface import AVAILABLE_SERVICES
-from src.interface_client import RemoteVoiceAssistantClient, LocalVoiceAssistantClient
+from src.interface_client import RemoteVoiceAssistantClient
 from src.configuration import configuration as cfg
 
-
-# MODES:
-#   api: Backend is running on default network address
-#   direct: Controller in session cache
-#
-MODE: str = "direct"
 SERVICE_TITLES =  {key: " ".join(key.split("_")).title() for key in AVAILABLE_SERVICES}
 
 
-def setup() -> bool:
+def setup(api_base: str | None = None) -> None:
     """
     Sets up and assistant.
-    :return: True, if successful, else False.
+    :param api_base: API Base.
     """
     st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
-    if MODE == "direct":
-        st.session_state["CLIENT"] = LocalVoiceAssistantClient()
-    elif MODE == "api":
-        st.session_state["CLIENT"] = RemoteVoiceAssistantClient()
-        if not st.session_state["CLIENT"].check_connection():
-            return False
-    else:
-        raise NotImplementedError(f"Mode '{MODE}' is not implemented.")
-    return True
+    st.session_state["CLIENT"] = RemoteVoiceAssistantClient(api_base=api_base)
 
 
 def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:
