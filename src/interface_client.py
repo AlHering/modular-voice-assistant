@@ -152,7 +152,7 @@ class VoiceAssistantClient(object):
                       config_uuid: str | UUID,
                       recognizer_parameters: dict | None = None,
                       microphone_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.record_speech, params={
+        return requests.post(self.api_base + Endpoints.record_speech, json={
                 "config_uuid": config_uuid,
                 "recognizer_parameters": recognizer_parameters,
                 "microphone_parameters": microphone_parameters
@@ -162,77 +162,72 @@ class VoiceAssistantClient(object):
                    config_uuid: str | UUID,
                    audio_input: str | list, 
                    transcription_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.transcribe, params={
+        return requests.post(self.api_base + Endpoints.transcribe, json={
                 "config_uuid": config_uuid,
-                "audio_input": audio_input,
-                "transcription_parameters": transcription_parameters
+                "audio": audio_input,
+                "parameters": transcription_parameters
             }).json()
 
     def synthesize(self, 
                    config_uuid: str | UUID,
                    text: str,
                    synthesis_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.synthesize, params={
+        return requests.post(self.api_base + Endpoints.synthesize, json={
                 "config_uuid": config_uuid,
                 "text": text,
-                "synthesis_parameters": synthesis_parameters
+                "parameters": synthesis_parameters
             }).json()
 
     def play_audio(self, 
                     config_uuid: str | UUID,
                     audio_input: str | list, 
                     playback_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.play_audio, params={
+        return requests.post(self.api_base + Endpoints.play_audio, json={
                 "config_uuid": config_uuid,
-                "audio_input": audio_input,
-                "playback_parameters": playback_parameters
+                "audio": audio_input,
+                "parameters": playback_parameters
             }).json()
         
     def local_chat(self, 
                    config_uuid: str | UUID,
                    prompt: str, 
                    chat_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.local_chat, params={
+        return requests.post(self.api_base + Endpoints.local_chat, json={
                 "config_uuid": config_uuid,
-                "prompt": prompt,
-                "chat_parameters": chat_parameters
+                "text": prompt,
+                "parameters": chat_parameters
             }).json()
         
     def remote_chat(self, 
                    config_uuid: str | UUID,
                    prompt: str, 
                    chat_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.remote_chat, params={
+        return requests.post(self.api_base + Endpoints.remote_chat, json={
                 "config_uuid": config_uuid,
-                "prompt": prompt,
-                "chat_parameters": chat_parameters
+                "text": prompt,
+                "parameters": chat_parameters
             }).json()
 
     def local_chat_streamed(self, 
                    config_uuid: str | UUID,
                    prompt: str, 
-                   chat_parameters: dict | None = None,
-                   minium_yielded_characters: int = 10) -> Generator[dict, None, None]:
-        with requests.post(self.api_base + Endpoints.local_chat_streamed, params={
+                   chat_parameters: dict | None = None) -> Generator[dict, None, None]:
+        with requests.post(self.api_base + Endpoints.local_chat_streamed, json={
                 "config_uuid": config_uuid,
-                "prompt": prompt,
-                "chat_parameters": chat_parameters,
-                "minium_yielded_characters": minium_yielded_characters
+                "text": prompt,
+                "parameters": chat_parameters
             }) as response:
             for chunk in response.iter_lines():
                 yield json.loads(chunk)
 
-
     def remote_chat_streamed(self, 
                    config_uuid: str | UUID,
                    prompt: str, 
-                   chat_parameters: dict | None = None,
-                   minium_yielded_characters: int = 10) -> Generator[dict, None, None]:
-        with requests.post(self.api_base + Endpoints.remote_chat_streamed, params={
+                   chat_parameters: dict | None = None) -> Generator[dict, None, None]:
+        with requests.post(self.api_base + Endpoints.remote_chat_streamed, json={
                 "config_uuid": config_uuid,
-                "prompt": prompt,
-                "chat_parameters": chat_parameters,
-                "minium_yielded_characters": minium_yielded_characters
+                "text": prompt,
+                "parameters": chat_parameters
             }) as response:
             for chunk in response.iter_lines():
                 yield json.loads(chunk)
