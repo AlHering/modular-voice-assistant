@@ -149,6 +149,7 @@ if __name__ == "__main__":
 
     # Page content
     st.title("Models")
+    st.error("Currently not implemented!")
     
     # Wait for backend and dependencies
     if "SETUP" not in st.session_state or not st.session_state["SETUP"]:
