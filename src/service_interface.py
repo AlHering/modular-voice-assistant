@@ -152,6 +152,7 @@ class VoiceAssistantInterface(object):
         self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
         self.router.add_api_route(path="/configs/patch", endpoint=self.overwrite_config, methods=["POST"])
         self.router.add_api_route(path="/configs/get", endpoint=self.get_configs, methods=["POST"])
+        self.router.add_api_route(path="/services/get", endpoint=self.get_loaded_services, methods=["GET"])
         self.router.add_api_route(path="/services/load", endpoint=self.load_service, methods=["POST"])
         self.router.add_api_route(path="/services/unload", endpoint=self.unload_service, methods=["POST"])
 
@@ -214,7 +215,7 @@ class VoiceAssistantInterface(object):
     async def get_configs(self,
                           service_type: str | None = None) -> dict:
         """
-        Adds a config to the database.
+        Retrieves configs from the database.
         :param service_type: Target service type.
             Defaults to None in which case all configs are returned.
         :return: Response.
@@ -228,6 +229,13 @@ class VoiceAssistantInterface(object):
     """
     Service handling
     """
+    @interaction_log
+    async def get_loaded_services(self) -> dict:
+        """
+        Retrieves loaded services.
+        :return: Response.
+        """
+        return self.service_uuids
 
     @interaction_log
     async def load_service(self,

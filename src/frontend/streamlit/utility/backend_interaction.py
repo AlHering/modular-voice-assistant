@@ -6,7 +6,7 @@
 ****************************************************
 """
 import os
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Generator
 import traceback
 import streamlit as st
 from inspect import getfullargspec
@@ -141,6 +141,63 @@ def delete_config(config_type: str, config_id: str) -> dict:
     """
     deletion_patch = {"id": config_id, "inactive": True}
     return flatten_config(st.session_state["CLIENT"].overwrite_config(service_type=config_type, config=deletion_patch))
+
+
+def load_service(service_type: str,
+                 config_uuid: str | UUID | None = None) -> dict:
+    """
+    Loads a service from the given config UUID.
+    :param service_type: Target service type.
+    :param config_uuid: Config UUID.
+    :return: Response.
+    """
+    return st.session_state["CLIENT"].load_service(service_type=service_type, config_uuid=config_uuid)
+
+
+def unload_service(service_type: str,
+                   config_uuid: str | UUID | None = None) -> dict:
+    """
+    Loads a service from the given config UUID.
+    :param service_type: Target service type.
+    :param config_uuid: Config UUID.
+    :return: Response.
+    """
+    return st.session_state["CLIENT"].unload_service(service_type=service_type, config_uuid=config_uuid)
+
+
+def chat(config_uuid: str | UUID,
+         prompt: str, 
+         chat_parameters: dict | None = None,
+         local: bool = True) -> str:
+    """
+    Fetches chat response from client interface.
+    :param config_uuid: Chat service UUID.
+    :param prompt: User prompt.
+    :param chat_parameters: Chat parameters.
+    :param local: Flag for declaring, whether to use local or remote chat service.
+    """
+    if local:
+        return st.session_state["CLIENT"].local_chat(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters).get("response")
+    else:
+        return st.session_state["CLIENT"].remote_chat(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters).get("response")
+        
+def chat_streamed(config_uuid: str | UUID,
+         prompt: str, 
+         chat_parameters: dict | None = None,
+         local: bool = True) -> Generator[str, None, None]:
+    """
+    Fetches streamed chat response from client interface.
+    :param config_uuid: Chat service UUID.
+    :param prompt: User prompt.
+    :param chat_parameters: Chat parameters.
+    :param local: Flag for declaring, whether to use local or remote chat service.
+    """
+    if local:
+        for chunk in st.session_state["CLIENT"].local_chat_streamed(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters):
+            yield chunk.get("response") 
+    else:
+        for chunk in st.session_state["CLIENT"].remote_chat_streamed(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters):
+            yield chunk.get("response") 
 
 
 """

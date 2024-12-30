@@ -21,6 +21,7 @@ class Endpoints(str, Enum):
     add_configs = "/configs/add"
     patch_configs = "/configs/patch"
     get_configs = "/configs/get"
+    get_loaded_services = "/services/get"
     load_services = "/services/load"
     unload_services = "/services/unload"
 
@@ -112,6 +113,12 @@ class VoiceAssistantClient(object):
     """
     Service handling
     """
+    def get_loaded_services(self) -> dict:
+        """
+        Retrieves loaded services.
+        :return: Response.
+        """
+        return requests.get(self.api_base + Endpoints.get_loaded_services).json()
 
     def load_service(self,
                     service_type: str,
