@@ -176,7 +176,7 @@ def render_header_buttons(parent_widget: Any,
                                           help="Validates the current configuration"):
             st.write(f"Validations can result in errors or warnings.")
             
-            if st.button("Approve", key=f"{tab_key}_validate_approve_btn",):
+            if st.button("Approve", key=f"{tab_key}_validate_approve_btn", disabled=True):
                 config = gather_config(object_type)
                 result = validate_config(config_type=object_type, config=config)
                 if result[0] is None:
