@@ -419,7 +419,7 @@ class ModularPipeline(object):
         if report:
             self.run_report_thread()
 
-        for output_module in self.output_modules():
+        for output_module in self.output_modules:
             output_module.thread.start()
         if self.output_modules:
             self.output_modules[0].input_queue.put(PipelinePackage(content=greeting))

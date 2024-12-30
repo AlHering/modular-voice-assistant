@@ -91,7 +91,7 @@ class WaveOutputModule(PipelineModule):
         """
         if not self.pause.is_set():
             try:
-                input_package: PipelinePackage = self.input_queue.get(block=True, timeout=self.input_timeout)
+                input_package: PipelinePackage = self.input_queue.get(block=True)
                 self.pause.set()
                 self.add_uuid(self.received, input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
