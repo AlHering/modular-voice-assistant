@@ -22,7 +22,6 @@ class Transcriber(object):
     """
     Represents transcriber.
     """
-
     supported_backends: List[str] = ["faster-whisper", "whisper"]
     default_models: Dict[str, List[str]] = {
         "faster-whisper": ["large-v3"], 
@@ -83,7 +82,6 @@ class Synthesizer(object):
     """
     Represents synthesizer.
     """
-
     supported_backends: List[str] = ["coqui-tts"]
     default_models: Dict[str, List[str]] = {
         "coqui-tts": ["tts_models/multilingual/multi-dataset/xtts_v2"]
@@ -290,22 +288,28 @@ class SpeechRecorder(object):
             except KeyboardInterrupt:
                 interrupt_flag = True
 
+
 class AudioPlayer(object):
     """
     Represents a audio player.
     """
+    supported_backends: List[str] = ["pyaudio"]
     supported_output_devices = get_output_devices(include_metadata=True)
 
     def __init__(self,
+                 backend: str,
                  output_device_index: int | None = None,
                  playback_parameters: dict | None = None) -> None:
         """
         Initiation method.
+        :param backend: Backend for audio handling.
+            Check AudioPlayer.supported_backends for supported backends.
         :param output_device_index: Output device index.
             Check SpeechRecorder.supported_input_devices for available input device profiles.
             Defaults to None in which case the default input device index is fetched.
         :param playback_parameters: Keyword arguments for configuring playback.
         """
+        self.backends = backend
         if output_device_index is None:
             pya = pyaudio.PyAudio()
             output_device_index = pya.get_default_output_device_info().get("index")
