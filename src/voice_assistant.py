@@ -102,7 +102,7 @@ class BasicVoiceAssistant(object):
             input_modules=[speech_recorder, transcriber],
             worker_modules=[worker, 
                             BasicHandlerModule(handler_method=clean_worker_output,
-                               input_queue=self.module_set.worker_modules[-1].output_queue,
+                               input_queue=self.pipeline.worker_modules[-1].output_queue,
                                logger=forward_logging,
                                name="Cleaner")],
             output_modules=[synthesizer, wave_output]
