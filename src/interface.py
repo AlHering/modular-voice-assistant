@@ -84,7 +84,7 @@ class VoiceAssistantInterface(object):
         """
         self.working_directory = os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant_interface") if working_directory is None else working_directory
         self.database = BasicSQLAlchemyInterface(
-            working_directory=os.path.join(self.working_directory, "database"),
+            working_directory=self.working_directory,
             population_function=populate_data_infrastructure,
             default_entries=get_default_entries()
         )

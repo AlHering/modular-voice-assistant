@@ -108,7 +108,6 @@ DEFAULT_SYNTHESIZER = {
 }
 DEFAULT_WAVE_OUTPUT = {}
 DEFAULT_VOICE_ASSISTANT = {
-    "work_dir": os.path.join(PATHS.DATA_PATH, "voice_assistant"),
     "stream": True,
     "report": False,
     "forward_logging": True

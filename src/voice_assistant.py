@@ -6,7 +6,6 @@
 ****************************************************
 """
 from typing import Tuple
-import os
 from prompt_toolkit import PromptSession, HTML, print_formatted_text
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
