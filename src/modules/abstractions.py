@@ -51,30 +51,19 @@ class PipelineModule(ABC):
     puts an output pipelinePackage back into the output queue, taking over the input package's UUID and previous metadata stack.
     """
     def __init__(self, 
-                 interrupt: TEvent | None = None,
-                 pause: TEvent | None = None,
-                 loop_pause: float = 0.1,
-                 input_timeout: float | None = None, 
                  input_queue: TQueue | None = None,
                  output_queue: TQueue | None = None,
                  logger: Logger | None = None,
                  name: str | None = None) -> None:
         """
         Initiates an instance.
-        :param interrupt: Interrupt event.
-        :param pause: Pause event.
-        :param loop_pause: Time to wait between looped runs.
-        :param input_timeout: Time to wait for inputs in a single run.
-            The module will await an input indefinitely, if set to None.
         :param input_queue: Input queue.
         :param output_queue: Output queue.
         :param logger: Logger.
         :param name: A name to distinguish log messages.
         """
-        self.interrupt = TEvent() if interrupt is None else interrupt
-        self.pause = TEvent() if pause is None else pause
-        self.loop_pause = loop_pause
-        self.input_timeout = input_timeout
+        self.interrupt = TEvent()
+        self.pause = TEvent()
         self.input_queue = TQueue() if input_queue is None else input_queue
         self.output_queue = TQueue() if output_queue is None else output_queue
         self.logger = logger
@@ -160,6 +149,22 @@ class PipelineModule(ABC):
         self.thread = Thread(target=self.loop)
         self.thread.daemon = True
         return self.thread
+    
+    def reset(self, start_thread: bool = True) -> None:
+        """
+        Resets module.
+        :param start_thread: Flag for starting thread after reset.
+        """
+        self.pause.set()
+        self.interrupt.set()
+        self.flush_inputs()
+        self.flush_outputs()
+        try:
+            self.thread.join() 
+        except RuntimeError:
+            pass
+        if start_thread:
+            self.thread = self.to_thread()
 
     def loop(self) -> None:
         """
@@ -167,7 +172,6 @@ class PipelineModule(ABC):
         """
         while not self.interrupt.is_set():
             self.run()
-            time.sleep(self.loop_pause)
         
     def run(self) -> bool:
         """
@@ -223,7 +227,7 @@ class BasicHandlerModule(PipelineModule):
         """
         if not self.pause.is_set():
             try:
-                input_package: PipelinePackage = self.input_queue.get(block=True, timeout=self.input_timeout)
+                input_package: PipelinePackage = self.input_queue.get(block=True)
                 self.add_uuid(self.received, input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
                 valid_input = (isinstance(input_package.content, np.ndarray) and input_package.content.size > 0) or input_package.content
@@ -269,10 +273,7 @@ class ModularPipeline(object):
         self.base_loop_pause = base_loop_pause
         self.logger = logger
 
-        self.input_threads = None
-        self.worker_threads = None
-        self.output_threads = None
-        self.stop = None
+        self.stop = TEvent()
         self.setup_modules()
 
     """
@@ -324,20 +325,14 @@ class ModularPipeline(object):
         for module in self.get_all():
             module.pause.clear()
             module.interrupt.clear()
-        self.input_threads = [module.to_thread() for module in self.input_modules]
-        self.worker_threads = [module.to_thread() for module in self.worker_modules]
-        self.output_threads = [module.to_thread() for module in self.output_modules]
+            module.to_thread()
 
     def get_all_threads(self) -> List[Thread]:
         """
         Returns all threads.
         :returns: List of threads.
         """
-        res = []
-        for threads in [self.input_threads, self.worker_threads, self.output_threads]:
-            if threads is not None:
-                res.extend(threads)
-        return threads
+        return [module.thread for module in self.get_all()]
 
     def stop_modules(self) -> None:
         """
@@ -365,6 +360,27 @@ class ModularPipeline(object):
         if self.logger:
             self.logger.info("(Re)setting Conversation Handler...")
 
+    def get_partition_and_index(self, module: PipelineModule) -> Tuple[List[PipelineModule], int] | None:
+        """
+        Fetches module partition list and module index. 
+        :param module: Target module.
+        :return: Partition (input, worker or output modules) and corresponding index.
+            None, if module was not found in partitions.
+        """
+        for partition in [self.input_modules, self.worker_modules, self.output_modules]:
+            if module in partition:
+                return partition, partition.index(module)
+
+    def reset_modules(self, modules: List[PipelineModule] | None = None) -> None:
+        """
+        Interrupts modules.
+        :param modules: Modules to interrupt.
+            Defaults to None in which case all modules are interrupted.
+        """
+        for module in self.get_all():
+            if modules is None or module in modules:
+                module.reset()
+            
     def _run_nonblocking_pipeline(self, loop: bool) -> None:
         """
         Runs a non-blocking pipeline.
@@ -401,11 +417,11 @@ class ModularPipeline(object):
                 self.stop.set()
         self.reset()
 
-    def run_pipeline(self, 
-                         blocking: bool = True, 
-                         loop: bool = True, 
-                         greeting: str = "Hello there, how may I help you today?",
-                         report: bool = False) -> None:
+    def run_pipeline(self,
+                     blocking: bool = True, 
+                     loop: bool = True, 
+                     greeting: str = "Hello there, how may I help you today?",
+                     report: bool = False) -> None:
         """
         Runs pipeline.
         :param blocking: Declares, whether or not to wait for each step.
