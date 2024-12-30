@@ -283,13 +283,12 @@ class ModularPipeline(object):
     Pipeline management
     """
 
-    @classmethod
-    def get_all(cls) -> List[PipelineModule]:
+    def get_all(self) -> List[PipelineModule]:
         """
         Returns all available modules.
         :returns: List of pipeline modules.
         """
-        return cls.input_modules + cls.worker_modules + cls.output_modules
+        return self.input_modules + self.worker_modules + self.output_modules
     
     def reroute_pipeline_queues(self) -> List[PipelineModule]:
         """
