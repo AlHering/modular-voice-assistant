@@ -9,7 +9,6 @@ from typing import Tuple
 from prompt_toolkit import PromptSession, HTML, print_formatted_text
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
-from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style as PTStyle
 from src.configuration import configuration as cfg
@@ -41,7 +40,7 @@ def setup_prompt_session(bindings: KeyBindings = None) -> PromptSession:
     return PromptSession(
         bottom_toolbar=[
         ("class:bottom-toolbar",
-         "ctl-c to exit, ctl-d to save cache and exit",)
+         "Prompt 'STOP' to exit.",)
     ],
         style=PTStyle.from_dict({
         "bottom-toolbar": "#333333 bg:#ffcc00"
@@ -164,32 +163,20 @@ def run_terminal_conversation(pipeline: ModularPipeline, pipeline_kwargs: dict =
     """
     pipeline_kwargs = {} if pipeline_kwargs is None else pipeline_kwargs
     stop = TEvent()
-    bindings = KeyBindings()
 
-    @bindings.add("c-c")
-    @bindings.add("c-d")
-    def exit_session(event: KeyPressEvent) -> None:
-        """
-        Function for exiting session.
-        :param event: Event that resulted in entering the function.
-        """
-        cfg.LOGGER.info(f"Received keyboard interrupt, shutting down pipeline ...")
-        pipeline.reset()
-        print_formatted_text(HTML("<b>Bye...</b>"))
-        event.app.exit()
-        stop.set()
-
-    session = setup_prompt_session(bindings)
     pipeline.input_modules[0].pause.set()
     pipeline.run_pipeline(blocking=False, loop=True, **pipeline_kwargs)
     
     while not stop.is_set():
         with patch_stdout():
-            user_input = session.prompt(
+            user_input = input(
                 "User: ")
-            if user_input is not None:
+            if user_input == "STOP":
+                pipeline.reset()
+                stop.set()
+                print_formatted_text(HTML("<b>Bye...</b>"))
+            elif user_input is not None:
                 pipeline.input_modules[-1].output_queue.put(PipelinePackage(content=user_input))
-
 
 def setup_default_voice_assistant(config: dict | None = None) -> BasicVoiceAssistant:
     """

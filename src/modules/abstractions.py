@@ -110,7 +110,8 @@ class PipelineModule(ABC):
         :param queue: Queue to flush.
         """
         with queue.mutex:
-            queue.clear()
+            while not queue.empty():
+                queue.get_nowait()
             queue.notify_all()
 
     def flush_inputs(self) -> None:
@@ -438,27 +439,26 @@ class ModularPipeline(object):
         """
         Runs a thread for logging reports.
         """ 
-        def log_report(wait_time: float = 10.0) -> None:
+        def log_report(wait_time: float = 15.0) -> None:
             while not self.stop.is_set():
                 module_info = "\n".join([
                     "==========================================================",
-                    f"#                    {get_timestamp()}                   ",
-                    f"#                    {self}                              ",
+                    f"#                {get_timestamp()}                       ",
+                    f"#                {self}                                  ",
                     f"#                Running: {not self.stop.is_set()}       ",
                     "=========================================================="
                 ])
                 for partition in ["input_modules", "worker_modules", "output_modules"]:
-                    for module_partition in getattr(self, partition):
-                        module_info += f"\n\n{partition}\n"
-                        for module in module_partition:
-                            thread = module.thread
-                            module_info += f"\n\t[{type(module).__name__}<{module.name}>] Thread '{thread}: {thread.is_alive()}'"
-                            module_info += f"\n\t\t Inputs: {module.input_queue.qsize()}'"
-                            module_info += f"\n\t\t Outputs: {module.output_queue.qsize()}'"
-                            module_info += f"\n\t\t Received: {module.received}'"
-                            module_info += f"\n\t\t Sent: {module.sent}'"
-                            module_info += f"\n\t\t Pause: {module.pause.is_set()}'"
-                            module_info += f"\n\t\t Interrupt: {module.interrupt.is_set()}'"
+                    module_info += f"\n{partition}"
+                    for module in getattr(self, partition):
+                        thread = module.thread
+                        module_info += f"\n\t[{type(module).__name__}<{module.name}>] Thread '{thread}: {thread.is_alive()}'"
+                        module_info += f"\n\t\t Inputs: {module.input_queue.qsize()}'"
+                        module_info += f"\n\t\t Outputs: {module.output_queue.qsize()}'"
+                        module_info += f"\n\t\t Received: {module.received}'"
+                        module_info += f"\n\t\t Sent: {module.sent}'"
+                        module_info += f"\n\t\t Pause: {module.pause.is_set()}'"
+                        module_info += f"\n\t\t Interrupt: {module.interrupt.is_set()}'"
                 if self.logger:
                     self.logger.info(module_info)
                 else:
