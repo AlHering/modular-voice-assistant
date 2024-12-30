@@ -48,12 +48,6 @@ class RemoteVoiceAssistantClient(object):
     """
     Remote voice assistant client.
     """
-    def __init__(self) -> None:
-        """
-        Initiation method.
-        :param working_directory: Working directory.
-        """
-        pass
 
     def check_connection(self) -> bool:
         """

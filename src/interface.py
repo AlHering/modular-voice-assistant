@@ -282,7 +282,6 @@ class VoiceAssistantInterface(object):
 
         self.stop_assistant()
         self.assistant = BasicVoiceAssistant(
-            working_directory=os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant"),
             speech_recorder=self.modules["speech_recorder"],
             transcriber=self.modules["transcriber"],
             worker=self.modules[entry["module_type"]],

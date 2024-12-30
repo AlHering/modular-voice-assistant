@@ -74,7 +74,6 @@ class BasicVoiceAssistant(object):
     """
 
     def __init__(self,
-                 working_directory: str,
                  speech_recorder: SpeechRecorderModule,
                  transcriber: TranscriberModule,
                  worker: BasicHandlerModule,
@@ -85,7 +84,6 @@ class BasicVoiceAssistant(object):
                  report: bool = False) -> None:
         """
         Initiation method.
-        :param working_directory: Working directory.
         :param speech_recorder: Speech Recorder module.
         :param transcriber: Transcriber module.
         :param worker: Worker module, e.g. LocalChatModule or RemoteChatModule.
@@ -95,7 +93,6 @@ class BasicVoiceAssistant(object):
         :param forward_logging: Flag for forwarding logger to modules.
         :param report: Flag for running report thread.
         """
-        self.working_directory = working_directory
         self.stream = stream
 
         forward_logging = cfg.LOGGER if forward_logging else None
