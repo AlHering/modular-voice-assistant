@@ -204,7 +204,6 @@ def setup_default_voice_assistant(config: dict | None = None) -> BasicVoiceAssis
         raise NotImplementedError("Downloading models is not yet implemented!")
 
     return BasicVoiceAssistant(
-        working_directory=os.path.join(cfg.PATHS.DATA_PATH, "voice_assistant"),
         speech_recorder=SpeechRecorderModule(**config.get("speech_recorder", cfg.DEFAULT_SPEECH_RECORDER)),
         transcriber=TranscriberModule(**config.get("transcriber", cfg.DEFAULT_TRANSCRIBER)),
         worker=RemoteChatModule(**config.get("remote_chat", cfg.DEFAULT_REMOTE_CHAT)) if config.get("use_remote_llm") else LocalChatModule(**config.get("local_chat", cfg.DEFAULT_LOCAL_CHAT)),
