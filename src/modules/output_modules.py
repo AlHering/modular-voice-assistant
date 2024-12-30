@@ -49,7 +49,7 @@ class SynthesizerModule(BasicHandlerModule):
             model_parameters=model_parameters,
             synthesis_parameters=synthesis_parameters
         )
-        super().__init__(handler_method=self.synthesizer.synthesize, *args, **kwargs)@classmethod
+        super().__init__(handler_method=self.synthesizer.synthesize, *args, **kwargs)
 
     @classmethod    
     def validate_configuration(cls, config: dict) -> Tuple[bool | None, str]:
