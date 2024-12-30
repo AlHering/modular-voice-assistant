@@ -7,7 +7,7 @@
 """
 from queue import Queue
 import speech_recognition
-from typing import List, Tuple, Any, Union, Dict
+from typing import List, Tuple, Union, Dict
 import pyaudio
 import numpy as np
 import time
@@ -192,10 +192,11 @@ class SpeechRecorder(object):
             "pause_threshold": .8
         } if recognizer_parameters is None else recognizer_parameters
         self.microphone_parameters = {
-            "device_index": self.input_device_index,
             "sample_rate": 16000,
             "chunk_size": 1024
         } if microphone_parameters is None else microphone_parameters
+        if "device_index" not in microphone_parameters:
+            microphone_parameters["device_index"] = self.input_device_index,
 
     def record_single_input(self,
                             recognizer_parameters: dict | None = None,
