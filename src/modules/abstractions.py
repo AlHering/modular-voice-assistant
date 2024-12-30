@@ -109,10 +109,9 @@ class PipelineModule(ABC):
         Flushes queue.
         :param queue: Queue to flush.
         """
-        with queue.mutex:
-            while not queue.empty():
-                queue.get_nowait()
-            queue.notify_all()
+        while not queue.empty():
+            queue.get_nowait()
+        queue.notify_all()
 
     def flush_inputs(self) -> None:
         """
