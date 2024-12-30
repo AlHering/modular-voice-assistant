@@ -62,6 +62,20 @@ class LanguageModelInstance(ABC):
             config.model_path = cls.default_models[config.backend][0]
         if config.backend == "llama-cpp":
             return LlamaCPPModelInstance(**config.model_dump())
+        
+    @classmethod
+    def from_dict(cls, config: dict) -> Any:
+        """
+        Returns a language model instance from dictionary.
+        :param config: Language model dict.
+        :return: Language model instance.
+        """
+        if config["backend"] not in cls.supported_backends:
+            raise ValueError(f"Backend '{config['backend']}' is not in supported backends: {cls.supported_backends}")
+        if config["model_path"] is None and config["backend"] in cls.default_models and cls.default_models[config["backend"]]:
+            config["model_path"] = cls.default_models[config["backend"]][0]
+        if config["backend"] == "llama-cpp":
+            return LlamaCPPModelInstance(**config.model_dump())
 
     """
     Generation methods
@@ -246,7 +260,7 @@ class ChatModelInstance(object):
     """
 
     def __init__(self,
-                 language_model: LanguageModelConfig | LanguageModelInstance,
+                 language_model: LanguageModelConfig | LanguageModelInstance | dict,
                  chat_parameters: dict | None = None,
                  system_prompt: str | None = None,
                  prompt_maker: Callable | None = None,
@@ -254,7 +268,7 @@ class ChatModelInstance(object):
                  history: List[Dict[str, Union[str, dict]]] | None = None) -> None:
         """
         Initiation method.
-        :param language_model: Language model config or instance.
+        :param language_model: Language model config (as class or dict) or instance.
         :param chat_parameters: Kwargs for chatting in the chatting process as dictionary.
             Defaults to None in which case an empty dictionary is created and can be filled depending on the language instance's
             model backend.
@@ -268,7 +282,13 @@ class ChatModelInstance(object):
         :param history: Interaction history as list of {"role": <role>, "content": <message>, "metadata": <metadata>}-dictionaries.
             Defaults to None.
         """
-        self.language_model_instance = language_model if isinstance(language_model, LanguageModelInstance) else LanguageModelInstance.from_configuration(language_model)
+        if isinstance(language_model, LanguageModelInstance):
+            self.language_model_instance = language_model
+        elif isinstance(language_model, LanguageModelConfig):
+            self.language_model_instance = LanguageModelInstance.from_configuration(language_model)
+        elif isinstance(language_model, dict):
+            self.language_model_instance = LanguageModelInstance.from_dict(language_model)
+            
         self.chat_parameters = self.language_model_instance.generating_parameters if chat_parameters is None else chat_parameters
         self.system_prompt = system_prompt
         if prompt_maker is None:
