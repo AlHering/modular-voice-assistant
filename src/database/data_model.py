@@ -51,7 +51,7 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
 
         id = Column(UUID(as_uuid=True), primary_key=True, unique=True, nullable=False, default=uuid4,
                     comment="ID of an instance.")
-        module_type = Column(String,
+        service_type = Column(String,
                          comment="Service type.")
         config = Column(JSON,
                          comment="Service config.")
@@ -75,8 +75,8 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
 
         id = Column(Integer, autoincrement=True, primary_key=True, unique=True, nullable=False, 
                     comment="ID of a model.")
-        module_type = Column(String,
-                         comment="Target module type.")
+        model_type = Column(String,
+                         comment="Target model type.")
         backend = Column(String,
                       comment="Model backend.")
         name = Column(String,
@@ -110,31 +110,31 @@ def get_default_entries() -> dict:
     return {
         "service_config": [
             {
-                "module_type": "speech_recorder",
+                "service_type": "speech_recorder",
                 "config": {}
             },
             {
-                "module_type": "transcriber",
+                "service_type": "transcriber",
                 "config": cfg.DEFAULT_TRANSCRIBER
             },
             {
-                "module_type": "local_chat",
+                "service_type": "local_chat",
                 "config": cfg.DEFAULT_LOCAL_CHAT
             },
             {
-                "module_type": "remote_chat",
+                "service_type": "remote_chat",
                 "config": cfg.DEFAULT_REMOTE_CHAT
             },
             {
-                "module_type": "synthesizer",
+                "service_type": "synthesizer",
                 "config": cfg.DEFAULT_SYNTHESIZER
             },
             {
-                "module_type": "audio_player",
+                "service_type": "audio_player",
                 "config": cfg.DEFAULT_AUDIO_PLAYER
             },
             {
-                "module_type": "voice_assistant",
+                "service_type": "voice_assistant",
                 "config": cfg.DEFAULT_VOICE_ASSISTANT
             },
         ]

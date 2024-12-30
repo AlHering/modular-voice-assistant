@@ -260,7 +260,7 @@ class ChatModelInstance(object):
     """
 
     def __init__(self,
-                 language_model: LanguageModelConfig | LanguageModelInstance | dict,
+                 language_model: dict | LanguageModelConfig | LanguageModelInstance ,
                  chat_parameters: dict | None = None,
                  system_prompt: str | None = None,
                  prompt_maker: Callable | None = None,

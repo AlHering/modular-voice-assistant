@@ -50,7 +50,7 @@ class VoiceAssistantClient(object):
     def __init__(self, api_base: str | None = None) -> None:
         """
         Initiation method.
-        :param api_base: API Base.
+        :param api_base: API Base, e.g. http://127.0.0.1:7861/api/v1.
         """
         self.api_base = f"http://{cfg.BACKEND_HOST}:{cfg.BACKEND_PORT}{cfg.BACKEND_ENDPOINT_BASE}" if api_base is None else api_base
         
@@ -79,10 +79,10 @@ class VoiceAssistantClient(object):
         :param config: Config.
         :return: Response.
         """
-        return requests.post(self.api_base + Endpoints.add_configs, json={
+        return requests.post(self.api_base + Endpoints.add_configs, params={
             "service_type": service_type,
             "config": config
-        }).json()
+        }).json().get("result")
 
     def overwrite_config(self,
                    service_type: str,
@@ -93,10 +93,10 @@ class VoiceAssistantClient(object):
         :param config: Config.
         :return: Response.
         """
-        return requests.post(self.api_base + Endpoints.patch_configs, json={
+        return requests.post(self.api_base + Endpoints.patch_configs, params={
             "service_type": service_type,
             "config": config
-        }).json()
+        }).json().get("result")
     
     def get_configs(self,
                     service_type: str = None) -> dict:
@@ -107,7 +107,7 @@ class VoiceAssistantClient(object):
         :return: Response.
         """
         return requests.post(
-            self.api_base + Endpoints.get_configs, json={"service_type": service_type}).json()
+            self.api_base + Endpoints.get_configs, params={"service_type": service_type}).json().get("result")
 
     """
     Service handling
@@ -122,7 +122,7 @@ class VoiceAssistantClient(object):
         :param config_uuid: Config UUID.
         :return: Response.
         """
-        return requests.post(self.api_base + Endpoints.load_services, json={
+        return requests.post(self.api_base + Endpoints.load_services, params={
                 "service_type": service_type,
                 "config_uuid": config_uuid
             }).json()
@@ -136,7 +136,7 @@ class VoiceAssistantClient(object):
         :param config_uuid: Config UUID.
         :return: Response.
         """
-        return requests.post(self.api_base + Endpoints.unload_services, json={
+        return requests.post(self.api_base + Endpoints.unload_services, params={
                 "service_type": service_type,
                 "config_uuid": config_uuid
             }).json()
@@ -152,7 +152,7 @@ class VoiceAssistantClient(object):
                       config_uuid: str | UUID,
                       recognizer_parameters: dict | None = None,
                       microphone_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.record_speech, json={
+        return requests.post(self.api_base + Endpoints.record_speech, params={
                 "config_uuid": config_uuid,
                 "recognizer_parameters": recognizer_parameters,
                 "microphone_parameters": microphone_parameters
@@ -162,7 +162,7 @@ class VoiceAssistantClient(object):
                    config_uuid: str | UUID,
                    audio_input: str | list, 
                    transcription_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.transcribe, json={
+        return requests.post(self.api_base + Endpoints.transcribe, params={
                 "config_uuid": config_uuid,
                 "audio_input": audio_input,
                 "transcription_parameters": transcription_parameters
@@ -172,7 +172,7 @@ class VoiceAssistantClient(object):
                    config_uuid: str | UUID,
                    text: str,
                    synthesis_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.synthesize, json={
+        return requests.post(self.api_base + Endpoints.synthesize, params={
                 "config_uuid": config_uuid,
                 "text": text,
                 "synthesis_parameters": synthesis_parameters
@@ -182,7 +182,7 @@ class VoiceAssistantClient(object):
                     config_uuid: str | UUID,
                     audio_input: str | list, 
                     playback_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.play_audio, json={
+        return requests.post(self.api_base + Endpoints.play_audio, params={
                 "config_uuid": config_uuid,
                 "audio_input": audio_input,
                 "playback_parameters": playback_parameters
@@ -192,7 +192,7 @@ class VoiceAssistantClient(object):
                    config_uuid: str | UUID,
                    prompt: str, 
                    chat_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.local_chat, json={
+        return requests.post(self.api_base + Endpoints.local_chat, params={
                 "config_uuid": config_uuid,
                 "prompt": prompt,
                 "chat_parameters": chat_parameters
@@ -202,7 +202,7 @@ class VoiceAssistantClient(object):
                    config_uuid: str | UUID,
                    prompt: str, 
                    chat_parameters: dict | None = None) -> dict:
-        return requests.post(self.api_base + Endpoints.remote_chat, json={
+        return requests.post(self.api_base + Endpoints.remote_chat, params={
                 "config_uuid": config_uuid,
                 "prompt": prompt,
                 "chat_parameters": chat_parameters
@@ -213,7 +213,7 @@ class VoiceAssistantClient(object):
                    prompt: str, 
                    chat_parameters: dict | None = None,
                    minium_yielded_characters: int = 10) -> Generator[dict, None, None]:
-        with requests.post(self.api_base + Endpoints.local_chat_streamed, json={
+        with requests.post(self.api_base + Endpoints.local_chat_streamed, params={
                 "config_uuid": config_uuid,
                 "prompt": prompt,
                 "chat_parameters": chat_parameters,
@@ -228,7 +228,7 @@ class VoiceAssistantClient(object):
                    prompt: str, 
                    chat_parameters: dict | None = None,
                    minium_yielded_characters: int = 10) -> Generator[dict, None, None]:
-        with requests.post(self.api_base + Endpoints.remote_chat_streamed, json={
+        with requests.post(self.api_base + Endpoints.remote_chat_streamed, params={
                 "config_uuid": config_uuid,
                 "prompt": prompt,
                 "chat_parameters": chat_parameters,

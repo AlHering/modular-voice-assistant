@@ -6,15 +6,52 @@
 ****************************************************
 """
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Any
 import traceback
 import streamlit as st
+from inspect import getfullargspec
 from uuid import UUID
 from src.service_interface import AVAILABLE_SERVICES
 from src.interface_client import VoiceAssistantClient
 from src.configuration import configuration as cfg
 
 SERVICE_TITLES =  {key: " ".join(key.split("_")).title() for key in AVAILABLE_SERVICES}
+CONFIGURATION_PARAMETERS =  {
+    "speech_recorder": {
+        "recognizer_parameters": {"title": "Recognizer Parameters", "type": dict, "default": None}, 
+        "microphone_parameters": {"title": "Microphone Parameters", "type": dict, "default": None}, 
+        "loop_pause": {"title": "Loop Pause", "type": float, "default": 0.1}
+    }, 
+    "transcriber": {
+        "model_parameters": {"title": "Model Parameters", "type": dict, "default": None}, 
+        "transcription_parameters": {"title": "Transcription Parameters", "type": dict, "default": None}
+    },
+    "local_chat": {
+        "language_model": {"title": "Language Model", "type": dict}, 
+        "chat_parameters": {"title": "Chat Parameters", "type": dict}, 
+        "system_prompt": {"title": "System Prompt", "type": str, "default": None}, 
+        "prompt_maker": {"title": "Prompt Maker", "type": str, "default": None}, 
+        "use_history": {"title": "Use History", "type": bool, "default": True}, 
+        "history": {"title": "History", "type": str, "default": None}
+    }, 
+    "remote_chat": {
+        "api_base": {"title": "Api Base", "type": str}, 
+        "api_token": {"title": "Api Token", "type": str}, 
+        "chat_parameters": {"title": "Chat Parameters", "type": dict, "default": None}, 
+        "system_prompt": {"title": "System Prompt", "type": str, "default": None}, 
+        "prompt_maker": {"title": "Prompt Maker", "type": None, "default": None}, 
+        "use_history": {"title": "Use History", "type": bool, "default": True}, 
+        "history": {"title": "History", "type": str, "default": None}
+    }, 
+    "synthesizer": {
+        "model_parameters": {"title": "Model Parameters", "type": dict, "default": None}, 
+        "synthesis_parameters": {"title": "Synthesis Parameters", "type": dict, "default": None}
+    }, 
+    "audio_player": {
+        "output_device_index": {"title": "Output Device Index", "type": int}, 
+        "playback_parameters": {"title": "Playback Parameters", "type": dict, "default": None}
+    }
+}
 
 
 def setup(api_base: str | None = None) -> None:
@@ -64,7 +101,7 @@ def get_configs(config_type: str) -> List[dict]:
     :param config_type: Config type.
     :return: Config entries.
     """
-    return [flatten_config(entry) for entry in st.session_state["CLIENT"].get_configs(module_type=config_type)]
+    return [flatten_config(entry) for entry in st.session_state["CLIENT"].get_configs(service_type=config_type)]
 
 
 def patch_config(config_type: str, config_data: dict, config_id: str | UUID | None = None) -> dict:
@@ -78,7 +115,7 @@ def patch_config(config_type: str, config_data: dict, config_id: str | UUID | No
     patch = {"config": config_data}
     if config_id is not None:
         patch["id"] = config_id
-    return flatten_config(st.session_state["CLIENT"].overwrite_config(module_type=config_type, config=patch))
+    return flatten_config(st.session_state["CLIENT"].overwrite_config(service_type=config_type, config=patch))
 
 
 def put_config(config_type: str, config_data: dict, config_id: str | None = None) -> dict:
@@ -92,7 +129,7 @@ def put_config(config_type: str, config_data: dict, config_id: str | None = None
     patch = {"config": config_data}
     if config_id is not None:
         patch["id"] = config_id
-    return flatten_config(st.session_state["CLIENT"].add_config(module_type=config_type, config=patch))
+    return flatten_config(st.session_state["CLIENT"].add_config(service_type=config_type, config=patch))
 
 
 def delete_config(config_type: str, config_id: str) -> dict:
@@ -103,4 +140,60 @@ def delete_config(config_type: str, config_id: str) -> dict:
     :return: Config entry.
     """
     deletion_patch = {"id": config_id, "inactive": True}
-    return flatten_config(st.session_state["CLIENT"].overwrite_config(module_type=config_type, config=deletion_patch))
+    return flatten_config(st.session_state["CLIENT"].overwrite_config(service_type=config_type, config=deletion_patch))
+
+
+"""
+Parameter dict creation
+"""
+
+
+def retrieve_type(input_type: Any) -> Any:
+    """
+    Retrieves type of input.
+    :param input_type: Inspected input type hint.
+    :return: Target type.
+    """
+    base_data_types = [str, bool, int, float, complex, list, tuple, range, dict, set, frozenset, bytes, bytearray, memoryview]
+    if input_type in base_data_types:
+        return input_type
+    if input_type == callable:
+        return callable
+    elif str(input_type).startswith("typing.List"):
+        return list
+    elif str(input_type).startswith("typing.Dict"):
+        return dict
+    elif str(input_type).startswith("typing.Tuple"):
+        return tuple
+    elif str(input_type).startswith("typing.Set"):
+        return set
+    else:
+        for data_type in base_data_types:
+            string_representation = str(data_type).split("'")[1]
+            if string_representation in str(input_type):
+                return data_type
+            
+
+def retrieve_parameter_specification(func: callable, ignore: List[str] | None = None) -> dict:
+    """
+    Retrieves parameter specification.
+    :param func: Callable to retrieve parameter specs from.
+    :param ignore: Parameters to ignore.
+    :return: Specification of parameters.
+    """
+    ignore = [] if ignore is None else ignore
+
+    spec = {}
+    arg_spec = getfullargspec(func)
+    default_offset = len(arg_spec.args) - len(arg_spec.defaults) if arg_spec.defaults else None
+
+    for param_index, param in enumerate(arg_spec.args):
+        spec[param] = {"title": " ".join(param.split("_")).title()}
+        if param in arg_spec.annotations:
+            spec[param]["type"] = retrieve_type(arg_spec.annotations[param])
+        if default_offset and param_index > default_offset:
+            spec[param]["default"] = arg_spec.defaults[param_index-default_offset]
+    for ignored_param in ignore:
+        if ignored_param in spec:
+            spec.pop(ignored_param)
+    return spec

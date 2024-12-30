@@ -7,10 +7,9 @@
 """
 import streamlit as st
 from typing import List, Any
-from inspect import getfullargspec
 import json
 from src.utility.streamlit_utility import render_json_input
-from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, SERVICE_TITLES, validate_config, put_config, delete_config, get_configs, patch_config
+from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, SERVICE_TITLES, CONFIGURATION_PARAMETERS, validate_config, put_config, delete_config, get_configs, patch_config
 from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 
@@ -24,9 +23,8 @@ def gather_config(object_type: str) -> dict:
     :param object_type: Target object type.
     :return: Object config.
     """
-    object_class = AVAILABLE_SERVICES[object_type]
     data = {}
-    param_spec = retrieve_parameter_specification(object_class.__init__, ignore=["self"])
+    param_spec = CONFIGURATION_PARAMETERS[object_type]
     for param in param_spec:
         if param_spec[param]["type"] == dict:
             widget = st.session_state[f"new_{object_type}_{param}"]
@@ -38,56 +36,6 @@ def gather_config(object_type: str) -> dict:
                 data[param] = param_spec[param].get("default")
     return data
 
-
-def retrieve_type(input_type: Any) -> Any:
-    """
-    Retrieves type of input.
-    :param input_type: Inspected input type hint.
-    :return: Target type.
-    """
-    base_data_types = [str, bool, int, float, complex, list, tuple, range, dict, set, frozenset, bytes, bytearray, memoryview]
-    if input_type in base_data_types:
-        return input_type
-    if input_type == callable:
-        return callable
-    elif str(input_type).startswith("typing.List"):
-        return list
-    elif str(input_type).startswith("typing.Dict"):
-        return dict
-    elif str(input_type).startswith("typing.Tuple"):
-        return tuple
-    elif str(input_type).startswith("typing.Set"):
-        return set
-    else:
-        for data_type in base_data_types:
-            string_representation = str(data_type).split("'")[1]
-            if string_representation in str(input_type):
-                return data_type
-            
-
-def retrieve_parameter_specification(func: callable, ignore: List[str] | None = None) -> dict:
-    """
-    Retrieves parameter specification.
-    :param func: Callable to retrieve parameter specs from.
-    :param ignore: Parameters to ignore.
-    :return: Specification of parameters.
-    """
-    ignore = [] if ignore is None else ignore
-
-    spec = {}
-    arg_spec = getfullargspec(func)
-    default_offset = len(arg_spec.args) - len(arg_spec.defaults) if arg_spec.defaults else None
-
-    for param_index, param in enumerate(arg_spec.args):
-        spec[param] = {"title": " ".join(param.split("_")).title()}
-        if param in arg_spec.annotations:
-            spec[param]["type"] = retrieve_type(arg_spec.annotations[param])
-        if default_offset and param_index > default_offset:
-            spec[param]["default"] = arg_spec.defaults[param_index-default_offset]
-    for ignored_param in ignore:
-        if ignored_param in spec:
-            spec.pop(ignored_param)
-    return spec
 
 
 def get_default_value(key: str, current_config: dict | None, default: Any, options: List[Any] | None = None) -> Any:
@@ -180,8 +128,7 @@ def render_config_inputs(parent_widget: Any,
         parent_widget.write("")
     
     if object_type not in st.session_state["CACHE"]["PARAM_SPECS"]:
-        st.session_state["CACHE"]["PARAM_SPECS"][object_type] = retrieve_parameter_specification(
-            object_class.__init__, ignore=["self", "backend", "model_path", "recorder_loop_pause", "input_device_index"])
+        st.session_state["CACHE"]["PARAM_SPECS"] = CONFIGURATION_PARAMETERS
 
     param_spec = st.session_state["CACHE"]["PARAM_SPECS"][object_type]
     for param in param_spec:
@@ -351,7 +298,6 @@ if __name__ == "__main__":
         st.info("System inactive. Please choose a Setup Mode in the sidebar and press the Setup button.")
     else:
         tabs = list(AVAILABLE_SERVICES.keys())
-        tabs.remove("wave_output")
         for index, tab in enumerate(st.tabs([SERVICE_TITLES[elem]+"s" for elem in tabs])):
             with tab:
                 render_config(tabs[index])
