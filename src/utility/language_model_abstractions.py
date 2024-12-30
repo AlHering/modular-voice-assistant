@@ -115,7 +115,7 @@ class LanguageModelInstance(ABC):
         pass
 
 
-class LlamaCPPModelInstance(object):
+class LlamaCPPModelInstance(LanguageModelInstance):
     """
     Llama CPP based model instance.
     """
@@ -161,15 +161,6 @@ class LlamaCPPModelInstance(object):
         self.embedding_parameters = embedding_parameters or {}
         self.generating_parameters = generating_parameters or {}
         self.decoding_parameters = decoding_parameters or {}
-
-    @classmethod
-    def from_configuration(cls, config: LanguageModelConfig) -> Any:
-        """
-        Returns a language model instance from configuration.
-        :param config: Language model configuration.
-        :return: Language model instance.
-        """
-        return cls(**config.model_dump())
 
     """
     Generation methods
