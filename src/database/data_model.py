@@ -130,8 +130,8 @@ def get_default_entries() -> dict:
                 "config": cfg.DEFAULT_SYNTHESIZER
             },
             {
-                "module_type": "wave_output",
-                "config": cfg.DEFAULT_WAVE_OUTPUT
+                "module_type": "audio_player",
+                "config": cfg.DEFAULT_AUDIO_PLAYER
             },
             {
                 "module_type": "voice_assistant",

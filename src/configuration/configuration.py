@@ -106,7 +106,9 @@ DEFAULT_SYNTHESIZER = {
         "language": "en"
     }
 }
-DEFAULT_WAVE_OUTPUT = {}
+DEFAULT_AUDIO_PLAYER = {
+    "backend": "pyaudio"
+}
 DEFAULT_VOICE_ASSISTANT = {
     "stream": True,
     "report": False,
@@ -121,7 +123,7 @@ DEFAULT_COMPONENT_CONFIG = {
     "local_chat": DEFAULT_LOCAL_CHAT,
     "remote_chat": DEFAULT_REMOTE_CHAT,
     "synthesizer": DEFAULT_SYNTHESIZER,
-    "wave_output": DEFAULT_WAVE_OUTPUT,
+    "audio_player": DEFAULT_AUDIO_PLAYER,
     "voice_assistant": DEFAULT_VOICE_ASSISTANT
 }
 
