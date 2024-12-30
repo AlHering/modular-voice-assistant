@@ -15,6 +15,7 @@ import traceback
 from datetime import datetime as dt
 from pydantic import BaseModel
 import gc
+import json
 from fastapi.responses import RedirectResponse, StreamingResponse
 import uvicorn
 from functools import wraps
@@ -439,12 +440,12 @@ class VoiceAssistantInterface(object):
         if "error" in loading_response:
             return {"error": f"Loading service failed", "report": loading_response}
         def wrap_response(**kwargs):
-            for result in self.services["local_chat"].chat_streamed(**kwargs):
-                yield {"response": result[0], "metadata": result[1]}
+            for result in self.services["local_chat"].chat_stream(**kwargs):
+                yield json.dumps({"response": result[0], "metadata": result[1]}).encode("utf-8")
         return StreamingResponse(wrap_response(
             prompt=payload.text, 
             chat_parameters=payload.parameters),
-            media_type="application/x-ndjson")
+            media_type="text/plain; charset=utf-8")
 
     @interaction_log
     async def remote_chat_streamed(self, payload: TextRequest) -> StreamingResponse:
@@ -454,12 +455,12 @@ class VoiceAssistantInterface(object):
         if "error" in loading_response:
             return {"error": f"Loading service failed", "report": loading_response}
         def wrap_response(**kwargs):
-            for result in self.services["local_chat"].chat_streamed(**kwargs):
-                yield {"response": result[0], "metadata": result[1]}
+            for result in self.services["local_chat"].chat_stream(**kwargs):
+                yield json.dumps({"response": result[0], "metadata": result[1]}).encode("utf-8")
         return StreamingResponse(wrap_response(
             prompt=payload.text, 
             chat_parameters=payload.parameters),
-            media_type="application/x-ndjson")
+            media_type="text/plain; charset=utf-8")
         
         
 """

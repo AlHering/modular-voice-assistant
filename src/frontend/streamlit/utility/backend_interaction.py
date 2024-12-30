@@ -52,7 +52,7 @@ CONFIGURATION_PARAMETERS =  {
         "playback_parameters": {"title": "Playback Parameters", "type": dict, "default": None}
     }
 }
-CLIENT: VoiceAssistantClient | None = None
+CLIENT: VoiceAssistantClient | None = VoiceAssistantClient()
 
 
 def setup(api_base: str | None = None) -> None:
@@ -204,6 +204,7 @@ def chat_streamed(config_uuid: str | UUID,
     """
     if local:
         for chunk in CLIENT.local_chat_streamed(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters):
+            print(chunk)
             yield chunk.get("response") 
     else:
         for chunk in CLIENT.remote_chat_streamed(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters):

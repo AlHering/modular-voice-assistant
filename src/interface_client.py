@@ -223,9 +223,18 @@ class VoiceAssistantClient(object):
                 "config_uuid": config_uuid,
                 "text": prompt,
                 "parameters": chat_parameters
-            }) as response:
-            for chunk in response.iter_lines():
-                yield json.loads(chunk)
+            }, stream=True) as response:
+            accumulated = ""
+            for chunk in response.iter_content():
+                decoded_chunk = chunk.decode("utf-8")
+                accumulated += decoded_chunk
+                if accumulated.endswith("}"):
+                    try:
+                        json_chunk = json.loads(accumulated)
+                        yield json_chunk
+                        accumulated = ""
+                    except json.JSONDecodeError:
+                        pass
 
     def remote_chat_streamed(self, 
                    config_uuid: str | UUID,
@@ -235,6 +244,15 @@ class VoiceAssistantClient(object):
                 "config_uuid": config_uuid,
                 "text": prompt,
                 "parameters": chat_parameters
-            }) as response:
-            for chunk in response.iter_lines():
-                yield json.loads(chunk)
+            }, stream=True) as response:
+            accumulated = ""
+            for chunk in response.iter_content():
+                decoded_chunk = chunk.decode("utf-8")
+                accumulated += decoded_chunk
+                if accumulated.endswith("}"):
+                    try:
+                        json_chunk = json.loads(accumulated)
+                        yield json_chunk
+                        accumulated = ""
+                    except json.JSONDecodeError:
+                        pass
