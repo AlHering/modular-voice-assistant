@@ -41,20 +41,20 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
         responded = Column(DateTime, server_default=func.now(), server_onupdate=func.now(),
                            comment="Timestamp of response transmission.")
         
-    class ModuleConfig(base):
+    class ServiceConfig(base):
         """
-        Config class, representing a pipeline module config.
+        Config class, representing a pipeline service config.
         """
-        __tablename__ = f"{schema}module_config"
+        __tablename__ = f"{schema}service_config"
         __table_args__ = {
-            "comment": "Pipeline module config table.", "extend_existing": True}
+            "comment": "Pipeline service config table.", "extend_existing": True}
 
         id = Column(UUID(as_uuid=True), primary_key=True, unique=True, nullable=False, default=uuid4,
                     comment="ID of an instance.")
         module_type = Column(String,
-                         comment="Target module type.")
+                         comment="Service type.")
         config = Column(JSON,
-                         comment="Module config.")
+                         comment="Service config.")
         validated = Column(Boolean, default=False,
                          comment="Validation flag.")
 
@@ -96,7 +96,7 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
                           comment="Inactivity flag.")
         
 
-    for dataclass in [Log, ModuleConfig, Model]:
+    for dataclass in [Log, ServiceConfig, Model]:
         model[dataclass.__tablename__.replace(schema, "")] = dataclass
 
     base.metadata.create_all(bind=engine)
@@ -108,7 +108,7 @@ def get_default_entries() -> dict:
     :return: Default entries.
     """
     return {
-        "module_config": [
+        "service_config": [
             {
                 "module_type": "speech_recorder",
                 "config": {}

@@ -36,14 +36,14 @@ PROJECT_VERSION = "v0.0.1"
 Network addresses and interfaces
 """
 BACKEND_HOST = ENV.get("TEXT_GENERATION_BACKEND_HOST", "127.0.0.1")
-BACKEND_PORT = ENV.get("TEXT_GENERATION_BACKEND_PORT", "7861")
+BACKEND_PORT = int(ENV.get("TEXT_GENERATION_BACKEND_PORT", "7861"))
 BACKEND_TITLE =  "Modular Voice Assistant Backend"
 BACKEND_DESCRIPTION = "Backend interface for modular voice assistants."
 BACKEND_VERSION = PROJECT_VERSION
 BACKEND_ENDPOINT_BASE = "/api/v1"
 
 FRONTEND_HOST = ENV.get("FRONTEND_HOST", "127.0.0.1")
-FRONTEND_PORT = ENV.get("FRONTEND_PORT", "8868")
+FRONTEND_PORT = int(ENV.get("FRONTEND_PORT", "8868"))
 
 
 """
@@ -77,20 +77,21 @@ DEFAULT_REMOTE_CHAT = {
     "stream": True
 }
 DEFAULT_LOCAL_CHAT = {
-    "backend": "llama-cpp",
-    "model_path": os.path.join(PATHS.MODEL_PATH, 
-                                    "text_generation/models/text_generation_models/mradermacher_Llama-3.1-Storm-8B-i1-GGUF"),
-    "model_file": "Llama-3.1-Storm-8B.i1-Q4_K_M.gguf",
-    "model_parameters": {
-        "n_ctx": 4096, 
-        "temperature": 0.8, 
-        "repetition_penalty": 1.6,
-        "n_gpu_layers": 33
-    },
-    "generating_parameters": {
-        "max_tokens": 256
-    },
-    "stream": True
+    "language_model": {
+        "backend": "llama-cpp",
+        "model_path": os.path.join(PATHS.MODEL_PATH, 
+                                        "text_generation/models/text_generation_models/mradermacher_Llama-3.1-Storm-8B-i1-GGUF"),
+        "model_file": "Llama-3.1-Storm-8B.i1-Q4_K_M.gguf",
+        "model_parameters": {
+            "n_ctx": 4096, 
+            "temperature": 0.8, 
+            "repetition_penalty": 1.6,
+            "n_gpu_layers": 33
+        },
+        "generating_parameters": {
+            "max_tokens": 256
+        }
+    }
 }
 DEFAULT_SYNTHESIZER = {
     "backend": "coqui-tts",
