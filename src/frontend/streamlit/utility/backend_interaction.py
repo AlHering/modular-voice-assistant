@@ -11,7 +11,7 @@ import traceback
 import streamlit as st
 from uuid import UUID
 from src.service_interface import AVAILABLE_SERVICES
-from src.interface_client import RemoteVoiceAssistantClient
+from src.interface_client import VoiceAssistantClient
 from src.configuration import configuration as cfg
 
 SERVICE_TITLES =  {key: " ".join(key.split("_")).title() for key in AVAILABLE_SERVICES}
@@ -23,7 +23,7 @@ def setup(api_base: str | None = None) -> None:
     :param api_base: API Base.
     """
     st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
-    st.session_state["CLIENT"] = RemoteVoiceAssistantClient(api_base=api_base)
+    st.session_state["CLIENT"] = VoiceAssistantClient(api_base=api_base)
 
 
 def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:

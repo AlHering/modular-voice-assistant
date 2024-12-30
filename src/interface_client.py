@@ -43,7 +43,7 @@ class Endpoints(str, Enum):
         return str(self.value)
 
 
-class RemoteVoiceAssistantClient(object):
+class VoiceAssistantClient(object):
     """
     Remote voice assistant client.
     """
