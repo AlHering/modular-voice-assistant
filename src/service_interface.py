@@ -14,7 +14,7 @@ from uuid import UUID
 import traceback
 from datetime import datetime as dt
 import gc
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 import uvicorn
 from functools import wraps
 from src.configuration import configuration as cfg
@@ -126,7 +126,11 @@ class VoiceAssistantInterface(object):
         self.router.add_api_route(path="/services/load", endpoint=self.load_service, methods=["POST"])
         self.router.add_api_route(path="/services/unload", endpoint=self.unload_service, methods=["POST"])
 
-        # Underlying Services
+        # Assistant functionality
+        self.router.add_api_route(path="/assistant/run_input_pipeline", endpoint=self.run_input_pipeline, methods=["POST"])
+        self.router.add_api_route(path="/assistant/run_output_pipeline", endpoint=self.run_output_pipeline, methods=["POST"])
+
+        # Underlying services
         self.router.add_api_route(path="/services/record", endpoint=self.record_speech, methods=["POST"])
         self.router.add_api_route(path="/services/play-audio", endpoint=self.play_audio, methods=["POST"])
         self.router.add_api_route(path="/services/transcribe", endpoint=self.transcribe, methods=["POST"])
@@ -211,7 +215,9 @@ class VoiceAssistantInterface(object):
         if self.service_uuids[service_type] == config_uuid:
             return {"success": f"Active {self.service_titles[service_type]} is already set to UUID '{config_uuid}'"}
         elif self.service_uuids[service_type] is not None:
-            await self.unload_service(service_type=service_type, config_uuid=self.service_uuids[service_type])
+            unloading_response = await self.unload_service(service_type=service_type, config_uuid=self.service_uuids[service_type])
+            if "error" in unloading_response:
+                return {"error": f"Running {self.service_titles[service_type]} with UUID '{config_uuid}' could not be unloaded", "report": unloading_response}
         entry = self.database.obj_as_dict(self.database.get_object_by_id("service_config", object_id=config_uuid))
         if entry:
             self.services[service_type] = AVAILABLE_SERVICES[service_type](**entry["config"])
@@ -222,16 +228,16 @@ class VoiceAssistantInterface(object):
             
     @interaction_log
     async def unload_service(self,
-                      payload: dict) -> dict:
+                    service_type: str,
+                    config_uuid: str | UUID) -> dict:
         """
         Unloads a service from the given config UUID.
         :param service_type: Target service type.
         :param config_uuid: Config UUID.
         :return: Response.
         """
-        service_type = payload["service_type"]
-        config_uuid = payload["config_uuid"]
-        config_uuid = UUID(config_uuid)
+        if isinstance(config_uuid, str):
+            config_uuid = UUID(config_uuid)
         if self.service_uuids[service_type] != config_uuid:
             return {"error": f"Active {self.service_titles[service_type]} has UUID '{self.service_uuids[service_type]}', not '{config_uuid}'"}
         elif self.service_uuids[service_type] is not None:
@@ -246,6 +252,44 @@ class VoiceAssistantInterface(object):
     """
     Assistant handling
     """
+    @interaction_log
+    async def run_input_pipeline(self,
+                                 speech_recorder_uuid: str | UUID,
+                                 transcriber_uuid: str | UUID) -> dict:
+        if isinstance(speech_recorder_uuid, str):
+            speech_recorder_uuid = UUID(speech_recorder_uuid)
+        if isinstance(transcriber_uuid, str):
+            transcriber_uuid = UUID(transcriber_uuid)
+        speech_recorder_loading_response = await self.load_service(service_type="speech_recorder", config_uuid=speech_recorder_uuid)
+        transcriber_loading_response = await self.load_service(service_type="transcriber", config_uuid=transcriber_uuid)
+        for intermediate_response in [speech_recorder_loading_response, transcriber_loading_response]:
+            if "error" in intermediate_response:
+                return {"error": f"Loading service failed", "report": intermediate_response}
+
+        recording_result = self.services["speech_recorder"].record_single_input()
+        transcription_result = self.services["transcriber"].transcribe(audio_input=recording_result[0])
+        return {"transcript": transcription_result[0], "metadata": transcription_result[1]}
+    
+
+    @interaction_log
+    async def run_output_pipeline(self,
+                                  synthesizer_uuid: str | UUID,
+                                  audio_player_uuid: str | UUID,
+                                  text: str) -> dict:
+        if isinstance(synthesizer_uuid, str):
+            synthesizer_uuid = UUID(synthesizer_uuid)
+        if isinstance(audio_player_uuid, str):
+            audio_player_uuid = UUID(audio_player_uuid)
+        synthesizer_loading_response = await self.load_service(service_type="synthesizer", config_uuid=synthesizer_uuid)
+        audio_player_loading_response = await self.load_service(service_type="audio_player", config_uuid=audio_player_uuid)
+        for intermediate_response in [synthesizer_loading_response, audio_player_loading_response]:
+            if "error" in intermediate_response:
+                return {"error": f"Loading service failed", "report": intermediate_response}
+
+        synthesis_result = self.services["synthesizer"].synthesize(text)
+        self.services["audio_player"].play(audio_input=synthesis_result[0], playback_parameters=synthesis_result[1])
+        return {"success": "Playback finished."}
+
 
     """
     Direct service access
@@ -257,24 +301,14 @@ class VoiceAssistantInterface(object):
                       microphone_parameters: dict | None = None) -> dict:
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
-        await self.load_service(service_type="speech_recorder", config_uuid=config_uuid)
+        loading_response = await self.load_service(service_type="speech_recorder", config_uuid=config_uuid)
+        if "error" in loading_response:
+            return {"error": f"Loading service failed", "report": loading_response}
         result = self.services["speech_recorder"].record_single_input(
             recognizer_parameters=recognizer_parameters,
             microphone_parameters=microphone_parameters
         )
-
-    @interaction_log
-    async def play_audio(self, 
-                    config_uuid: str | UUID,
-                    audio_input: str | list, 
-                    playback_parameters: dict | None = None) -> dict:
-        if isinstance(config_uuid, str):
-            config_uuid = UUID(config_uuid)
-        await self.load_service(service_type="audio_player", config_uuid=config_uuid)
-        result = self.services["audio_player"].play(
-            audio_input=audio_input,
-            playback_parameters=playback_parameters
-        )
+        return {"recording": result[0].tolist(), "dtype": str(result[0].dtype), "metadata": result[1]}
 
     @interaction_log
     async def transcribe(self, 
@@ -283,12 +317,15 @@ class VoiceAssistantInterface(object):
                    transcription_parameters: dict | None = None) -> dict:
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
-        await self.load_service(service_type="transcriber", config_uuid=config_uuid)
+        loading_response = await self.load_service(service_type="transcriber", config_uuid=config_uuid)
+        if "error" in loading_response:
+            return {"error": f"Loading service failed", "report": loading_response}
 
         result = self.services["transcriber"].transcribe(
             audio_input=audio_input,
             transcription_parameters=self.transcription_parameters if transcription_parameters is None else transcription_parameters
         )
+        return {"transcript": result[0], "metadata": result[1]}
 
     @interaction_log
     async def synthesize(self, 
@@ -297,10 +334,29 @@ class VoiceAssistantInterface(object):
                    synthesis_parameters: dict | None = None) -> dict:
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
-        await self.load_service(service_type="synthesizer", config_uuid=config_uuid)
+        loading_response = await self.load_service(service_type="synthesizer", config_uuid=config_uuid)
+        if "error" in loading_response:
+            return {"error": f"Loading service failed", "report": loading_response}
         result = self.services["synthesizer"].synthesize(
             text=text, 
             synthesis_parameters=synthesis_parameters)
+        return {"synthesis": result[0].tolist(), "dtype": str(result[0].dtype), "metadata": result[1]}
+
+    @interaction_log
+    async def play_audio(self, 
+                    config_uuid: str | UUID,
+                    audio_input: str | list, 
+                    playback_parameters: dict | None = None) -> dict:
+        if isinstance(config_uuid, str):
+            config_uuid = UUID(config_uuid)
+        loading_response = await self.load_service(service_type="audio_player", config_uuid=config_uuid)
+        if "error" in loading_response:
+            return {"error": f"Loading service failed", "report": loading_response}
+        result = self.services["audio_player"].play(
+            audio_input=audio_input,
+            playback_parameters=playback_parameters
+        )
+        return {"success": "Playback finished."}
         
     @interaction_log
     async def local_chat(self, 
@@ -309,8 +365,11 @@ class VoiceAssistantInterface(object):
                    chat_parameters: dict | None = None) -> dict:
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
-        await self.load_service(service_type="local_chat", config_uuid=config_uuid)
+        loading_response = await self.load_service(service_type="local_chat", config_uuid=config_uuid)
+        if "error" in loading_response:
+            return {"error": f"Loading service failed", "report": loading_response}
         result = self.services["local_chat"].chat(prompt=prompt, chat_parameters=chat_parameters)
+        return {"response": result[0], "metadata": result[1]}
         
     @interaction_log
     async def remote_chat(self, 
@@ -319,43 +378,51 @@ class VoiceAssistantInterface(object):
                    chat_parameters: dict | None = None) -> dict:
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
-        await self.load_service(service_type="remote_chat", config_uuid=config_uuid)
+        loading_response = await self.load_service(service_type="remote_chat", config_uuid=config_uuid)
+        if "error" in loading_response:
+            return {"error": f"Loading service failed", "report": loading_response}
         result = self.services["remote_chat"].chat(prompt=prompt, chat_parameters=chat_parameters)
-        
+        return {"response": result[0], "metadata": result[1]}
+
     @interaction_log
     async def local_chat_streamed(self, 
                    config_uuid: str | UUID,
                    prompt: str, 
                    chat_parameters: dict | None = None,
-                   minium_yielded_characters: int = 10) -> dict:
+                   minium_yielded_characters: int = 10) -> StreamingResponse:
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
-        await self.load_service(service_type="local_chat", config_uuid=config_uuid)
-        result = self.services["local_chat"].chat_streamed(
+        loading_response = await self.load_service(service_type="local_chat", config_uuid=config_uuid)
+        if "error" in loading_response:
+            return {"error": f"Loading service failed", "report": loading_response}
+        def wrap_response(**kwargs):
+            for result in self.services["local_chat"].chat_streamed(**kwargs):
+                yield {"response": result[0], "metadata": result[1]}
+        return StreamingResponse(wrap_response(
             prompt=prompt, 
             chat_parameters=chat_parameters,
-            minium_yielded_characters=minium_yielded_characters)
-        
+            minium_yielded_characters=minium_yielded_characters),
+            media_type="application/x-ndjson")
+
     @interaction_log
     async def remote_chat_streamed(self, 
                    config_uuid: str | UUID,
                    prompt: str, 
                    chat_parameters: dict | None = None,
-                   minium_yielded_characters: int = 10) -> dict:
+                   minium_yielded_characters: int = 10) -> StreamingResponse:
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
-        await self.load_service(service_type="remote_chat", config_uuid=config_uuid)
-        result = self.services["remote_chat"].chat_streamed(
+        loading_response = await self.load_service(service_type="remote_chat", config_uuid=config_uuid)
+        if "error" in loading_response:
+            return {"error": f"Loading service failed", "report": loading_response}
+        def wrap_response(**kwargs):
+            for result in self.services["local_chat"].chat_streamed(**kwargs):
+                yield {"response": result[0], "metadata": result[1]}
+        return StreamingResponse(wrap_response(
             prompt=prompt, 
             chat_parameters=chat_parameters,
-            minium_yielded_characters=minium_yielded_characters)
-        
-        """return StreamingResponse(
-            self._wrapped_streamed_chat(
-                prompt=prompt,
-                chat_parameters=chat_parameters,
-                local=local),
-            media_type="application/x-ndjson")"""
+            minium_yielded_characters=minium_yielded_characters),
+            media_type="application/x-ndjson")
         
         
 """
