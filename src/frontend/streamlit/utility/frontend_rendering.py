@@ -83,6 +83,7 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
         st.session_state["flow"] = StreamlitFlowState(nodes=[], edges=[])
     if "flow_modules" not in st.session_state:
         st.session_state["flow_modules"] = {key: {
+            "title": SERVICE_TITLES[key],
             "available": {entry["id"]: entry for entry in get_configs(config_type=key)
                         if not  entry["inactive"]},
             "active": []
@@ -93,14 +94,15 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
     node_menu_columns = parent_widget.columns([.25, .25, .10, .10, .10, .10, .10])
     
     node_menu_columns[0].write("")
-    node_object_type = node_menu_columns[0].selectbox(
+    node_object_type_title = node_menu_columns[0].selectbox(
                 key=f"flow_node_object_type", 
-                label="Module type", 
-                options=list(st.session_state["flow_modules"].keys()))
+                label="Service type", 
+                options=[st.session_state["flow_modules"][object_type]["title"] for object_type in st.session_state["flow_modules"]])
+    node_object_type = node_object_type_title.replace(" ", "_").lower()
     node_menu_columns[1].write("")
     node_object_id = node_menu_columns[1].selectbox(
                 key=f"flow_node_object_id", 
-                label="Module UUID", 
+                label="Configuration UUID", 
                 options=st.session_state["flow_modules"][node_object_type]["available"])
     target_node_flow_id = f"{node_object_type}_{node_object_id}"
     node_menu_columns[3].write("#####")
