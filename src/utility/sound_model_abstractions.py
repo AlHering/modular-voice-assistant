@@ -11,7 +11,7 @@ from typing import List, Tuple, Union, Dict
 import pyaudio
 import numpy as np
 import time
-from src.utility.sounddevice_utility import get_input_devices
+from src.utility.sounddevice_utility import get_input_devices, get_output_devices
 from src.utility.time_utility import get_timestamp
 from src.utility.whisper_utility import load_whisper_model, transcribe as transcribe_with_whisper
 from src.utility.faster_whisper_utility import load_faster_whisper_model, transcribe as transcribe_with_faster_whisper
@@ -289,3 +289,27 @@ class SpeechRecorder(object):
                 time.sleep(self.loop_pause)
             except KeyboardInterrupt:
                 interrupt_flag = True
+
+class AudioPlayer(object):
+    """
+    Represents a audio player.
+    """
+    supported_output_devices = get_output_devices(include_metadata=True)
+
+    def __init__(self,
+                 output_device_index: int | None = None,
+                 playback_parameters: dict | None = None) -> None:
+        """
+        Initiation method.
+        :param output_device_index: Output device index.
+            Check SpeechRecorder.supported_input_devices for available input device profiles.
+            Defaults to None in which case the default input device index is fetched.
+        :param playback_parameters: Keyword arguments for configuring playback.
+        """
+        if output_device_index is None:
+            pya = pyaudio.PyAudio()
+            output_device_index = pya.get_default_output_device_info().get("index")
+            pya.terminate()
+        self.output_device_index = output_device_index
+        self.playback_parameters = {} if playback_parameters is None else playback_parameters
+            
