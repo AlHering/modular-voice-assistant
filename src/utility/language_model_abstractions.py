@@ -75,7 +75,7 @@ class LanguageModelInstance(ABC):
         if config["model_path"] is None and config["backend"] in cls.default_models and cls.default_models[config["backend"]]:
             config["model_path"] = cls.default_models[config["backend"]][0]
         if config["backend"] == "llama-cpp":
-            return LlamaCPPModelInstance(**config.model_dump())
+            return LlamaCPPModelInstance(**config)
 
     """
     Generation methods

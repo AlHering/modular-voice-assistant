@@ -12,7 +12,7 @@ import pyaudio
 import numpy as np
 import time
 from src.utility.sounddevice_utility import get_input_devices, get_output_devices
-from pyaudio_utility import play_wave
+from src.utility.pyaudio_utility import play_wave
 from src.utility.time_utility import get_timestamp
 from src.utility.whisper_utility import load_whisper_model, transcribe as transcribe_with_whisper
 from src.utility.faster_whisper_utility import load_faster_whisper_model, transcribe as transcribe_with_faster_whisper
