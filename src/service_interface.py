@@ -7,12 +7,13 @@
 """
 from __future__ import annotations
 import os
-from typing import Any
+from typing import Any, List
 import logging
 from fastapi import FastAPI, APIRouter
 from uuid import UUID
 import traceback
 from datetime import datetime as dt
+from pydantic import BaseModel
 import gc
 from fastapi.responses import RedirectResponse, StreamingResponse
 import uvicorn
@@ -89,6 +90,34 @@ def interaction_log(func: Any) -> Any | None:
         logging.info(logging_message)
         return response
     return inner
+
+
+class TextRequest(BaseModel):
+    """
+    Text request data class.
+    """
+    config_uuid: str | UUID
+    text: str
+    parameters: dict | None = None
+
+
+class AudioRequest(BaseModel):
+    """
+    Audio request data class.
+    """
+    config_uuid: str | UUID
+    audio: str | List[int | float]
+    dtype: str | None = None
+    parameters: dict | None = None
+
+
+class RecorderRequest(BaseModel):
+    """
+    Recorder request data class.
+    """
+    config_uuid: str | UUID
+    recognizer_parameters: dict | None = None
+    microphone_parameters: dict | None = None
 
 
 class VoiceAssistantInterface(object):
@@ -295,133 +324,105 @@ class VoiceAssistantInterface(object):
     Direct service access
     """
     @interaction_log
-    async def record_speech(self, 
-                      config_uuid: str | UUID,
-                      recognizer_parameters: dict | None = None,
-                      microphone_parameters: dict | None = None) -> dict:
-        if isinstance(config_uuid, str):
-            config_uuid = UUID(config_uuid)
-        loading_response = await self.load_service(service_type="speech_recorder", config_uuid=config_uuid)
+    async def record_speech(self, payload: RecorderRequest) -> dict:
+        if isinstance(payload.config_uuid, str):
+            payload.config_uuid = UUID(payload.config_uuid)
+        loading_response = await self.load_service(service_type="speech_recorder", config_uuid=payload.config_uuid)
         if "error" in loading_response:
             return {"error": f"Loading service failed", "report": loading_response}
         result = self.services["speech_recorder"].record_single_input(
-            recognizer_parameters=recognizer_parameters,
-            microphone_parameters=microphone_parameters
+            recognizer_parameters=payload.recognizer_parameters,
+            microphone_parameters=payload.microphone_parameters
         )
         return {"recording": result[0].tolist(), "dtype": str(result[0].dtype), "metadata": result[1]}
 
     @interaction_log
-    async def transcribe(self, 
-                   config_uuid: str | UUID,
-                   audio_input: str | list, 
-                   transcription_parameters: dict | None = None) -> dict:
-        if isinstance(config_uuid, str):
-            config_uuid = UUID(config_uuid)
-        loading_response = await self.load_service(service_type="transcriber", config_uuid=config_uuid)
+    async def transcribe(self, payload: AudioRequest) -> dict:
+        if isinstance(payload.config_uuid, str):
+            payload.config_uuid = UUID(payload.config_uuid)
+        loading_response = await self.load_service(service_type="transcriber", config_uuid=payload.config_uuid)
         if "error" in loading_response:
             return {"error": f"Loading service failed", "report": loading_response}
 
         result = self.services["transcriber"].transcribe(
-            audio_input=audio_input,
-            transcription_parameters=self.transcription_parameters if transcription_parameters is None else transcription_parameters
+            audio_input=payload.audio,
+            transcription_parameters=payload.parameters
         )
         return {"transcript": result[0], "metadata": result[1]}
 
     @interaction_log
-    async def synthesize(self, 
-                   config_uuid: str | UUID,
-                   text: str,
-                   synthesis_parameters: dict | None = None) -> dict:
-        if isinstance(config_uuid, str):
-            config_uuid = UUID(config_uuid)
-        loading_response = await self.load_service(service_type="synthesizer", config_uuid=config_uuid)
+    async def synthesize(self, payload: TextRequest) -> dict:
+        if isinstance(payload.config_uuid, str):
+            payload.config_uuid = UUID(payload.config_uuid)
+        loading_response = await self.load_service(service_type="synthesizer", config_uuid=payload.config_uuid)
         if "error" in loading_response:
             return {"error": f"Loading service failed", "report": loading_response}
         result = self.services["synthesizer"].synthesize(
-            text=text, 
-            synthesis_parameters=synthesis_parameters)
+            text=payload.text, 
+            synthesis_parameters=payload.parameters)
         return {"synthesis": result[0].tolist(), "dtype": str(result[0].dtype), "metadata": result[1]}
 
     @interaction_log
-    async def play_audio(self, 
-                    config_uuid: str | UUID,
-                    audio_input: str | list, 
-                    playback_parameters: dict | None = None) -> dict:
-        if isinstance(config_uuid, str):
-            config_uuid = UUID(config_uuid)
-        loading_response = await self.load_service(service_type="audio_player", config_uuid=config_uuid)
+    async def play_audio(self, payload: AudioRequest) -> dict:
+        if isinstance(payload.config_uuid, str):
+            payload.config_uuid = UUID(payload.config_uuid)
+        loading_response = await self.load_service(service_type="audio_player", config_uuid=payload.config_uuid)
         if "error" in loading_response:
             return {"error": f"Loading service failed", "report": loading_response}
         result = self.services["audio_player"].play(
-            audio_input=audio_input,
-            playback_parameters=playback_parameters
+            audio_input=payload.audio,
+            playback_parameters=payload.parameters
         )
         return {"success": "Playback finished."}
         
     @interaction_log
-    async def local_chat(self, 
-                   config_uuid: str | UUID,
-                   prompt: str, 
-                   chat_parameters: dict | None = None) -> dict:
-        if isinstance(config_uuid, str):
-            config_uuid = UUID(config_uuid)
-        loading_response = await self.load_service(service_type="local_chat", config_uuid=config_uuid)
+    async def local_chat(self, payload: TextRequest) -> dict:
+        if isinstance(payload.config_uuid, str):
+            payload.config_uuid = UUID(payload.config_uuid)
+        loading_response = await self.load_service(service_type="local_chat", config_uuid=payload.config_uuid)
         if "error" in loading_response:
             return {"error": f"Loading service failed", "report": loading_response}
-        result = self.services["local_chat"].chat(prompt=prompt, chat_parameters=chat_parameters)
+        result = self.services["local_chat"].chat(prompt=payload.text, chat_parameters=payload.parameters)
         return {"response": result[0], "metadata": result[1]}
         
     @interaction_log
-    async def remote_chat(self, 
-                   config_uuid: str | UUID,
-                   prompt: str, 
-                   chat_parameters: dict | None = None) -> dict:
-        if isinstance(config_uuid, str):
-            config_uuid = UUID(config_uuid)
-        loading_response = await self.load_service(service_type="remote_chat", config_uuid=config_uuid)
+    async def remote_chat(self, payload: TextRequest) -> dict:
+        if isinstance(payload.config_uuid, str):
+            payload.config_uuid = UUID(payload.config_uuid)
+        loading_response = await self.load_service(service_type="remote_chat", config_uuid=payload.config_uuid)
         if "error" in loading_response:
             return {"error": f"Loading service failed", "report": loading_response}
-        result = self.services["remote_chat"].chat(prompt=prompt, chat_parameters=chat_parameters)
+        result = self.services["remote_chat"].chat(prompt=payload.text, chat_parameters=payload.parameters)
         return {"response": result[0], "metadata": result[1]}
 
     @interaction_log
-    async def local_chat_streamed(self, 
-                   config_uuid: str | UUID,
-                   prompt: str, 
-                   chat_parameters: dict | None = None,
-                   minium_yielded_characters: int = 10) -> StreamingResponse:
-        if isinstance(config_uuid, str):
-            config_uuid = UUID(config_uuid)
-        loading_response = await self.load_service(service_type="local_chat", config_uuid=config_uuid)
+    async def local_chat_streamed(self, payload: TextRequest) -> StreamingResponse:
+        if isinstance(payload.config_uuid, str):
+            payload.config_uuid = UUID(payload.config_uuid)
+        loading_response = await self.load_service(service_type="local_chat", config_uuid=payload.config_uuid)
         if "error" in loading_response:
             return {"error": f"Loading service failed", "report": loading_response}
         def wrap_response(**kwargs):
             for result in self.services["local_chat"].chat_streamed(**kwargs):
                 yield {"response": result[0], "metadata": result[1]}
         return StreamingResponse(wrap_response(
-            prompt=prompt, 
-            chat_parameters=chat_parameters,
-            minium_yielded_characters=minium_yielded_characters),
+            prompt=payload.text, 
+            chat_parameters=payload.parameters),
             media_type="application/x-ndjson")
 
     @interaction_log
-    async def remote_chat_streamed(self, 
-                   config_uuid: str | UUID,
-                   prompt: str, 
-                   chat_parameters: dict | None = None,
-                   minium_yielded_characters: int = 10) -> StreamingResponse:
-        if isinstance(config_uuid, str):
-            config_uuid = UUID(config_uuid)
-        loading_response = await self.load_service(service_type="remote_chat", config_uuid=config_uuid)
+    async def remote_chat_streamed(self, payload: TextRequest) -> StreamingResponse:
+        if isinstance(payload.config_uuid, str):
+            payload.config_uuid = UUID(payload.config_uuid)
+        loading_response = await self.load_service(service_type="remote_chat", config_uuid=payload.config_uuid)
         if "error" in loading_response:
             return {"error": f"Loading service failed", "report": loading_response}
         def wrap_response(**kwargs):
             for result in self.services["local_chat"].chat_streamed(**kwargs):
                 yield {"response": result[0], "metadata": result[1]}
         return StreamingResponse(wrap_response(
-            prompt=prompt, 
-            chat_parameters=chat_parameters,
-            minium_yielded_characters=minium_yielded_characters),
+            prompt=payload.text, 
+            chat_parameters=payload.parameters),
             media_type="application/x-ndjson")
         
         
