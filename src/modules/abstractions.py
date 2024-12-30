@@ -150,10 +150,10 @@ class PipelineModule(ABC):
         self.thread.daemon = True
         return self.thread
     
-    def reset(self, start_thread: bool = True) -> None:
+    def reset(self, restart: bool = True) -> None:
         """
         Resets module.
-        :param start_thread: Flag for starting thread after reset.
+        :param restart: Flag for restarting module.
         """
         self.pause.set()
         self.interrupt.set()
@@ -163,8 +163,11 @@ class PipelineModule(ABC):
             self.thread.join() 
         except RuntimeError:
             pass
-        if start_thread:
+        if restart:
+            self.pause.clear()
+            self.interrupt.clear()
             self.thread = self.to_thread()
+            self.thread.start()
 
     def loop(self) -> None:
         """
@@ -303,20 +306,6 @@ class ModularPipeline(object):
     """
     Module management
     """
-    def stop_modules(self) -> None:
-        """
-        Stops process modules.
-        """
-        self.stop.set()
-        for module in self.get_all():
-            module.interrupt.set()
-            module.pause.set()
-        for thread in self.get_all_threads():
-            try:
-                thread.join(.12) 
-            except RuntimeError:
-                pass
-
     def setup_modules(self) -> None:
         """
         Sets up modules.
@@ -327,38 +316,32 @@ class ModularPipeline(object):
             module.interrupt.clear()
             module.to_thread()
 
-    def get_all_threads(self) -> List[Thread]:
-        """
-        Returns all threads.
-        :returns: List of threads.
-        """
-        return [module.thread for module in self.get_all()]
-
     def stop_modules(self) -> None:
         """
         Stops process modules.
         """
         self.stop.set()
         for module in self.get_all():
-            module.interrupt.set()
-            module.pause.set()
-        for thread in self.get_all_threads():
-            try:
-                thread.join(.12) 
-            except RuntimeError:
-                pass
+            module.reset(restart=False)
 
     def reset(self) -> None:
         """
         Sets up and resets handler. 
         """
         if self.logger:
-            self.logger.info("(Re)setting Conversation Handler...")
+            self.logger.info("(Re)setting pipeline...")
         self.stop_modules()
         gc.collect()
         self.setup_modules()
         if self.logger:
-            self.logger.info("(Re)setting Conversation Handler...")
+            self.logger.info("(Re)setting pipeline...")
+
+    def get_all_threads(self) -> List[Thread]:
+        """
+        Returns all threads.
+        :returns: List of threads.
+        """
+        return [module.thread for module in self.get_all()]
 
     def get_partition_and_index(self, module: PipelineModule) -> Tuple[List[PipelineModule], int] | None:
         """
@@ -386,8 +369,8 @@ class ModularPipeline(object):
         Runs a non-blocking pipeline.
         :param loop: Declares, whether to loop pipeline or stop after a single interaction.
         """
-        for thread in self.worker_threads + self.input_threads:
-            thread.start()         
+        for module in self.worker_modules + self.input_modules:
+            module.thread.start()         
         if not loop:
             while self.input_modules[0].output_queue.qsize() == 0 and self.input_modules[-1].output_queue.qsize() == 0:
                 time.sleep(self.base_loop_pause/16)
@@ -437,16 +420,16 @@ class ModularPipeline(object):
         if report:
             self.run_report_thread()
 
-        for thread in self.output_threads:
-            thread.start()
+        for output_module in self.output_modules():
+            output_module.thread.start()
         if self.output_modules:
             self.output_modules[0].input_queue.put(PipelinePackage(content=greeting))
 
         try:
             if not blocking:
-                self._run_nonblocking_conversation(loop=loop)
+                self._run_nonblocking_pipeline(loop=loop)
             else:
-                self._run_blocking_conversation(loop=loop)
+                self._run_blocking_pipeline(loop=loop)
         except KeyboardInterrupt:
             if self.logger:
                 self.logger.info(f"Received keyboard interrupt, shutting down handler ...")
@@ -465,16 +448,18 @@ class ModularPipeline(object):
                     f"#                Running: {not self.stop.is_set()}       ",
                     "=========================================================="
                 ])
-                for threads in ["input_threads", "worker_threads", "output_threads"]:
-                    for thread_index, thread in enumerate(getattr(self, threads)):
-                        module = getattr(self, f"{threads.split('_')[0]}_modules")[thread_index]
-                        module_info += f"\n\t[{type(module).__name__}<{module.name}>] Thread '{thread}: {thread.is_alive()}'"
-                        module_info += f"\n\t\t Inputs: {module.input_queue.qsize()}'"
-                        module_info += f"\n\t\t Outputs: {module.output_queue.qsize()}'"
-                        module_info += f"\n\t\t Received: {module.received}'"
-                        module_info += f"\n\t\t Sent: {module.sent}'"
-                        module_info += f"\n\t\t Pause: {module.pause.is_set()}'"
-                        module_info += f"\n\t\t Interrupt: {module.interrupt.is_set()}'"
+                for partition in ["input_modules", "worker_modules", "output_modules"]:
+                    for module_partition in getattr(self, partition):
+                        module_info += f"\n\n{partition}\n"
+                        for module in module_partition:
+                            thread = module.thread
+                            module_info += f"\n\t[{type(module).__name__}<{module.name}>] Thread '{thread}: {thread.is_alive()}'"
+                            module_info += f"\n\t\t Inputs: {module.input_queue.qsize()}'"
+                            module_info += f"\n\t\t Outputs: {module.output_queue.qsize()}'"
+                            module_info += f"\n\t\t Received: {module.received}'"
+                            module_info += f"\n\t\t Sent: {module.sent}'"
+                            module_info += f"\n\t\t Pause: {module.pause.is_set()}'"
+                            module_info += f"\n\t\t Interrupt: {module.interrupt.is_set()}'"
                 if self.logger:
                     self.logger.info(module_info)
                 else:
