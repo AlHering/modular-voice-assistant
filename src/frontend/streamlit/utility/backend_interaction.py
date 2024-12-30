@@ -52,6 +52,7 @@ CONFIGURATION_PARAMETERS =  {
         "playback_parameters": {"title": "Playback Parameters", "type": dict, "default": None}
     }
 }
+CLIENT: VoiceAssistantClient | None = None
 
 
 def setup(api_base: str | None = None) -> None:
@@ -59,8 +60,9 @@ def setup(api_base: str | None = None) -> None:
     Sets up and assistant.
     :param api_base: API Base.
     """
+    global CLIENT
     st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
-    st.session_state["CLIENT"] = VoiceAssistantClient(api_base=api_base)
+    CLIENT = VoiceAssistantClient(api_base=api_base)
 
 
 def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:
@@ -101,7 +103,7 @@ def get_configs(config_type: str) -> List[dict]:
     :param config_type: Config type.
     :return: Config entries.
     """
-    return [flatten_config(entry) for entry in st.session_state["CLIENT"].get_configs(service_type=config_type)]
+    return [flatten_config(entry) for entry in CLIENT.get_configs(service_type=config_type)]
 
 
 def patch_config(config_type: str, config_data: dict, config_id: str | UUID | None = None) -> dict:
@@ -115,7 +117,7 @@ def patch_config(config_type: str, config_data: dict, config_id: str | UUID | No
     patch = {"config": config_data}
     if config_id is not None:
         patch["id"] = config_id
-    return flatten_config(st.session_state["CLIENT"].overwrite_config(service_type=config_type, config=patch))
+    return flatten_config(CLIENT.overwrite_config(service_type=config_type, config=patch))
 
 
 def put_config(config_type: str, config_data: dict, config_id: str | None = None) -> dict:
@@ -129,7 +131,7 @@ def put_config(config_type: str, config_data: dict, config_id: str | None = None
     patch = {"config": config_data}
     if config_id is not None:
         patch["id"] = config_id
-    return flatten_config(st.session_state["CLIENT"].add_config(service_type=config_type, config=patch))
+    return flatten_config(CLIENT.add_config(service_type=config_type, config=patch))
 
 
 def delete_config(config_type: str, config_id: str) -> dict:
@@ -140,7 +142,15 @@ def delete_config(config_type: str, config_id: str) -> dict:
     :return: Config entry.
     """
     deletion_patch = {"id": config_id, "inactive": True}
-    return flatten_config(st.session_state["CLIENT"].overwrite_config(service_type=config_type, config=deletion_patch))
+    return flatten_config(CLIENT.overwrite_config(service_type=config_type, config=deletion_patch))
+
+
+def get_loaded_service() -> dict:
+    """
+    Retrieves loaded services.
+    :return: Response.
+    """
+    return CLIENT.get_loaded_services()
 
 
 def load_service(service_type: str,
@@ -151,7 +161,7 @@ def load_service(service_type: str,
     :param config_uuid: Config UUID.
     :return: Response.
     """
-    return st.session_state["CLIENT"].load_service(service_type=service_type, config_uuid=config_uuid)
+    return CLIENT.load_service(service_type=service_type, config_uuid=config_uuid)
 
 
 def unload_service(service_type: str,
@@ -162,7 +172,7 @@ def unload_service(service_type: str,
     :param config_uuid: Config UUID.
     :return: Response.
     """
-    return st.session_state["CLIENT"].unload_service(service_type=service_type, config_uuid=config_uuid)
+    return CLIENT.unload_service(service_type=service_type, config_uuid=config_uuid)
 
 
 def chat(config_uuid: str | UUID,
@@ -177,9 +187,9 @@ def chat(config_uuid: str | UUID,
     :param local: Flag for declaring, whether to use local or remote chat service.
     """
     if local:
-        return st.session_state["CLIENT"].local_chat(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters).get("response")
+        return CLIENT.local_chat(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters).get("response")
     else:
-        return st.session_state["CLIENT"].remote_chat(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters).get("response")
+        return CLIENT.remote_chat(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters).get("response")
         
 def chat_streamed(config_uuid: str | UUID,
          prompt: str, 
@@ -193,10 +203,10 @@ def chat_streamed(config_uuid: str | UUID,
     :param local: Flag for declaring, whether to use local or remote chat service.
     """
     if local:
-        for chunk in st.session_state["CLIENT"].local_chat_streamed(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters):
+        for chunk in CLIENT.local_chat_streamed(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters):
             yield chunk.get("response") 
     else:
-        for chunk in st.session_state["CLIENT"].remote_chat_streamed(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters):
+        for chunk in CLIENT.remote_chat_streamed(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters):
             yield chunk.get("response") 
 
 
