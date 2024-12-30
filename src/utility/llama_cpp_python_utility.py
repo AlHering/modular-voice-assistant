@@ -13,15 +13,14 @@ import subprocess
 import requests
 import time
 from uuid import uuid4
-from typing import Any, Tuple, Union
-from ...src_legacy.utility.bronze import json_utility
+from typing import Union
+import json_utility
 try:
     import llama_cpp_cuda as llama_cpp
 except ImportError:
     import llama_cpp as llama_cpp
 
 from llama_cpp import Llama
-from llama_cpp.server.settings import ConfigFileSettings
 
 
 def load_llamacpp_model(model_path: str,
