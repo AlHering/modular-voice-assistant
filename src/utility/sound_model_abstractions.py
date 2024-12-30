@@ -195,7 +195,7 @@ class SpeechRecorder(object):
             "chunk_size": 1024
         } if microphone_parameters is None else microphone_parameters
         if "device_index" not in self.microphone_parameters:
-            self.microphone_parameters["device_index"] = self.input_device_index,
+            self.microphone_parameters["device_index"] = self.input_device_index
 
     def record_single_input(self,
                             recognizer_parameters: dict | None = None,
@@ -310,7 +310,7 @@ class AudioPlayer(object):
             Defaults to None in which case the default input device index is fetched.
         :param playback_parameters: Keyword arguments for configuring playback.
         """
-        self.backends = backend
+        self.backend = backend
         if output_device_index is None:
             pya = pyaudio.PyAudio()
             output_device_index = pya.get_default_output_device_info().get("index")
