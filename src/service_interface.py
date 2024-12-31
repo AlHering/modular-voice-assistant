@@ -237,32 +237,34 @@ class VoiceAssistantInterface(object):
         :return: Response.
         """
         return self.service_uuids
-
-    @interaction_log
-    async def load_service(self,
-                    service_type: str,
-                    config_uuid: str | UUID | None = None) -> dict:
+    
+    async def _get_target_configs(self,
+                                  service_type: str | None = None,
+                                  config_uuid: str | UUID | None = None) -> dict:
         """
-        Loads a service from the given config UUID.
+        Fetches target configs.
+        :param service_type: Target service type.
+        :param config_uuid: Config UUID.
+        :return: Accumulated response.
+        """
+        if service_type is None:
+            service_types = [service_type for service_type in self.service_uuids]
+        else:
+            service_types = [service_type]
+        if config_uuid is None:
+            configs = [(await self.get_configs(service_type=service_type)).get("result") for service_type in service_types]
+            config_uuids = [config["id"] if config is not None else None for config in configs]
+        else:
+            config_uuids = [config_uuid]
+        return service_types, config_uuids
+    
+    async def _load_service(self, service_type: str, config_uuid: str | UUID) -> dict:
+        """
+        Loads specified config.
         :param service_type: Target service type.
         :param config_uuid: Config UUID.
         :return: Response.
         """
-        # No config declared, loading all.
-        if config_uuid is None:
-            responses = []
-            for service_type in self.service_uuids:
-                if self.service_uuids[service_type] is None:
-                    available_configs = (await self.get_configs(service_type=service_type)).get("result")
-                    if available_configs:
-                        responses.append(await self.load_service(service_type=service_type, config_uuid=available_configs[0]))
-                error_responses = [response["error"] for response in responses if "error" in response]
-                if error_responses:
-                    return {"error": "\n".join(error_responses)}
-                else:
-                    return {"success": f"Unloaded multiple services."}
-                    
-        # Loading declared config.
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
         if self.service_uuids[service_type] == config_uuid:
@@ -278,30 +280,34 @@ class VoiceAssistantInterface(object):
             return {"success": f"Set active {self.service_titles[service_type]} to UUID '{config_uuid}':\n{entry}"}
         else:
             return {"error": f"No {self.service_titles[service_type]} with UUID '{config_uuid}'"}
-            
+
     @interaction_log
-    async def unload_service(self,
-                    service_type: str,
+    async def load_service(self,
+                    service_type: str | None = None,
                     config_uuid: str | UUID | None = None) -> dict:
         """
-        Unloads a service from the given config UUID.
+        Loads a service from the given config UUID.
         :param service_type: Target service type.
         :param config_uuid: Config UUID.
         :return: Response.
         """
-        # No config declared, unloading all.
-        if config_uuid is None:
-            responses = []
-            for service_type in self.service_uuids:
-                if self.service_uuids[service_type] is not None:
-                    responses.append(await self.unload_service(service_type=service_type, config_uuid=self.service_uuids[service_type]))
-                error_responses = [response["error"] for response in responses if "error" in response]
-                if error_responses:
-                    return {"error": "\n".join(error_responses)}
-                else:
-                    return {"success": f"Unloaded multiple services."}
-        
-        # Unloading declared config.
+        service_types, config_uuids = await self._get_target_configs(service_type=service_type, config_uuid=config_uuid)
+        responses = []
+        for service_index, service_types in enumerate(service_types):
+            if config_uuids[service_index] is not None:
+                responses.append(await self._load_service(service_type=service_type, config_uuid=config_uuids[service_index]))
+            else:
+                responses.append({"error": f"No {self.service_titles[service_type]} config available"})
+        return {"errors": [response for response in responses if "error" in response], 
+                "successes": [response for response in responses if "success" in response]}      
+
+    async def _unload_service(self, service_type: str, config_uuid: str | UUID | None) -> dict:
+        """
+        Unloads specified config.
+        :param service_type: Target service type.
+        :param config_uuid: Config UUID.
+        :return: Response.
+        """        
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
         if self.service_uuids[service_type] != config_uuid:
@@ -314,6 +320,26 @@ class VoiceAssistantInterface(object):
             return {"success": f"Unloaded {self.service_titles[service_type]} with config '{config_uuid}'"}
         else:
             return {"error": f"No active {self.service_titles[service_type]}"}
+    
+    @interaction_log
+    async def unload_service(self,
+                    service_type: str | None = None,
+                    config_uuid: str | UUID | None = None) -> dict:
+        """
+        Unloads a service from the given config UUID.
+        :param service_type: Target service type.
+        :param config_uuid: Config UUID.
+        :return: Response.
+        """
+        responses = []
+        if service_type is None:
+            for service_type in self.service_uuids:
+                responses.append(await self._unload_service(service_type=service_type, config_uuid=None))
+        else:
+            responses.append(await self._unload_service(service_type=service_type, config_uuid=config_uuid))
+        return {"errors": [response for response in responses if "error" in response], 
+                "successes": [response for response in responses if "success" in response]} 
+        
 
     """
     Assistant handling
