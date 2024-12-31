@@ -63,7 +63,8 @@ def render_sidebar() -> None:
                 if st.session_state["available"]:
                     wait_for_setup()
                 else:
-                    sleep(2.0)
+                    sleep(4.0)
+                    st.rerun()
 
     st.sidebar.write("#")
     st.sidebar.write("#")
