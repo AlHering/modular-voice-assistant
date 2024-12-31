@@ -49,6 +49,7 @@ def render_sidebar() -> None:
         key="API_BASE",
         value=f"http://{cfg.BACKEND_HOST}:{cfg.BACKEND_PORT}{cfg.BACKEND_ENDPOINT_BASE}",
         on_change=reset_api_base)
+    st.sidebar.divider()
     if not st.session_state["SETUP"]:
         with st.spinner("Waiting for backend connection..."):
                 try:
