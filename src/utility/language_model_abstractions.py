@@ -541,7 +541,10 @@ class ChatModelInstance(object):
         """
         Deconstructs instance.
         """
-
+        for attr in ["model", "tokenizer"]:
+            if hasattr(self.language_model_instance, attr):
+                artifact = getattr(self.language_model_instance, attr)
+                del artifact
 
 
 class RemoteChatModelConfig(BaseModel):
