@@ -55,14 +55,13 @@ CONFIGURATION_PARAMETERS =  {
 CLIENT: VoiceAssistantClient | None = VoiceAssistantClient()
 
 
-def setup(api_base: str | None = None) -> None:
+def setup() -> None:
     """
     Sets up and assistant.
-    :param api_base: API Base.
     """
     global CLIENT
     st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
-    CLIENT = VoiceAssistantClient(api_base=api_base)
+    CLIENT = VoiceAssistantClient(api_base=st.session_state["API_BASE"])
 
 
 def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:

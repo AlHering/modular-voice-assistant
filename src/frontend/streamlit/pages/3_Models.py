@@ -153,7 +153,7 @@ if __name__ == "__main__":
     
     # Wait for backend and dependencies
     if "SETUP" not in st.session_state or not st.session_state["SETUP"]:
-        st.info("System inactive. Please choose a Setup Mode in the sidebar and press the Setup button.")
+        st.info("System inactive. Please enter a correct backend server API in the sidebar (Local example: 'http://127.0.0.1:7861/api/v1').")
     else:
         tabs = ["transcriber", "synthesizer", "chat"]
         for index, tab in enumerate(st.tabs([" ".join(elem.split("_")).title()+"s" for elem in tabs])):

@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     # Wait for backend and dependencies
     if "SETUP" not in st.session_state or not st.session_state["SETUP"]:
-        st.info("System inactive. Please choose a Setup Mode in the sidebar and press the Setup button.")
+        st.info("System inactive. Please enter a correct backend server API in the sidebar (Local example: 'http://127.0.0.1:7861/api/v1').")
     else:    
         render_pipeline_node_plane(parent_widget=st.container(),
                                 block_dict=AVAILABLE_SERVICES,

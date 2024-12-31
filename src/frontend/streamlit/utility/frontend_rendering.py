@@ -8,10 +8,11 @@
 from typing import Any
 import streamlit as st
 import requests
+from time import sleep
+from src.configuration import configuration as cfg
 from streamlit_flow import streamlit_flow
 from streamlit_flow.elements import StreamlitFlowNode
 from streamlit_flow.layouts import TreeLayout
-from src.configuration import configuration as cfg
 from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, SERVICE_TITLES, get_configs
 from src.frontend.streamlit.utility.state_cache_handling import wait_for_setup
 from streamlit_flow.state import StreamlitFlowState
@@ -25,35 +26,43 @@ from streamlit_flow.state import StreamlitFlowState
 ###################
 # Rendering functions
 ###################
+def reset_api_base():
+    """
+    Resets current backend connection.
+    """
+    st.session_state["SETUP"] = False
+    st.session_state["available"] = False
+        
 
 
 def render_sidebar() -> None:
     """
     Renders the sidebar.
     """
+    if "available" not in st.session_state:
+        st.session_state["available"] = False
+    if "SETUP" not in st.session_state:
+        st.session_state["SETUP"] = False
     
-    mode = st.sidebar.selectbox(
-        label="Setup Mode",
-        options=["DIRECT", "API"])
-    api_base = None
-    if mode == "DIRECT":
-        api_base = f"http://{cfg.BACKEND_HOST}:{cfg.BACKEND_PORT}{cfg.BACKEND_ENDPOINT_BASE}"
-    elif mode == "API":
-        api_base = st.sidebar.text_input(
-            label="API Base"
-        )
-    
-    if st.sidebar.button(" Check Connection"):
-        try:
-            if requests.get(api_base + "/check").status_code == 200:
-                st.sidebar.info("Backend server is available!")
-            else:
-                st.sidebar.error("Backend server is not available!")
-        except:
-            st.sidebar.error("Backend server is not available!")
-    if st.sidebar.button(" Setup " + "(Status: " + ("Active)" if st.session_state.get("SETUP") else "Inactive)")):
-        with st.spinner("Waiting for backend to finish startup..."):
-            wait_for_setup(api_base=api_base)
+    st.sidebar.text_input(
+        label="Backend Server",
+        key="API_BASE",
+        value=f"http://{cfg.BACKEND_HOST}:{cfg.BACKEND_PORT}{cfg.BACKEND_ENDPOINT_BASE}",
+        on_change=reset_api_base)
+    if not st.session_state["SETUP"]:
+        with st.spinner("Waiting for backend connection..."):
+                try:
+                    if requests.get(st.session_state["API_BASE"] + "/check").status_code == 200:
+                        st.session_state["available"] = True
+                        st.sidebar.info("Backend server is available!")
+                    else:
+                        st.sidebar.error("Backend server is not available!")
+                except:
+                    st.sidebar.error("Backend server is not available!")
+                if st.session_state["available"]:
+                    wait_for_setup()
+                else:
+                    sleep(2.0)
 
     st.sidebar.write("#")
     st.sidebar.write("#")

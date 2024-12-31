@@ -14,13 +14,12 @@ from src.configuration import configuration as cfg
 from src.frontend.streamlit.utility import backend_interaction
 
 
-def wait_for_setup(api_base: str | None = None) -> None:
+def wait_for_setup() -> None:
     """
     Waits for setup to finish.
-    :param api_base: API Base.
     """
     populate_state_cache()
-    backend_interaction.setup(api_base=api_base)
+    backend_interaction.setup()
     st.session_state["SETUP"] = True
     st.rerun()
 
