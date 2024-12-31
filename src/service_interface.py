@@ -291,6 +291,7 @@ class VoiceAssistantInterface(object):
         :param config_uuid: Config UUID.
         :return: Response.
         """
+        print(f"Loading {service_type}: {config_uuid}")
         service_types, config_uuids = await self._get_target_configs(service_type=service_type, config_uuid=config_uuid)
         responses = []
         for service_index, service_types in enumerate(service_types):
@@ -311,15 +312,16 @@ class VoiceAssistantInterface(object):
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
         if self.service_uuids[service_type] != config_uuid:
-            return {"error": f"Active {self.service_titles[service_type]} has UUID '{self.service_uuids[service_type]}', not '{config_uuid}'"}
-        elif self.service_uuids[service_type] is not None:
+            response = {"success": f"Active {self.service_titles[service_type]} with UUID '{self.service_uuids[service_type]}' unloaded, but config '{config_uuid}' was given"}
+        if self.service_uuids[service_type] is not None:
             service_obj = self.services.pop(service_type) 
             del service_obj
             self.service_uuids[service_type] = None
             gc.collect()
-            return {"success": f"Unloaded {self.service_titles[service_type]} with config '{config_uuid}'"}
+            response = {"success": f"Unloaded {self.service_titles[service_type]} with config '{config_uuid}'"}
         else:
-            return {"error": f"No active {self.service_titles[service_type]}"}
+            response = {"success": f"No active {self.service_titles[service_type]}"}
+        return response
     
     @interaction_log
     async def unload_service(self,
@@ -331,6 +333,7 @@ class VoiceAssistantInterface(object):
         :param config_uuid: Config UUID.
         :return: Response.
         """
+        print(f"Unloading {service_type}: {config_uuid}")
         responses = []
         if service_type is None:
             for service_type in self.service_uuids:
