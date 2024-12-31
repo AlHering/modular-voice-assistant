@@ -64,7 +64,8 @@ def main_page_content() -> None:
     st.divider()
     st.write("##### Flags")
     control_service_columns = st.columns(6)
-    streamed = control_service_columns[0].checkbox("Streamed Generation")
+    streamed = control_service_columns[0].checkbox("Stream Generation")
+    speech_output = control_service_columns[1].checkbox("Output Speech")
 
     st.divider()
     st.write("##### Chat")
