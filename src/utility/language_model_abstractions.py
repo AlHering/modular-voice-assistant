@@ -375,6 +375,8 @@ class ChatModelInstance(object):
         if not self.use_history:
             self.history = [self.history[0]]
         self.history.append({"role": "user", "content": prompt})
+
+        #full prompt for the usage of raw generation instead of chat completion
         full_prompt = self.prompt_maker(self.history)
 
         metadata = {}
@@ -534,6 +536,12 @@ class ChatModelInstance(object):
                 "metadata": metadata
             })
         return answer, metadata
+    
+    def __del__(self) -> None:
+        """
+        Deconstructs instance.
+        """
+
 
 
 class RemoteChatModelConfig(BaseModel):
