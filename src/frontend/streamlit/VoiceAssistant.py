@@ -27,22 +27,17 @@ def render_service_control(parent_widget: Any, service_type: str) -> None:
         options=st.session_state[f"available_services"][service_type],
         index=st.session_state[f"available_services"][service_type].index(st.session_state["loaded_services"][service_type])
     )
-    if st.session_state["loaded_services"][service_type]:
-        parent_widget.write("   " + st.session_state["loaded_services"][service_type] + " is active.")
-    else:
-        parent_widget.write("No active configuration.")
 
     loaded = st.session_state[f"active_{service_type}"] == st.session_state["loaded_services"][service_type]
-    control_columns = parent_widget.columns([.3, .3, .4])
-    if control_columns[0].button("Unload", key=f"unload_{service_type}_btn", disabled=not loaded):
+    if not loaded:
         if st.session_state[f"active_{service_type}"] is not None:
+            with st.spinner("Loading service..."):
+                if not "error" in load_service(service_type=service_type, config_uuid=st.session_state[f"active_{service_type}"]):
+                    st.session_state["loaded_services"][service_type] = st.session_state[f"active_{service_type}"]
+                    st.rerun()
+        elif st.session_state["loaded_services"][service_type] is not None:
             if not "error" in unload_service(service_type=service_type, config_uuid=st.session_state[f"active_{service_type}"]):
                 st.session_state["loaded_services"][service_type] = None
-                st.rerun()
-    if control_columns[1].button("Load", key=f"load_{service_type}_btn", disabled=st.session_state[f"active_{service_type}"] is None or loaded):
-        if st.session_state[f"active_{service_type}"] is not None:
-            if not "error" in load_service(service_type=service_type, config_uuid=st.session_state[f"active_{service_type}"]):
-                st.session_state["loaded_services"][service_type] = st.session_state[f"active_{service_type}"]
                 st.rerun()
 
 
@@ -60,13 +55,16 @@ def main_page_content() -> None:
     column_count = (len(list(AVAILABLE_SERVICES.keys()))+1) // 2
     upper_service_columns = st.columns(column_count)
     lower_service_columns = st.columns(column_count)
-    control_service_columns = st.columns(10)
+    st.divider()
+    control_service_columns = st.columns(6)
+    st.divider()
     for service_index, service_type in enumerate([key for key in AVAILABLE_SERVICES][:column_count]):
         render_service_control(parent_widget=upper_service_columns[service_index], service_type=service_type)
     for service_index, service_type in enumerate([key for key in AVAILABLE_SERVICES][column_count:]):
         render_service_control(parent_widget=lower_service_columns[service_index], service_type=service_type)
 
-    streamed = control_service_columns[0].checkbox("Stream responses.")
+    
+    streamed = control_service_columns[0].checkbox("Streamed Generation")
 
     st.title("Chat")
     for message in st.session_state["chat_history"]:
