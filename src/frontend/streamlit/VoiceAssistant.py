@@ -56,44 +56,62 @@ def main_page_content() -> None:
     column_count = (len(list(AVAILABLE_SERVICES.keys()))+1) // 2
     upper_service_columns = st.columns(column_count)
     lower_service_columns = st.columns(column_count)
-    st.divider()
-    control_service_columns = st.columns(6)
-    st.divider()
     for service_index, service_type in enumerate([key for key in AVAILABLE_SERVICES][:column_count]):
         render_service_control(parent_widget=upper_service_columns[service_index], service_type=service_type)
     for service_index, service_type in enumerate([key for key in AVAILABLE_SERVICES][column_count:]):
         render_service_control(parent_widget=lower_service_columns[service_index], service_type=service_type)
         
+    st.divider()
+    st.write("##### Flags")
+    control_service_columns = st.columns(6)
     streamed = control_service_columns[0].checkbox("Streamed Generation")
-    st.title("Chat")
+
+    st.divider()
+    st.write("##### Chat")
     for message in st.session_state["chat_history"]:
         message_box = st.chat_message(message["role"])
         message_box.write(message["content"])
     prompt_box = st.empty()
     new_response_box = st.empty()
 
+    interaction_columns = st.columns([.8, .2])
+    # text input
     active_worker = st.session_state["loaded_services"]["remote_chat"]
     if active_worker is None:
         active_worker = st.session_state["loaded_services"]["local_chat"]
-
-    prompt = st.chat_input("Say something", disabled=active_worker is None)
-
+    prompt = interaction_columns[0].chat_input("🖊️ Write something")
     if prompt:
-        prompt_message = prompt_box.chat_message("user")
-        prompt_message.write(prompt)
-        st.session_state["chat_history"].append({"role": "user", "content": prompt})
-        new_response = new_response_box.chat_message("assistant")
-        chat_kwargs = {
-            "config_uuid": active_worker,
-            "prompt": prompt,
-            "local": active_worker in st.session_state["available_services"]["local_chat"]
-        }
-        if streamed:
-            response_content = new_response.write_stream(chat_streamed(**chat_kwargs))
+        if active_worker:
+            prompt_message = prompt_box.chat_message("user")
+            prompt_message.write(prompt)
+            st.session_state["chat_history"].append({"role": "user", "content": prompt})
+            new_response = new_response_box.chat_message("assistant")
+            chat_kwargs = {
+                "config_uuid": active_worker,
+                "prompt": prompt,
+                "local": active_worker in st.session_state["available_services"]["local_chat"]
+            }
+            if streamed:
+                response_content = new_response.write_stream(chat_streamed(**chat_kwargs))
+            else:
+                response_content = chat(**chat_kwargs)
+                new_response.write(response_content)
+            st.session_state["chat_history"].append({"role": "assistant", "content": response_content})
         else:
-            response_content = chat(**chat_kwargs)
-            new_response.write(response_content)
-        st.session_state["chat_history"].append({"role": "assistant", "content": response_content})
+            st.error("Remote or Local Chat need to be loaded.")
+    # speech input
+    active_speech_recorder = st.session_state["loaded_services"]["speech_recorder"]
+    active_transcriber = st.session_state["loaded_services"]["transcriber"]
+
+    voice_input = interaction_columns[1].button("🎙️ Say something")
+    if voice_input:
+        if active_speech_recorder is not None and active_transcriber is not None:
+            pass
+        else:
+            st.error("Speech Recorder and Transcriber need to be loaded.")
+
+
+    
 
 
 
