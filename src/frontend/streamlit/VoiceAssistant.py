@@ -24,6 +24,7 @@ def render_service_control(parent_widget: Any, service_type: str) -> None:
     parent_widget.selectbox(
         SERVICE_TITLES[service_type],
         key=f"active_{service_type}",
+        placeholder="None",
         options=st.session_state[f"available_services"][service_type],
         index=st.session_state[f"available_services"][service_type].index(st.session_state["loaded_services"][service_type])
     )
@@ -47,7 +48,7 @@ def main_page_content() -> None:
     """
     if "chat_history" not in st.session_state:
         st.session_state["chat_history"] = []
-        st.session_state["loaded_services"] = get_loaded_service() 
+    st.session_state["loaded_services"] = get_loaded_service() 
     st.session_state["available_services"] = {
         service_type: [None] + [entry["id"] for entry in get_configs(config_type=service_type) if not entry["inactive"]]
             for service_type in AVAILABLE_SERVICES
@@ -62,10 +63,8 @@ def main_page_content() -> None:
         render_service_control(parent_widget=upper_service_columns[service_index], service_type=service_type)
     for service_index, service_type in enumerate([key for key in AVAILABLE_SERVICES][column_count:]):
         render_service_control(parent_widget=lower_service_columns[service_index], service_type=service_type)
-
-    
+        
     streamed = control_service_columns[0].checkbox("Streamed Generation")
-
     st.title("Chat")
     for message in st.session_state["chat_history"]:
         message_box = st.chat_message(message["role"])
