@@ -53,7 +53,7 @@ def render_sidebar() -> None:
     if not st.session_state["SETUP"]:
         with st.spinner("Waiting for backend connection..."):
                 try:
-                    if requests.get(st.session_state["API_BASE"] + "/check").status_code == 200:
+                    if requests.get(st.session_state["API_BASE"] + "/service/get").status_code == 200:
                         st.session_state["available"] = True
                         st.sidebar.info("Backend server is available!")
                     else:
