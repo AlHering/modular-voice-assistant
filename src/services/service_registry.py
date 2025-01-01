@@ -10,7 +10,6 @@ import os
 from typing import Any
 from enum import Enum
 import json
-from time import time
 import uvicorn
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse, StreamingResponse
@@ -25,7 +24,7 @@ from uuid import UUID
 from functools import wraps
 import logging
 from src.services.services import TranscriberService, ChatService, SynthesizerService
-from src.services.service_abstractions import Service, ServicePackage
+from src.services.service_abstractions import Service, ServicePackage, EndOfStreamPackage
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
 from src.configuration import configuration as cfg
@@ -268,19 +267,21 @@ class ServiceRegistry(object):
         service = self.services[service_request.service]
         input_uuid = service_request.input_package.uuid
         service.input_queue.put(service_request.input_package)
-        start = time()
         response: ServicePackage = service.output_queue.get()
-        duration = time() - start
 
         wrongly_fetched = []
-        while response:
-            yield json.dumps({"response": response.content, "metadata": response.metadata_stack}).encode("utf-8")
+        finished = False
+        while not finished:
+            yield json.dumps(response.model_dump()).encode("utf-8")
             try:
-                response = service.output_queue.get(timeout=duration*1.5)
+                response = service.output_queue.get(timeout=service_request.timeout)
+                if isinstance(response, EndOfStreamPackage):
+                    finished = True
+                    yield json.dumps(response.model_dump()).encode("utf-8")
                 if response.uuid != input_uuid:
                     wrongly_fetched.append(response)
             except Empty:
-                response = None
+                finished = True
         for response in wrongly_fetched:
             service.output_queue.put(response)
 
