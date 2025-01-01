@@ -7,13 +7,13 @@
 """
 from __future__ import annotations
 import os
-from typing import Generator, Any
-from functools import partial
+from typing import Any
 from time import time
-from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
+from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi import FastAPI, APIRouter
 from queue import Empty
-from typing import List
+from typing import List, AsyncGenerator
 import uvicorn
 import traceback
 from datetime import datetime as dt
@@ -86,6 +86,26 @@ def interaction_log(func: Any) -> Any | None:
     return inner
 
 
+class ServiceRequest(BaseModel):
+    """Config payload class."""
+    service: str
+    input_package: ServicePackage
+    timeout: float | None = None
+
+
+class ConfigPayload(BaseModel):
+    """Config payload class."""
+    service: str
+    config: dict 
+
+
+class BaseResponse(BaseModel):
+    """Config payload class."""
+    status: str
+    results: List[dict] 
+    metadata: dict 
+
+
 class ServiceRegistry(object):
     """
     Service registry.
@@ -105,8 +125,15 @@ class ServiceRegistry(object):
             population_function=populate_data_infrastructure,
             default_entries=get_default_entries()
         )
+        self.router: APIRouter | None = None
 
-    def setup_and_run_service(self, service: Service, process_config: dict) -> bool:
+    def get_services(self) -> dict:
+        """
+        Responds available services.
+        """
+        return {"services": list(self.services.keys())}
+
+    def setup_and_run_service(self, service: str, process_config: dict) -> bool:
         """
         Sets up and runs a service.
         :param service: Target service name.
@@ -141,7 +168,7 @@ class ServiceRegistry(object):
         except:
             return False
     
-    def stop_service(self, service: Service) -> bool:
+    def stop_service(self, service: str) -> bool:
         """
         Stops a service.
         :param service: Target service name.
@@ -154,16 +181,28 @@ class ServiceRegistry(object):
         except:
             return False
     
-    def process(self, service: str, input_package: ServicePackage) -> Generator[ServicePackage, None, None]:
+    def process(self, service_request: ServiceRequest) -> ServicePackage | None:
         """
         Runs a service process.
-        :param service: Target service name.
-        :param input_package: Input package.
-        :return: True, if stopping was successful else False.
+        :param service_request: Service request.
+        :return: Service package response.
         """
-        service = self.services[service]
-        input_uuid = input_package.uuid
-        service.input_queue.put(input_package)
+        service = self.services[service_request.service]
+        service.input_queue.put(service_request.input_package)
+        try:
+            return service.output_queue.get(timeout=service_request.timeout)
+        except Empty:
+            return None
+
+    async def stream(self, service_request: ServiceRequest) -> AsyncGenerator[ServicePackage, None]:
+        """
+        Runs a service process.
+        :param service_request: Service request.
+        :return: Service package generator.
+        """
+        service = self.services[service_request.service]
+        input_uuid = service_request.input_package.uuid
+        service.input_queue.put(service_request.input_package)
         start = time()
         response = service.output_queue.get()
         duration = time() - start
@@ -176,16 +215,17 @@ class ServiceRegistry(object):
                 if response.uuid != input_uuid:
                     wrongly_fetched.append(response)
             except Empty:
-                pass
+                response = None
         for response in wrongly_fetched:
             service.output_queue.put(response)
 
-    def check_connection(self) -> dict:
+    def process_as_stream(self, service_request: ServiceRequest) -> StreamingResponse:
         """
-        Checks connection.
-        :return: Connection response.
+        Runs a service process in streamed mode.
+        :param service_request: Service request.
+        :return: Service package response.
         """
-        return {"status": "success", "message": f"Backend is available!"}
+        return StreamingResponse(self.stream(service_request=service_request))
 
     def setup_router(self) -> APIRouter:
         """
@@ -193,54 +233,48 @@ class ServiceRegistry(object):
         :return: API router.
         """
         self.router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
-        self.router.add_api_route(path="/check", endpoint=self.check_connection, methods=["GET"])
-
-    def register_services_with_router(self, router: APIRouter) -> None:
-        """
-        Registers services on API router.
-        :param router: API router.
-        """
-        for service in self.services:
-            router.add_api_route(path=f"/service/{service.name}/run", endpoint=partial(self.setup_and_run_service, service.name), methods=["POST"])
-            router.add_api_route(path=f"/service/{service.name}/reset", endpoint=partial(self.reset_service, service.name), methods=["POST"])
-            router.add_api_route(path=f"/service/{service.name}/stop", endpoint=partial(self.stop_service, service.name), methods=["POST"])
-            router.add_api_route(path=f"/service/{service.name}/process", endpoint=partial(self.setup_and_run_service, service.name), methods=["POST"])
+        self.router.add_api_route(path=f"/service/get", endpoint=self.get_services, methods=["GET"])
+        self.router.add_api_route(path=f"/service/process", endpoint=self.process, methods=["POST"])
+        self.router.add_api_route(path=f"/service/stream", endpoint=self.process_as_stream, methods=["POST"])
+        self.router.add_api_route(path=f"/service/run", endpoint=self.setup_and_run_service, methods=["POST"])
+        self.router.add_api_route(path=f"/service/reset", endpoint=self.reset_service, methods=["POST"])
+        self.router.add_api_route(path=f"/service/stop", endpoint=self.stop_service, methods=["POST"])
+        self.router.add_api_route(path="/configs/get", endpoint=self.get_configs, methods=["POST"])
+        self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
+        self.router.add_api_route(path="/configs/patch", endpoint=self.patch_config, methods=["POST"])
+        return self.router
 
     """
     Config handling
     """
     @interaction_log
-    async def add_config(self,
-                         service: str,
-                         config: dict) -> dict:
+    async def add_config(self, payload: ConfigPayload) -> BaseResponse:
         """
         Adds a config to the database.
         :param service: Target service.
         :param config: Config.
         :return: Response.
         """
-        if "id" in config:
-            config["id"] = UUID(config["id"])
-        result = self.database.obj_as_dict(self.database.put_object(object_type="service_config", service_type=service, **config))
-        return {"status": "success", "result": result}
+        if "id" in payload.config:
+            payload.config["id"] = UUID(payload.config["id"])
+        result = self.database.obj_as_dict(self.database.put_object(object_type="service_config", service_type=payload.service, **payload.config))
+        return BaseResponse(status="success", results=[result])
     
     @interaction_log
-    async def overwrite_config(self,
-                               payload: dict) -> dict:
+    async def patch_config(self, payload: ConfigPayload) -> BaseResponse:
         """
         Overwrites a config in the database.
         :param service: Target service type.
         :param config: Config.
         :return: Response.
         """
-        service = payload["service"]
-        config = payload["config"]
-        result = self.database.obj_as_dict(self.database.patch_object(object_type="service_config", object_id=UUID(config.pop("id")), service_type=service, **config))
-        return {"status": "success", "result": result}
+        if "id" in payload.config:
+            payload.config["id"] = UUID(payload.config["id"])
+        result = self.database.obj_as_dict(self.database.patch_object(object_type="service_config", object_id=payload.config["id"], service_type=payload.service, **payload.config))
+        return BaseResponse(status="success", results=[result])
     
     @interaction_log
-    async def get_configs(self,
-                          service: str | None = None) -> dict:
+    async def get_configs(self, service: str) -> BaseResponse:
         """
         Retrieves configs from the database.
         :param service: Target service type.
@@ -248,10 +282,10 @@ class ServiceRegistry(object):
         :return: Response.
         """
         if service is None:
-            result = [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_type(object_type="service_config")]
+            results = [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_type(object_type="service_config")]
         else:
-            result = [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service]])])]
-        return {"status": "success", "result": result}
+            results = [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service]])])]
+        return BaseResponse(status="success", results=results)
 
 
 """
@@ -268,7 +302,7 @@ def run() -> None:
         SynthesizerService()
     ])
     APP.include_router(INTERFACE.setup_router())
-    uvicorn.run("src.service_interface:APP",
+    uvicorn.run("src.services.service_registry:APP",
                 host=cfg.BACKEND_HOST,
                 port=cfg.BACKEND_PORT,
                 log_level="debug")
