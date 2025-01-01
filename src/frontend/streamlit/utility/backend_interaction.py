@@ -11,7 +11,7 @@ import traceback
 import streamlit as st
 from inspect import getfullargspec
 from uuid import UUID
-from src.service_interface import AVAILABLE_SERVICES
+from src.services.service_interface import AVAILABLE_SERVICES
 from src.interface_client import VoiceAssistantClient
 from src.configuration import configuration as cfg
 
