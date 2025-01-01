@@ -21,6 +21,7 @@ from uuid import UUID
 from functools import wraps
 import logging
 from src.services.service_abstractions import Service, ServicePackage
+from src.services.services import TranscriberService, ChatService, SynthesizerService
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
 from src.configuration import configuration as cfg
@@ -261,7 +262,11 @@ def run() -> None:
     Runs backend server.
     """
     global APP, INTERFACE
-    INTERFACE = ServiceRegistry()
+    INTERFACE = ServiceRegistry(services=[
+        TranscriberService(), 
+        ChatService(), 
+        SynthesizerService()
+    ])
     APP.include_router(INTERFACE.setup_router())
     uvicorn.run("src.service_interface:APP",
                 host=cfg.BACKEND_HOST,
