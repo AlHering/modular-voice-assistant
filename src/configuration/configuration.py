@@ -125,8 +125,7 @@ DEFAULT_COMPONENT_CONFIG = {
     "download_model_files": False,
     "speech_recorder": {},
     "transcriber": DEFAULT_TRANSCRIBER,
-    "local_chat": DEFAULT_LOCAL_CHAT,
-    "remote_chat": DEFAULT_REMOTE_CHAT,
+    "chat": DEFAULT_CHAT,
     "synthesizer": DEFAULT_SYNTHESIZER,
     "audio_player": DEFAULT_AUDIO_PLAYER,
     "voice_assistant": DEFAULT_VOICE_ASSISTANT
