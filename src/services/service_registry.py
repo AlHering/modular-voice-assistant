@@ -267,23 +267,16 @@ class ServiceRegistry(object):
         service = self.services[service_request.service]
         input_uuid = service_request.input_package.uuid
         service.input_queue.put(service_request.input_package)
-        response: ServicePackage = service.output_queue.get()
 
-        wrongly_fetched = []
         finished = False
         while not finished:
-            yield json.dumps(response.model_dump()).encode("utf-8")
             try:
                 response = service.output_queue.get(timeout=service_request.timeout)
                 if isinstance(response, EndOfStreamPackage):
                     finished = True
-                    yield json.dumps(response.model_dump()).encode("utf-8")
-                if response.uuid != input_uuid:
-                    wrongly_fetched.append(response)
+                yield json.dumps(response.model_dump()).encode("utf-8")
             except Empty:
                 finished = True
-        for response in wrongly_fetched:
-            service.output_queue.put(response)
 
     @interaction_log
     async def process_as_stream(self, service_request: ServiceRequest) -> StreamingResponse:
