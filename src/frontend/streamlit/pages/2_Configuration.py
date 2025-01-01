@@ -9,7 +9,7 @@ import streamlit as st
 from typing import List, Any
 import json
 from src.utility.streamlit_utility import render_json_input
-from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, SERVICE_TITLES, CONFIGURATION_PARAMETERS, validate_config, put_config, delete_config, get_configs, patch_config
+from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, DEFAULTS, CONFIGURATION_PARAMETERS, validate_config, put_config, delete_config, get_configs, patch_config
 from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 
@@ -66,45 +66,9 @@ def render_config_inputs(parent_widget: Any,
     """
     current_config = st.session_state.get(f"{tab_key}_current")
     object_class = AVAILABLE_SERVICES[object_type]
-    backends = object_class.supported_backends if hasattr(object_class, "supported_backends") else None
-    default_models = object_class.default_models if hasattr(object_class, "default_models") else None
-    if object_type == "speech_recorder":
-        input_devices = {entry["name"]: entry["index"] 
-                         for entry in sorted(
-                             AVAILABLE_SERVICES[object_type].supported_input_devices,
-                             key=lambda x: x["index"])}
-        input_device_column, loop_pause_column, _ = parent_widget.columns([.25, .25, .50])
-        current_device_index = 0 
-        if current_config is not None:
-            for device_name in input_devices:
-                if current_config.get("input_device_index") == input_devices[device_name]:
-                    current_device_index = input_devices[device_name]
-                    break
-        device_name = input_device_column.selectbox(
-            key=f"{tab_key}_input_device_name", 
-            label="Input device", 
-            options=list(input_devices.keys()), 
-            index=current_device_index)
-        st.session_state[f"{tab_key}_input_device_index"] = input_devices[device_name]
-        parent_widget.markdown("""
-        <style>
-            button.step-up {display: none;}
-            button.step-down {display: none;}
-            div[data-baseweb] {border-radius: 4px;}
-        </style>""",
-        unsafe_allow_html=True)
-        loop_pause_column.number_input(
-            "Recorder loop pause",
-            key=f"{tab_key}_recorder_loop_pause", 
-            format="%0.2f",
-            step=0.1,
-            min_value=0.01,
-            max_value=10.1,
-            value=get_default_value(key="recorder_loop_pause",
-                                    current_config=current_config,
-                                    default=.1)
-        )
-    elif object_type in AVAILABLE_SERVICES:
+    backends = DEFAULTS.get(object_type, {}).get("supported_backends")
+    default_models = DEFAULTS.get(object_type, {}).get("defaults")
+    if object_type in AVAILABLE_SERVICES:
         if backends is not None:
             parent_widget.selectbox(
                 key=f"{tab_key}_backend", 
@@ -127,10 +91,16 @@ def render_config_inputs(parent_widget: Any,
 
         parent_widget.write("")
     
-    if object_type not in st.session_state["CACHE"]["PARAM_SPECS"]:
-        st.session_state["CACHE"]["PARAM_SPECS"] = CONFIGURATION_PARAMETERS
-
-    param_spec = st.session_state["CACHE"]["PARAM_SPECS"][object_type]
+    if isinstance(CONFIGURATION_PARAMETERS[object_type], list):
+        current_option = parent_widget.selectbox(
+            key=f"{tab_key}_subtype", 
+            label="Type", 
+            options=[entry["#options"] for entry in CONFIGURATION_PARAMETERS[object_type]],
+            index=0)
+    if current_option:
+        param_spec = st.session_state["CACHE"]["PARAM_SPECS"][object_type][current_option]
+    else:
+        param_spec = st.session_state["CACHE"]["PARAM_SPECS"][object_type]
     for param in param_spec:
         if param_spec[param]["type"] == str:
             parent_widget.text_input(
@@ -170,7 +140,7 @@ def render_header_buttons(parent_widget: Any,
     
     header_button_columns = parent_widget.columns([.2, .2, .2, .2, .2])
 
-    object_title = SERVICE_TITLES[object_type]
+    object_title = object_type
     header_button_columns[0].write("#####")
     with header_button_columns[0].popover("Validate",
                                           help="Validates the current configuration"):
@@ -298,7 +268,7 @@ if __name__ == "__main__":
         st.info("System inactive. Please enter a correct backend server API in the sidebar (Local example: 'http://127.0.0.1:7861/api/v1').")
     else:
         tabs = list(AVAILABLE_SERVICES.keys())
-        for index, tab in enumerate(st.tabs([SERVICE_TITLES[elem]+"s" for elem in tabs])):
+        for index, tab in enumerate(st.tabs(tabs)):
             with tab:
                 render_config(tabs[index])
             

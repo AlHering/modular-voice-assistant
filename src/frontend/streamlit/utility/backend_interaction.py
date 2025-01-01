@@ -12,6 +12,7 @@ import streamlit as st
 from inspect import getfullargspec
 from uuid import UUID
 from src.services.services import TranscriberService, ChatService, SynthesizerService, Service
+from src.services.services import Transcriber, Synthesizer
 from src.services.service_registry_client import ServiceRegistryClient
 from src.configuration import configuration as cfg
 
@@ -20,29 +21,42 @@ AVAILABLE_SERVICES: Dict[str, Service] = {
     "Chat": ChatService,
     "Synthesizer": SynthesizerService
 }
+DEFAULTS = {
+     "Transcriber": {
+        "backends": Transcriber.supported_backends,
+        "defaults": Transcriber.default_models
+    },
+    "Synthesizer": {
+        "backends": Synthesizer.supported_backends,
+        "defaults": Synthesizer.default_models
+    }
+}
 CONFIGURATION_PARAMETERS =  {
-    "transcriber": {
+    "Transcriber": {
         "model_parameters": {"title": "Model Parameters", "type": dict, "default": None}, 
         "transcription_parameters": {"title": "Transcription Parameters", "type": dict, "default": None}
     },
-    "local_chat": {
-        "language_model": {"title": "Language Model", "type": dict}, 
-        "chat_parameters": {"title": "Chat Parameters", "type": dict}, 
-        "system_prompt": {"title": "System Prompt", "type": str, "default": None}, 
-        "prompt_maker": {"title": "Prompt Maker", "type": str, "default": None}, 
-        "use_history": {"title": "Use History", "type": bool, "default": True}, 
-        "history": {"title": "History", "type": str, "default": None}
-    }, 
-    "remote_chat": {
-        "api_base": {"title": "Api Base", "type": str}, 
-        "api_token": {"title": "Api Token", "type": str}, 
-        "chat_parameters": {"title": "Chat Parameters", "type": dict, "default": None}, 
-        "system_prompt": {"title": "System Prompt", "type": str, "default": None}, 
-        "prompt_maker": {"title": "Prompt Maker", "type": None, "default": None}, 
-        "use_history": {"title": "Use History", "type": bool, "default": True}, 
-        "history": {"title": "History", "type": str, "default": None}
-    }, 
-    "synthesizer": {
+    "Chat": [
+        {
+            "#option": "local",
+            "language_model": {"title": "Language Model", "type": dict}, 
+            "chat_parameters": {"title": "Chat Parameters", "type": dict}, 
+            "system_prompt": {"title": "System Prompt", "type": str, "default": None}, 
+            "prompt_maker": {"title": "Prompt Maker", "type": str, "default": None}, 
+            "use_history": {"title": "Use History", "type": bool, "default": True}, 
+            "history": {"title": "History", "type": str, "default": None}
+        }, {
+            "#option": "remote",
+            "api_base": {"title": "Api Base", "type": str}, 
+            "api_token": {"title": "Api Token", "type": str}, 
+            "chat_parameters": {"title": "Chat Parameters", "type": dict, "default": None}, 
+            "system_prompt": {"title": "System Prompt", "type": str, "default": None}, 
+            "prompt_maker": {"title": "Prompt Maker", "type": None, "default": None}, 
+            "use_history": {"title": "Use History", "type": bool, "default": True}, 
+            "history": {"title": "History", "type": str, "default": None}
+        }
+    ],
+    "Synthesizer": {
         "model_parameters": {"title": "Model Parameters", "type": dict, "default": None}, 
         "synthesis_parameters": {"title": "Synthesis Parameters", "type": dict, "default": None}
     }
@@ -97,7 +111,7 @@ def get_configs(config_type: str) -> List[dict]:
     :param config_type: Config type.
     :return: Config entries.
     """
-    return [flatten_config(entry) for entry in CLIENT.get_configs(service=config_type)]
+    return [flatten_config(entry) for entry in CLIENT.get_configs(service=config_type)["results"]]
 
 
 def patch_config(config_type: str, config_data: dict, config_id: str | UUID | None = None) -> dict:
@@ -111,7 +125,7 @@ def patch_config(config_type: str, config_data: dict, config_id: str | UUID | No
     patch = {"config": config_data}
     if config_id is not None:
         patch["id"] = config_id
-    return flatten_config(CLIENT.patch_config(service=config_type, config=patch))
+    return flatten_config(CLIENT.patch_config(service=config_type, config=patch)["results"][0])
 
 
 def put_config(config_type: str, config_data: dict, config_id: str | None = None) -> dict:
@@ -125,7 +139,7 @@ def put_config(config_type: str, config_data: dict, config_id: str | None = None
     patch = {"config": config_data}
     if config_id is not None:
         patch["id"] = config_id
-    return flatten_config(CLIENT.add_config(service=config_type, config=patch))
+    return flatten_config(CLIENT.add_config(service=config_type, config=patch)["results"][0])
 
 
 def delete_config(config_type: str, config_id: str) -> dict:
@@ -136,7 +150,7 @@ def delete_config(config_type: str, config_id: str) -> dict:
     :return: Config entry.
     """
     deletion_patch = {"id": config_id, "inactive": True}
-    return flatten_config(CLIENT.overwrite_config(service=config_type, config=deletion_patch))
+    return flatten_config(CLIENT.patch_config(service=config_type, config=deletion_patch)["results"][0])
 
 
 def get_loaded_service() -> dict:
@@ -155,10 +169,10 @@ def load_service(service_type: str,
     :param config_uuid: Config UUID.
     :return: Response.
     """
-    return CLIENT.load_service(service=service_type, config_uuid=config_uuid)
+    return CLIENT.setup_and_run_service(service=service_type, config_uuid=config_uuid)
 
 
-def unload_service(service_type: str,
+def reset_service(service_type: str,
                    config_uuid: str | UUID | None = None) -> dict:
     """
     Loads a service from the given config UUID.
@@ -166,7 +180,7 @@ def unload_service(service_type: str,
     :param config_uuid: Config UUID.
     :return: Response.
     """
-    return CLIENT.unload_service(service=service_type, config_uuid=config_uuid)
+    return CLIENT.reset_service(service=service_type, config_uuid=config_uuid)
 
 
 def chat(prompt: str, 
@@ -178,24 +192,14 @@ def chat(prompt: str,
     """
     return CLIENT.process(service="Chat", prompt=prompt, chat_parameters=chat_parameters).get("results", {}).get("content")
         
-def chat_streamed(config_uuid: str | UUID,
-         prompt: str, 
-         chat_parameters: dict | None = None,
-         local: bool = True) -> Generator[str, None, None]:
+def chat_streamed(prompt: str, 
+                  chat_parameters: dict | None = None,) -> Generator[str, None, None]:
     """
     Fetches streamed chat response from client interface.
-    :param config_uuid: Chat service UUID.
     :param prompt: User prompt.
     :param chat_parameters: Chat parameters.
-    :param local: Flag for declaring, whether to use local or remote chat service.
     """
-    if local:
-        for chunk in CLIENT.local_chat_streamed(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters):
-            print(chunk)
-            yield chunk.get("response") 
-    else:
-        for chunk in CLIENT.remote_chat_streamed(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters):
-            yield chunk.get("response") 
+    return CLIENT.stream(service="Chat", prompt=prompt, chat_parameters=chat_parameters).get("results", {}).get("content")
 
 
 """
