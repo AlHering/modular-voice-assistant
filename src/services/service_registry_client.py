@@ -40,7 +40,7 @@ class ServiceRegistryClient(object):
         :param config_uuid: Config UUID.
         :return: Response.
         """
-        return requests.post(self.api_base + Endpoints.service_run, data={
+        return requests.post(self.api_base + Endpoints.service_run, params={
             "service": service,
             "config_uuid": config_uuid
         }).json()
@@ -52,7 +52,7 @@ class ServiceRegistryClient(object):
         :param config_uuid: Config UUID.
         :return: Response.
         """
-        return requests.post(self.api_base + Endpoints.service_reset, data={
+        return requests.post(self.api_base + Endpoints.service_reset, params={
             "service": service,
             "config_uuid": config_uuid
         }).json()
