@@ -52,6 +52,7 @@ class TranscriberService(Service):
         self.cache = {
             "transcriber": Transcriber(**self.config)
         }
+        return True
 
     def run(self) -> ServicePackage | Generator[ServicePackage, None, None] | None:
         """
@@ -145,6 +146,7 @@ class ChatService(Service):
             "chat_method": model_instance.chat,
             "streamed_chat_method": model_instance.chat_stream
         }
+        return True
 
     def run(self) -> ServicePackage | Generator[ServicePackage, None, None] | None:
         """
@@ -211,6 +213,7 @@ class SynthesizerService(Service):
         self.cache = {
             "synthesizer": Synthesizer(**self.config)
         }
+        return True
 
     def run(self) -> ServicePackage | Generator[ServicePackage, None, None] | None:
         """
