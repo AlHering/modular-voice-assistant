@@ -6,22 +6,21 @@
 ****************************************************
 """
 import os
-from typing import List, Tuple, Any, Generator
+from typing import List, Tuple, Any, Generator, Dict
 import traceback
 import streamlit as st
 from inspect import getfullargspec
 from uuid import UUID
-from src.services.service_interface import AVAILABLE_SERVICES
-from src.interface_client import VoiceAssistantClient
+from src.services.services import TranscriberService, ChatService, SynthesizerService, Service
+from src.services.service_registry_client import ServiceRegistryClient
 from src.configuration import configuration as cfg
 
-SERVICE_TITLES =  {key: " ".join(key.split("_")).title() for key in AVAILABLE_SERVICES}
+AVAILABLE_SERVICES: Dict[str, Service] = {
+    "Transcriber": TranscriberService,
+    "Chat": ChatService,
+    "Synthesizer": SynthesizerService
+}
 CONFIGURATION_PARAMETERS =  {
-    "speech_recorder": {
-        "recognizer_parameters": {"title": "Recognizer Parameters", "type": dict, "default": None}, 
-        "microphone_parameters": {"title": "Microphone Parameters", "type": dict, "default": None}, 
-        "loop_pause": {"title": "Loop Pause", "type": float, "default": 0.1}
-    }, 
     "transcriber": {
         "model_parameters": {"title": "Model Parameters", "type": dict, "default": None}, 
         "transcription_parameters": {"title": "Transcription Parameters", "type": dict, "default": None}
@@ -46,13 +45,9 @@ CONFIGURATION_PARAMETERS =  {
     "synthesizer": {
         "model_parameters": {"title": "Model Parameters", "type": dict, "default": None}, 
         "synthesis_parameters": {"title": "Synthesis Parameters", "type": dict, "default": None}
-    }, 
-    "audio_player": {
-        "output_device_index": {"title": "Output Device Index", "type": int}, 
-        "playback_parameters": {"title": "Playback Parameters", "type": dict, "default": None}
     }
 }
-CLIENT: VoiceAssistantClient | None = VoiceAssistantClient()
+CLIENT: ServiceRegistryClient | None = ServiceRegistryClient()
 
 
 def setup() -> None:
@@ -61,7 +56,7 @@ def setup() -> None:
     """
     global CLIENT
     st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
-    CLIENT = VoiceAssistantClient(api_base=st.session_state["API_BASE"])
+    CLIENT = ServiceRegistryClient(api_base=st.session_state["API_BASE"])
 
 
 def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:
@@ -102,7 +97,7 @@ def get_configs(config_type: str) -> List[dict]:
     :param config_type: Config type.
     :return: Config entries.
     """
-    return [flatten_config(entry) for entry in CLIENT.get_configs(service_type=config_type)]
+    return [flatten_config(entry) for entry in CLIENT.get_configs(service=config_type)]
 
 
 def patch_config(config_type: str, config_data: dict, config_id: str | UUID | None = None) -> dict:
@@ -116,7 +111,7 @@ def patch_config(config_type: str, config_data: dict, config_id: str | UUID | No
     patch = {"config": config_data}
     if config_id is not None:
         patch["id"] = config_id
-    return flatten_config(CLIENT.overwrite_config(service_type=config_type, config=patch))
+    return flatten_config(CLIENT.patch_config(service=config_type, config=patch))
 
 
 def put_config(config_type: str, config_data: dict, config_id: str | None = None) -> dict:
@@ -130,7 +125,7 @@ def put_config(config_type: str, config_data: dict, config_id: str | None = None
     patch = {"config": config_data}
     if config_id is not None:
         patch["id"] = config_id
-    return flatten_config(CLIENT.add_config(service_type=config_type, config=patch))
+    return flatten_config(CLIENT.add_config(service=config_type, config=patch))
 
 
 def delete_config(config_type: str, config_id: str) -> dict:
@@ -141,7 +136,7 @@ def delete_config(config_type: str, config_id: str) -> dict:
     :return: Config entry.
     """
     deletion_patch = {"id": config_id, "inactive": True}
-    return flatten_config(CLIENT.overwrite_config(service_type=config_type, config=deletion_patch))
+    return flatten_config(CLIENT.overwrite_config(service=config_type, config=deletion_patch))
 
 
 def get_loaded_service() -> dict:
@@ -149,7 +144,7 @@ def get_loaded_service() -> dict:
     Retrieves loaded services.
     :return: Response.
     """
-    return CLIENT.get_loaded_services()
+    return CLIENT.get_services()["results"]
 
 
 def load_service(service_type: str,
@@ -160,7 +155,7 @@ def load_service(service_type: str,
     :param config_uuid: Config UUID.
     :return: Response.
     """
-    return CLIENT.load_service(service_type=service_type, config_uuid=config_uuid)
+    return CLIENT.load_service(service=service_type, config_uuid=config_uuid)
 
 
 def unload_service(service_type: str,
@@ -171,24 +166,17 @@ def unload_service(service_type: str,
     :param config_uuid: Config UUID.
     :return: Response.
     """
-    return CLIENT.unload_service(service_type=service_type, config_uuid=config_uuid)
+    return CLIENT.unload_service(service=service_type, config_uuid=config_uuid)
 
 
-def chat(config_uuid: str | UUID,
-         prompt: str, 
-         chat_parameters: dict | None = None,
-         local: bool = True) -> str:
+def chat(prompt: str, 
+         chat_parameters: dict | None = None) -> str:
     """
     Fetches chat response from client interface.
-    :param config_uuid: Chat service UUID.
     :param prompt: User prompt.
     :param chat_parameters: Chat parameters.
-    :param local: Flag for declaring, whether to use local or remote chat service.
     """
-    if local:
-        return CLIENT.local_chat(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters).get("response")
-    else:
-        return CLIENT.remote_chat(config_uuid=config_uuid, prompt=prompt, chat_parameters=chat_parameters).get("response")
+    return CLIENT.process(service="Chat", prompt=prompt, chat_parameters=chat_parameters).get("results", {}).get("content")
         
 def chat_streamed(config_uuid: str | UUID,
          prompt: str, 
