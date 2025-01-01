@@ -19,7 +19,7 @@ class ServiceRegistryClient(object):
     Service registry client.
     """
 
-    def __init__(self, api_base: str, return_as_dict: bool = True) -> None:
+    def __init__(self, api_base: str) -> None:
         """
         Initiation method.
         :param api_base: API base.
