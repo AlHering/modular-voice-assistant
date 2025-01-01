@@ -320,6 +320,15 @@ class ChatModelInstance(object):
         """
         return cls(**config.model_dump())
 
+    @classmethod
+    def from_dict(cls, config: dict) -> Any:
+        """
+        Returns a chat model instance from dictionary.
+        :param config: Chat model dictionary.
+        :return: Chat model instance.
+        """
+        return cls(**config)
+
     """
     Generation methods
     """    
@@ -636,6 +645,15 @@ class RemoteChatModelInstance(ChatModelInstance):
         :return: Remote chat instance.
         """
         return cls(**config.model_dump())
+
+    @classmethod
+    def from_dict(cls, config: dict) -> Any:
+        """
+        Returns a chat model instance from dictionary.
+        :param config: Chat model dictionary.
+        :return: Chat model instance.
+        """
+        return cls(**config)
 
     """
     Generation methods
