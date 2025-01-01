@@ -15,7 +15,7 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi import FastAPI, APIRouter
 from queue import Empty
 import traceback
-from typing import List, AsyncGenerator
+from typing import List, AsyncGenerator, Dict
 import uvicorn
 import traceback
 from datetime import datetime as dt
@@ -139,9 +139,8 @@ class ServiceRegistry(object):
         Initiation method.
         :param services: Services.
         """
-        self.services = {service.name: service for service in services}
+        self.services: Dict[str, Service] = {service.name: service for service in services}
         self.service_uuids = {key: None for key in self.services}
-        self.service_titles = {key: " ".join(key.split("_")).title() for key in self.services}
         self.working_directory = os.path.join(cfg.PATHS.DATA_PATH, "service_registry")
         self.database = BasicSQLAlchemyInterface(
             working_directory=self.working_directory,
@@ -172,10 +171,10 @@ class ServiceRegistry(object):
         """
         Responds available services.
         """
-        return BaseResponse(status="success", results=list(self.services.keys()))
+        return BaseResponse(status="success", results=[self.service_uuids])
 
     @interaction_log
-    async def setup_and_run_service(self, service: str, config_uuid: str | UUID) -> bool:
+    async def setup_and_run_service(self, service: str, config_uuid: str | UUID) -> BaseResponse:
         """
         Sets up and runs a service.
         :param service: Target service name.
@@ -186,13 +185,15 @@ class ServiceRegistry(object):
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
         try:
-            entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service], "id", "==", config_uuid])]))
-            service.config = entry.config
-            if service.thread is not None and service.thread.is_alive():
-                service.reset(restart_thread=True)
-            else:
-                thread = service.to_thread()
-                thread.start()
+            if config_uuid != self.service_uuids[service.name] or not service.thread.is_alive():
+                entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service.name], ["id", "==", config_uuid]])])[0])
+                service.config = entry["config"]
+                if service.thread is not None and service.thread.is_alive():
+                    service.reset(restart_thread=True)
+                else:
+                    thread = service.to_thread()
+                    thread.start()
+                self.service_uuids[service.name] = config_uuid
             return BaseResponse(status="success", results=[{"service": service.name, "config_uuid": config_uuid}])
         except Exception as ex:
             return BaseResponse(status="error", results=[{"service": service.name, "config_uuid": config_uuid}], metadata={
@@ -212,7 +213,7 @@ class ServiceRegistry(object):
             config_uuid = UUID(config_uuid)
         try:
             entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service], "id", "==", config_uuid])]))
-            service.config = entry.config
+            service.config = entry["config"]
             service.reset(restart_thread=True)
             return BaseResponse(status="success", results=[{"service": service, "config_uuid": config_uuid}])
         except Exception as ex:
