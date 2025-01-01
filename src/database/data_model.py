@@ -110,15 +110,15 @@ def get_default_entries() -> dict:
     return {
         "service_config": [
             {
-                "service_type": "transcriber",
+                "service_type": "Transcriber",
                 "config": cfg.DEFAULT_TRANSCRIBER
             },
             {
-                "service_type": "chat",
+                "service_type": "Chat",
                 "config": cfg.DEFAULT_CHAT
             },
             {
-                "service_type": "synthesizer",
+                "service_type": "Synthesizer",
                 "config": cfg.DEFAULT_SYNTHESIZER
             }
         ]
