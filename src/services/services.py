@@ -137,13 +137,13 @@ class ChatService(Service):
         """
         worker_config = {key: self.config[key] for key in self.config if key not in ["stream", "local"]}
         model_instance = ChatModelInstance.from_dict(worker_config
-            ) if self.cache["local"] else RemoteChatModelInstance.from_dict(worker_config)
+            ) if self.config["local"] else RemoteChatModelInstance.from_dict(worker_config)
         self.cache = {
             "local": self.config["local"],
             "worker_config": worker_config,
             "chat_model": model_instance,
-            "chat_method": self.cache["chat_model"].chat,
-            "streamed_chat_method": self.cache["chat_model"].chat_stream
+            "chat_method": model_instance.chat,
+            "streamed_chat_method": model_instance.chat_stream
         }
 
     def run(self) -> ServicePackage | Generator[ServicePackage, None, None] | None:
