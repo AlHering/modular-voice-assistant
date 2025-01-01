@@ -6,11 +6,15 @@
 ****************************************************
 """
 from typing import Any, Tuple, Generator
+from functools import partial
 from logging import Logger
+from time import time
+from fastapi import APIRouter
 from abc import abstractmethod
 from pydantic import BaseModel, Field
 from logging import Logger
 from uuid import uuid4
+from queue import Empty
 from multiprocessing import Process, Queue, Event
 from threading import Thread
 from typing import Any, List
@@ -19,15 +23,15 @@ from src.utility.time_utility import get_timestamp
 
 def create_default_metadata() -> List[dict]:
     """
-    Creates a default pipeline package metadata stack.
-    :return: Default pipeline package dictionary
+    Creates a default service package metadata stack.
+    :return: Default service package dictionary
     """
     return [{"created": get_timestamp()}]
 
 
 def create_uuid() -> str:
     """
-    Creates an UUID for a pipeline package.
+    Creates an UUID for a service package.
     :return: UUID as string.
     """
     return str(uuid4())
@@ -35,7 +39,7 @@ def create_uuid() -> str:
 
 class ServicePackage(BaseModel):
     """
-    Pipeline package for exchanging data between modules.
+    Service package for exchanging data between services.
     """
     uuid: str = Field(default_factory=create_uuid)
     content: Any
@@ -80,19 +84,19 @@ class Service(object):
         self.sent = {}
 
     @classmethod
-    def from_configuration(cls, config: dict) -> Any:
+    def from_configuration(cls, service_config: dict) -> Any:
         """
-        Returns a language model instance from configuration.
-        :param config: Module configuration.
-        :return: Module instance.
+        Returns a service instance from configuration.
+        :param service_config: Service configuration.
+        :return: Service instance.
         """
-        return cls(**config) 
+        return cls(**service_config) 
     
     @classmethod
-    def validate_configuration(cls, config: dict) -> Tuple[bool | None, str]:
+    def validate_configuration(cls, process_config: dict) -> Tuple[bool | None, str]:
         """
-        Validates an configuration.
-        :param config: Module configuration.
+        Validates a process configuration.
+        :param process_config: Process configuration.
         :return: True or False and validation report depending on validation success. 
             None and validation report in case of warnings. 
         """
@@ -149,7 +153,7 @@ class Service(object):
 
     def to_thread(self) -> Thread:
         """
-        Returns a thread for running module process in loop.
+        Returns a thread for running service process in loop.
         :return: Thread
         """
         self.thread = Thread(target=self.setup_and_loop)
@@ -159,7 +163,7 @@ class Service(object):
     
     def to_process(self) -> Process:
         """
-        Returns a process for running module process in loop.
+        Returns a process for running service process in loop.
         :return: Process.
         """
         self.process = Process(target=self.setup_and_loop)
@@ -168,7 +172,7 @@ class Service(object):
     
     def reset(self, restart_thread: bool = False, restart_process: bool = False) -> None:
         """
-        Resets module.
+        Resets service.
         :param restart_thread: Flag for restarting thread.
         :param restart_process: Flag for restarting process.
         """
@@ -210,7 +214,7 @@ class Service(object):
         """
         Runs a single processing cycle.
         :returns: True if an element was forwarded, else False. 
-            (Note, that a module does not have to forward an element.)
+            (Note, that a service does not have to forward an element.)
         """
         result = self.run()
         if result is not None:
@@ -269,8 +273,90 @@ class ServiceRegistry(object):
     Service registry.
     """
 
-    def __init__(self, working_directory: str = None) -> None:
+    def __init__(self, services: List[Service]) -> None:
         """
         Initiation method.
-        :param working_directory: Working directory.
+        :param services: Services.
         """
+        self.services = services
+
+    def setup_and_run_service(self, service: Service, process_config: dict) -> bool:
+        """
+        Sets up and runs a service.
+        :param service: Target service.
+        :param process_config: Process config.
+        :return: True, if setup was successful else False.
+        """
+        try:
+            service.config = process_config
+            if service.thread is not None and service.thread.is_alive():
+                service.reset(restart_thread=True)
+            else:
+                thread = service.to_thread()
+                thread.start()
+            return True
+        except:
+            return False
+    
+    def reset_service(self, service: Service, process_config: dict | None = None) -> bool:
+        """
+        Resets a service.
+        :param service: Target service.
+        :param process_config: Process config for overwriting.
+        :return: True, if reset was successful else False.
+        """
+        try:
+            if process_config is not None:
+                service.config = process_config
+            service.reset(restart_thread=True)
+            return True
+        except:
+            return False
+    
+    def stop_service(self, service: Service) -> bool:
+        """
+        Stops a service.
+        :param service: Target service.
+        :return: True, if stopping was successful else False.
+        """
+        try:
+            service.reset()
+            return True
+        except:
+            return False
+    
+    def process(self, service: Service, input_package: ServicePackage) -> Generator[ServicePackage, None, None]:
+        """
+        Runs a service process.
+        :param service: Target service.
+        :param input_package: Input package.
+        :return: True, if stopping was successful else False.
+        """
+        input_uuid = input_package.uuid
+        service.input_queue.put(input_package)
+        start = time()
+        response = service.output_queue.get()
+        duration = time() - start
+
+        wrongly_fetched = []
+        while response:
+            yield response
+            try:
+                response = service.output_queue.get(timeout=duration*1.5)
+                if response.uuid != input_uuid:
+                    wrongly_fetched.append(response)
+            except Empty:
+                pass
+        for response in wrongly_fetched:
+            service.output_queue.put(response)
+
+    def register_with_router(self, router: APIRouter) -> None:
+        """
+        Registers services on API router.
+        :param router: API router.
+        """
+        for service in self.services:
+            router.add_api_route(path=f"/service/{service.name}/run", endpoint=partial(self.setup_and_run_service, service), methods=["POST"])
+            router.add_api_route(path=f"/service/{service.name}/reset", endpoint=partial(self.reset_service, service), methods=["POST"])
+            router.add_api_route(path=f"/service/{service.name}/stop", endpoint=partial(self.stop_service, service), methods=["POST"])
+            router.add_api_route(path=f"/service/{service.name}/process", endpoint=partial(self.setup_and_run_service, service), methods=["POST"])
