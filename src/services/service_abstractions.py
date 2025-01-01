@@ -5,6 +5,7 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
+from __future__ import annotations
 from typing import Any, Tuple, Generator
 from logging import Logger
 from abc import abstractmethod
