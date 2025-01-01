@@ -98,12 +98,9 @@ class ChatService(Service):
         :return: True or False and validation report depending on validation success. 
             None and validation report in case of warnings. 
         """
-        if "stream" not in process_config:
-            return False, f"Keyword 'stream' is not in config."
-        if "local" not in process_config:
-            return False, f"Keyword 'local' is not in config."
+        local = "api_base" not in process_config
         
-        if process_config["local"]:
+        if local:
             if process_config["backend"] not in LanguageModelInstance.supported_backends:
                 return False, f"Language model backend '{process_config['backend']}' is not supported."
             model_path = process_config["model_path"]
@@ -136,12 +133,12 @@ class ChatService(Service):
         Sets up service.
         :returns: True, if successful else False.
         """
-        worker_config = {key: self.config[key] for key in self.config if key not in ["stream", "local"]}
-        model_instance = ChatModelInstance.from_dict(worker_config
-            ) if self.config["local"] else RemoteChatModelInstance.from_dict(worker_config)
+        local = "api_base" not in self.config 
+        model_instance = ChatModelInstance.from_dict(self.config 
+            ) if local else RemoteChatModelInstance.from_dict(self.config )
         self.cache = {
-            "local": self.config["local"],
-            "worker_config": worker_config,
+            "local": local,
+            "worker_config": self.config,
             "chat_model": model_instance,
             "chat_method": model_instance.chat,
             "streamed_chat_method": model_instance.chat_stream
