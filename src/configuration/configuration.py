@@ -70,13 +70,17 @@ DEFAULT_TRANSCRIBER = {
         "local_files_only": True
     }
 }
-DEFAULT_REMOTE_CHAT = {
+DEFAULT_CHAT = {
+    "local": False,
+    "stream": True,
     "api_base": "http://localhost:8123/v1",
     "chat_parameters": {"model": "llama-3.1-storm-8B-i1-Q4KM"},
     "system_prompt": "You are a helpful and sentient assistant. Your task is to help the user in an effective and concise manner.",
     "stream": True
 }
-DEFAULT_LOCAL_CHAT = {
+DEFAULT_CHAT = {
+    "local": True,
+    "stream": True,
     "language_model": {
         "backend": "llama-cpp",
         "model_path": os.path.join(PATHS.MODEL_PATH, 
