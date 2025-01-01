@@ -5,7 +5,8 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from src.service_interface import run
+#from src.services.service_interface import run
+from src.services.service_registry import run
 
 if __name__ == "__main__":
     run()
