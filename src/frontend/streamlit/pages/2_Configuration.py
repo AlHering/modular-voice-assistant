@@ -8,6 +8,7 @@
 import streamlit as st
 from typing import List, Any
 import json
+import copy
 from src.utility.streamlit_utility import render_json_input
 from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, DEFAULTS, CONFIGURATION_PARAMETERS, validate_config, put_config, delete_config, get_configs, patch_config
 from src.frontend.streamlit.utility.state_cache_handling import clear_tab_config
@@ -24,7 +25,12 @@ def gather_config(object_type: str) -> dict:
     :return: Object config.
     """
     data = {}
-    param_spec = CONFIGURATION_PARAMETERS[object_type]
+    if isinstance(CONFIGURATION_PARAMETERS[object_type], list):
+        current_sub_type = st.session_state["configuration_subtype"]
+        param_spec = copy.deepcopy([entry for entry in CONFIGURATION_PARAMETERS[object_type] if entry["#option"] == current_sub_type][0])
+        param_spec.pop("#option")
+    else:
+        param_spec = CONFIGURATION_PARAMETERS[object_type]
     for param in param_spec:
         if param_spec[param]["type"] == dict:
             widget = st.session_state[f"new_{object_type}_{param}"]
@@ -65,8 +71,7 @@ def render_config_inputs(parent_widget: Any,
     :param object_type: Target object type.
     """
     current_config = st.session_state.get(f"{tab_key}_current")
-    object_class = AVAILABLE_SERVICES[object_type]
-    backends = DEFAULTS.get(object_type, {}).get("supported_backends")
+    backends = DEFAULTS.get(object_type, {}).get("backends")
     default_models = DEFAULTS.get(object_type, {}).get("defaults")
     if object_type in AVAILABLE_SERVICES:
         if backends is not None:
@@ -92,16 +97,19 @@ def render_config_inputs(parent_widget: Any,
         parent_widget.write("")
     
     if isinstance(CONFIGURATION_PARAMETERS[object_type], list):
+        if current_config:
+            current_entry = sorted([[len([param for param in current_config if param in entry]), entry]for entry in CONFIGURATION_PARAMETERS[object_type]])[-1][1]["#option"]
+            if "configuration_subtype" in st.session_state and st.session_state["configuration_subtype"] != current_entry:
+                    st.session_state["configuration_subtype"] = current_entry
+
         current_option = parent_widget.selectbox(
-            key=f"{tab_key}_subtype", 
-            label="Type", 
-            options=[entry["#options"] for entry in CONFIGURATION_PARAMETERS[object_type]],
-            index=0)
-    if current_option:
-        param_spec = st.session_state["CACHE"]["PARAM_SPECS"][object_type][current_option]
+            key="configuration_subtype", 
+            label=f"{object_type} Config Type", 
+            options=[entry["#option"] for entry in CONFIGURATION_PARAMETERS[object_type]])
+        param_spec = [entry for entry in CONFIGURATION_PARAMETERS[object_type] if entry["#option"] == current_option][0]
     else:
-        param_spec = st.session_state["CACHE"]["PARAM_SPECS"][object_type]
-    for param in param_spec:
+        param_spec = CONFIGURATION_PARAMETERS[object_type]
+    for param in [param for param in param_spec if param not in ["#option"]]:
         if param_spec[param]["type"] == str:
             parent_widget.text_input(
                 key=f"{tab_key}_{param}", 

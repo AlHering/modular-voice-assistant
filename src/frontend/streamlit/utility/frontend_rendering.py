@@ -109,7 +109,7 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
                 key=f"flow_node_object_type", 
                 label="Service type", 
                 options=[st.session_state["flow_modules"][object_type]["title"] for object_type in st.session_state["flow_modules"]])
-    node_object_type = node_object_type_title.replace(" ", "_").lower()
+    node_object_type = node_object_type_title#.replace(" ", "_").lower()
     node_menu_columns[1].write("")
     node_object_id = node_menu_columns[1].selectbox(
                 key=f"flow_node_object_id", 
