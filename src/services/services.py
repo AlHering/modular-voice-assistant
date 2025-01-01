@@ -9,6 +9,7 @@ import os
 from typing import Generator, Tuple
 import numpy as np
 import requests
+from src.configuration import configuration as cfg
 from src.services.service_abstractions import Service, ServicePackage
 from src.utility.sound_model_abstractions import Transcriber, Synthesizer
 from src.utility.language_model_abstractions import LanguageModelInstance, ChatModelInstance, RemoteChatModelInstance
@@ -18,6 +19,16 @@ class TranscriberService(Service):
     """
     Transcriber service.
     """
+    def __init__(self):
+        """
+        Initiates an instance.
+        """
+        super().__init__(
+            name="Transcriber", 
+            description="Transcribes audio data.", 
+            config=cfg.DEFAULT_TRANSCRIBER, 
+            logger=cfg.LOGGER)
+
     @classmethod
     def validate_configuration(cls, process_config: dict) -> Tuple[bool | None, str]:
         """
@@ -68,6 +79,16 @@ class ChatService(Service):
     """
     Chat service.
     """
+    def __init__(self):
+        """
+        Initiates an instance.
+        """
+        super().__init__(
+            name="Chat", 
+            description="Generates chat responses via a language model.", 
+            config=cfg.DEFAULT_CHAT, 
+            logger=cfg.LOGGER)
+        
     @classmethod
     def validate_configuration(cls, process_config: dict) -> Tuple[bool | None, str]:
         """
@@ -157,6 +178,16 @@ class SynthesizerService(Service):
     """
     Synthesizer service.
     """
+    def __init__(self):
+        """
+        Initiates an instance.
+        """
+        super().__init__(
+            name="Synthesizer", 
+            description="Synthesizes audio from text.", 
+            config=cfg.DEFAULT_SYNTHESIZER, 
+            logger=cfg.LOGGER)
+        
     @classmethod
     def validate_configuration(cls, process_config: dict) -> Tuple[bool | None, str]:
         """
