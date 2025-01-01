@@ -53,8 +53,7 @@ def main_page_content() -> None:
         service_type: [None] + [entry["id"] for entry in get_configs(config_type=service_type) if not entry["inactive"]]
             for service_type in AVAILABLE_SERVICES
         }
-    print(f"Loaded {st.session_state['loaded_services']}")
-    print(f"Available {st.session_state['available_services']}")
+    
     upper_service_columns = st.columns(3)
     for service_index, service_type in enumerate([key for key in AVAILABLE_SERVICES]):
         render_service_control(parent_widget=upper_service_columns[service_index], service_type=service_type)
@@ -84,9 +83,7 @@ def main_page_content() -> None:
             st.session_state["chat_history"].append({"role": "user", "content": prompt})
             new_response = new_response_box.chat_message("assistant")
             chat_kwargs = {
-                "config_uuid": active_worker,
-                "prompt": prompt,
-                "local": active_worker in st.session_state["available_services"]["local_chat"]
+                "prompt": prompt
             }
             if streamed:
                 response_content = new_response.write_stream(chat_streamed(**chat_kwargs))
