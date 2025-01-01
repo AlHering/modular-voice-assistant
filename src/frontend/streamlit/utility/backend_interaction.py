@@ -61,16 +61,14 @@ CONFIGURATION_PARAMETERS =  {
         "synthesis_parameters": {"title": "Synthesis Parameters", "type": dict, "default": None}
     }
 }
-CLIENT: ServiceRegistryClient | None = None
 
 
 def setup() -> None:
     """
     Sets up and assistant.
     """
-    global CLIENT
     st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
-    CLIENT = ServiceRegistryClient(api_base=st.session_state["API_BASE"])
+    st.session_state["CLIENT"] = ServiceRegistryClient(api_base=st.session_state["API_BASE"])
 
 
 def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:
@@ -111,7 +109,7 @@ def get_configs(config_type: str) -> List[dict]:
     :param config_type: Config type.
     :return: Config entries.
     """
-    return [flatten_config(entry) for entry in CLIENT.get_configs(service=config_type)["results"]]
+    return [flatten_config(entry) for entry in st.session_state["CLIENT"].get_configs(service=config_type)["results"]]
 
 
 def patch_config(config_type: str, config_data: dict, config_id: str | UUID | None = None) -> dict:
@@ -125,7 +123,7 @@ def patch_config(config_type: str, config_data: dict, config_id: str | UUID | No
     patch = {"config": config_data}
     if config_id is not None:
         patch["id"] = config_id
-    return flatten_config(CLIENT.patch_config(service=config_type, config=patch)["results"][0])
+    return flatten_config(st.session_state["CLIENT"].patch_config(service=config_type, config=patch)["results"][0])
 
 
 def put_config(config_type: str, config_data: dict, config_id: str | None = None) -> dict:
@@ -139,7 +137,7 @@ def put_config(config_type: str, config_data: dict, config_id: str | None = None
     patch = {"config": config_data}
     if config_id is not None:
         patch["id"] = config_id
-    return flatten_config(CLIENT.add_config(service=config_type, config=patch)["results"][0])
+    return flatten_config(st.session_state["CLIENT"].add_config(service=config_type, config=patch)["results"][0])
 
 
 def delete_config(config_type: str, config_id: str) -> dict:
@@ -150,7 +148,7 @@ def delete_config(config_type: str, config_id: str) -> dict:
     :return: Config entry.
     """
     deletion_patch = {"id": config_id, "inactive": True}
-    return flatten_config(CLIENT.patch_config(service=config_type, config=deletion_patch)["results"][0])
+    return flatten_config(st.session_state["CLIENT"].patch_config(service=config_type, config=deletion_patch)["results"][0])
 
 
 def get_loaded_service() -> dict:
@@ -158,7 +156,7 @@ def get_loaded_service() -> dict:
     Retrieves loaded services.
     :return: Response.
     """
-    return CLIENT.get_services()["results"][0]
+    return st.session_state["CLIENT"].get_services()["results"][0]
 
 
 def load_service(service_type: str,
@@ -169,7 +167,7 @@ def load_service(service_type: str,
     :param config_uuid: Config UUID.
     :return: Response.
     """
-    return CLIENT.setup_and_run_service(service=service_type, config_uuid=config_uuid)
+    return st.session_state["CLIENT"].setup_and_run_service(service=service_type, config_uuid=config_uuid)
 
 
 def unload_service(service_type: str) -> dict:
@@ -178,7 +176,7 @@ def unload_service(service_type: str) -> dict:
     :param service_type: Target service type.
     :return: Response.
     """
-    return CLIENT.stop_service(service=service_type)
+    return st.session_state["CLIENT"].stop_service(service=service_type)
 
 
 def reset_service(service_type: str,
@@ -189,26 +187,26 @@ def reset_service(service_type: str,
     :param config_uuid: Config UUID.
     :return: Response.
     """
-    return CLIENT.reset_service(service=service_type, config_uuid=config_uuid)
+    return st.session_state["CLIENT"].reset_service(service=service_type, config_uuid=config_uuid)
 
 
 def chat(prompt: str, 
          chat_parameters: dict | None = None) -> str:
     """
-    Fetches chat response from client interface.
+    Fetches chat response from st.session_state["CLIENT"] interface.
     :param prompt: User prompt.
     :param chat_parameters: Chat parameters.
     """
-    return CLIENT.process(service="Chat", prompt=prompt, chat_parameters=chat_parameters).get("results", {}).get("content")
+    return st.session_state["CLIENT"].process(service="Chat", prompt=prompt, chat_parameters=chat_parameters).get("results", {}).get("content")
         
 def chat_streamed(prompt: str, 
                   chat_parameters: dict | None = None,) -> Generator[str, None, None]:
     """
-    Fetches streamed chat response from client interface.
+    Fetches streamed chat response from st.session_state["CLIENT"] interface.
     :param prompt: User prompt.
     :param chat_parameters: Chat parameters.
     """
-    return CLIENT.stream(service="Chat", prompt=prompt, chat_parameters=chat_parameters).get("results", {}).get("content")
+    return st.session_state["CLIENT"].stream(service="Chat", prompt=prompt, chat_parameters=chat_parameters).get("results", {}).get("content")
 
 
 """
