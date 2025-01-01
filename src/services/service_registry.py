@@ -221,6 +221,7 @@ class ServiceRegistry(object):
             service.reset(restart_thread=True)
             while not service.setup_flag:
                 async_sleep(.5)
+            self.service_uuids[service.name] = config_uuid
             return BaseResponse(status="success", results=[{"service": service, "config_uuid": config_uuid}])
         except Exception as ex:
             return BaseResponse(status="error", results=[{"service": service, "config_uuid": config_uuid}], metadata={
@@ -237,6 +238,7 @@ class ServiceRegistry(object):
         service = self.services[service]
         try:
             service.reset()
+            self.service_uuids[service.name] = None
             return BaseResponse(status="success", results=[{"service": service}])
         except Exception as ex:
             return BaseResponse(status="error", results=[{"service": service}], metadata={

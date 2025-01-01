@@ -7,7 +7,7 @@
 """
 from typing import Any
 import streamlit as st
-from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, SERVICE_TITLES, unload_service, get_configs, chat, chat_streamed, load_service, get_loaded_service
+from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, unload_service, get_configs, chat, chat_streamed, load_service, get_loaded_service
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 
 
@@ -22,7 +22,7 @@ def render_service_control(parent_widget: Any, service_type: str) -> None:
     :param service_type: Service type.
     """
     parent_widget.selectbox(
-        SERVICE_TITLES[service_type],
+        service_type,
         key=f"active_{service_type}",
         placeholder="None",
         options=st.session_state[f"available_services"][service_type],

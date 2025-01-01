@@ -61,7 +61,7 @@ CONFIGURATION_PARAMETERS =  {
         "synthesis_parameters": {"title": "Synthesis Parameters", "type": dict, "default": None}
     }
 }
-CLIENT: ServiceRegistryClient | None = ServiceRegistryClient()
+CLIENT: ServiceRegistryClient | None = None
 
 
 def setup() -> None:
@@ -170,6 +170,15 @@ def load_service(service_type: str,
     :return: Response.
     """
     return CLIENT.setup_and_run_service(service=service_type, config_uuid=config_uuid)
+
+
+def unload_service(service_type: str) -> dict:
+    """
+    Unloads a service.
+    :param service_type: Target service type.
+    :return: Response.
+    """
+    return CLIENT.stop_service(service=service_type)
 
 
 def reset_service(service_type: str,

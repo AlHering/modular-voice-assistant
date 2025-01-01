@@ -13,7 +13,7 @@ from src.configuration import configuration as cfg
 from streamlit_flow import streamlit_flow
 from streamlit_flow.elements import StreamlitFlowNode
 from streamlit_flow.layouts import TreeLayout
-from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, SERVICE_TITLES, get_configs
+from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, get_configs
 from src.frontend.streamlit.utility.state_cache_handling import wait_for_setup
 from streamlit_flow.state import StreamlitFlowState
 
@@ -94,7 +94,7 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
         st.session_state["flow"] = StreamlitFlowState(nodes=[], edges=[])
     if "flow_modules" not in st.session_state:
         st.session_state["flow_modules"] = {key: {
-            "title": SERVICE_TITLES[key],
+            "title": key,
             "available": {entry["id"]: entry for entry in get_configs(config_type=key)
                         if not  entry["inactive"]},
             "active": []
@@ -127,7 +127,7 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
         new_node = StreamlitFlowNode(
             id=target_node_flow_id, 
             pos=(0, 0), 
-            data={"content": f"{SERVICE_TITLES[node_object_type]}\n\n{node_content}"}, 
+            data={"content": f"{node_object_type}\n\n{node_content}"}, 
             node_type=node_type, 
             source_position="right",
             target_position="left",
@@ -174,7 +174,7 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
         new_node = StreamlitFlowNode(
             id=target_node_flow_id, 
             pos=(0, 0), 
-            data={"content": f"{SERVICE_TITLES[node_object_type]}\n\n{node_content}"}, 
+            data={"content": f"{node_object_type}\n\n{node_content}"}, 
             node_type=node_type, 
             source_position="right",
             target_position="left",
