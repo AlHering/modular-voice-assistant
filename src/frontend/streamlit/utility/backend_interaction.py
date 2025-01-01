@@ -13,7 +13,7 @@ from inspect import getfullargspec
 from uuid import UUID
 from src.services.services import TranscriberService, ChatService, SynthesizerService, Service
 from src.services.services import Transcriber, Synthesizer
-from src.services.service_registry_client import ServiceRegistryClient
+from src.services.service_registry_client import ServiceRegistryClient, ServicePackage
 from src.configuration import configuration as cfg
 
 AVAILABLE_SERVICES: Dict[str, Service] = {
@@ -197,16 +197,29 @@ def chat(prompt: str,
     :param prompt: User prompt.
     :param chat_parameters: Chat parameters.
     """
-    return st.session_state["CLIENT"].process(service="Chat", prompt=prompt, chat_parameters=chat_parameters).get("results", {}).get("content")
+    kwargs = {"content": prompt}
+    if chat_parameters:
+        kwargs["metadata_stack"] = [chat_parameters]
+    return st.session_state["CLIENT"].process(
+        service="Chat", 
+        input_package=ServicePackage(**kwargs)
+        ).get("content", "")
         
 def chat_streamed(prompt: str, 
-                  chat_parameters: dict | None = None,) -> Generator[str, None, None]:
+                  chat_parameters: dict | None = None) -> Generator[str, None, None]:
     """
     Fetches streamed chat response from st.session_state["CLIENT"] interface.
     :param prompt: User prompt.
     :param chat_parameters: Chat parameters.
     """
-    return st.session_state["CLIENT"].stream(service="Chat", prompt=prompt, chat_parameters=chat_parameters).get("results", {}).get("content")
+    kwargs = {"content": prompt}
+    kwargs["metadata_stack"] = [{"chat_parameters": {} if chat_parameters is None else chat_parameters}]
+    kwargs["metadata_stack"][0]["chat_parameters"]["stream"] = True
+    for response in st.session_state["CLIENT"].stream(
+        service="Chat", 
+        input_package=ServicePackage(**kwargs)
+        ):
+        yield response.get("content", "") 
 
 
 """
