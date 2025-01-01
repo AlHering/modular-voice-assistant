@@ -13,6 +13,7 @@ from time import time
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi import FastAPI, APIRouter
+from asyncio import sleep as async_sleep
 from queue import Empty
 import traceback
 from typing import List, AsyncGenerator, Dict
@@ -194,6 +195,8 @@ class ServiceRegistry(object):
                     thread = service.to_thread()
                     thread.start()
                 self.service_uuids[service.name] = config_uuid
+            while not service.thread.is_alive():
+                async_sleep(.5)
             return BaseResponse(status="success", results=[{"service": service.name, "config_uuid": config_uuid}])
         except Exception as ex:
             return BaseResponse(status="error", results=[{"service": service.name, "config_uuid": config_uuid}], metadata={
@@ -215,6 +218,8 @@ class ServiceRegistry(object):
             entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service], "id", "==", config_uuid])]))
             service.config = entry["config"]
             service.reset(restart_thread=True)
+            while not service.thread.is_alive():
+                async_sleep(.5)
             return BaseResponse(status="success", results=[{"service": service, "config_uuid": config_uuid}])
         except Exception as ex:
             return BaseResponse(status="error", results=[{"service": service, "config_uuid": config_uuid}], metadata={
