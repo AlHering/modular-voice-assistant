@@ -8,6 +8,7 @@
 from __future__ import annotations
 import os
 from typing import Any
+from enum import Enum
 from time import time
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse, StreamingResponse
@@ -107,6 +108,27 @@ class BaseResponse(BaseModel):
     metadata: dict | None = None
 
 
+class Endpoints(str, Enum):
+    """
+    Endpoints config.
+    """
+    services_get = "/service/get"
+    service_process = "/service/process"
+    service_stream = "/service/stream"
+    service_run = "/service/run"
+    service_reset = "/service/reset"
+    service_stop = "/service/stop"
+    configs_get = "/configs/get"
+    configs_add = "/configs/add"
+    configs_patch = "/configs/patch"
+
+    def __str__(self) -> str:
+        """
+        Returns string representation.
+        """
+        return str(self.value)
+
+
 class ServiceRegistry(object):
     """
     Service registry.
@@ -134,12 +156,12 @@ class ServiceRegistry(object):
         :return: API router.
         """
         self.router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
-        self.router.add_api_route(path=f"/service/get", endpoint=self.get_services, methods=["GET"])
-        self.router.add_api_route(path=f"/service/process", endpoint=self.process, methods=["POST"])
-        self.router.add_api_route(path=f"/service/stream", endpoint=self.process_as_stream, methods=["POST"])
-        self.router.add_api_route(path=f"/service/run", endpoint=self.setup_and_run_service, methods=["POST"])
-        self.router.add_api_route(path=f"/service/reset", endpoint=self.reset_service, methods=["POST"])
-        self.router.add_api_route(path=f"/service/stop", endpoint=self.stop_service, methods=["POST"])
+        self.router.add_api_route(path="/service/get", endpoint=self.get_services, methods=["GET"])
+        self.router.add_api_route(path="/service/process", endpoint=self.process, methods=["POST"])
+        self.router.add_api_route(path="/service/stream", endpoint=self.process_as_stream, methods=["POST"])
+        self.router.add_api_route(path="/service/run", endpoint=self.setup_and_run_service, methods=["POST"])
+        self.router.add_api_route(path="/service/reset", endpoint=self.reset_service, methods=["POST"])
+        self.router.add_api_route(path="/service/stop", endpoint=self.stop_service, methods=["POST"])
         self.router.add_api_route(path="/configs/get", endpoint=self.get_configs, methods=["POST"])
         self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
         self.router.add_api_route(path="/configs/patch", endpoint=self.patch_config, methods=["POST"])
