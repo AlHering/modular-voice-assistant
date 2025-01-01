@@ -75,6 +75,7 @@ class Service(object):
         self.output_queue = Queue() if output_queue is None else output_queue
         self.logger = logger
 
+        self.setup_flag = False
         self.thread = None
         self.process = None
         self.received = {}
@@ -187,6 +188,7 @@ class Service(object):
             if self.process is not None and self.process.is_alive():
                 self.process.terminate() 
                 self.process.join(.5) 
+        self.setup_flag = False
         if restart_thread or restart_process:
             self.log_info(text="Restarting...")
             self.pause.clear()
@@ -233,6 +235,7 @@ class Service(object):
         Method for setting up service and running processing loop.
         """
         if self.setup():
+            self.setup_flag = True
             self.log_info(text="Setup succeeded, running loop.")
             self.loop()
         else:
