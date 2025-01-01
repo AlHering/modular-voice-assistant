@@ -5,16 +5,15 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from typing import Any, Tuple
-from multiprocessing import Queue, Event
+from typing import Any, Tuple, Generator
 from logging import Logger
 from abc import abstractmethod
 from pydantic import BaseModel, Field
 from logging import Logger
 from uuid import uuid4
-from typing import Any, Tuple, List, Generator
+from multiprocessing import Process, Queue, Event
 from threading import Thread
-from multiprocessing import Process
+from typing import Any, List
 from src.utility.time_utility import get_timestamp
 
 
@@ -47,19 +46,27 @@ class Service(object):
     """
     Service.
     """
-    def __init__(self, name: str, 
+    def __init__(self, 
+                 name: str, 
                  description: str,
+                 config: dict,
                  input_queue: Queue | None = None,
                  output_queue: Queue | None = None,
                  logger: Logger | None = None) -> None:
         """
-        Initiation method.
-        :param working_directory: Working directory.
+        Initiates an instance.
         :param name: Service name.
         :param description: Service description.
+        :param config: Service config.
+        :param input_queue: Input queue.
+        :param output_queue: Output queue.
+        :param logger: Logger.
+        :param name: A name to distinguish log messages.
         """
         self.name = name
         self.description = description
+        self.config = config
+        self.cache = {}
 
         self.interrupt = Event()
         self.pause = Event()
@@ -145,7 +152,7 @@ class Service(object):
         Returns a thread for running module process in loop.
         :return: Thread
         """
-        self.thread = Thread(target=self.loop)
+        self.thread = Thread(target=self.setup_and_loop)
         self.thread.daemon = True
         self.mode = "thread"
         return self.thread
@@ -155,19 +162,22 @@ class Service(object):
         Returns a process for running module process in loop.
         :return: Process.
         """
-        self.process = Process(target=self.loop)
+        self.process = Process(target=self.setup_and_loop)
         self.process.daemon = True
         return self.process
     
-    def reset(self, restart: bool = True) -> None:
+    def reset(self, restart_thread: bool = False, restart_process: bool = False) -> None:
         """
         Resets module.
-        :param restart: Flag for restarting module.
+        :param restart_thread: Flag for restarting thread.
+        :param restart_process: Flag for restarting process.
         """
+        self.log_info(text="Stopping process.")
         self.pause.set()
         self.interrupt.set()
         self.flush_inputs()
         self.flush_outputs()
+        self.log_info(text="Stopping workers.")
         try:
             for worker in [self.thread, self.process]:
                 if worker is not None and worker.is_alive():
@@ -176,11 +186,17 @@ class Service(object):
             if self.process is not None and self.process.is_alive():
                 self.process.terminate() 
                 self.process.join(.5) 
-        if restart:
+        if restart_thread or restart_process:
+            self.log_info(text="Restarting...")
             self.pause.clear()
             self.interrupt.clear()
-            self.thread = self.to_thread()
-            self.thread.start()
+            if restart_thread:
+                self.to_thread()
+                self.thread.start()
+            self.interrupt.clear()
+            if restart_process:
+                self.to_process()
+                self.process.start()
 
     def loop(self) -> None:
         """
@@ -188,6 +204,7 @@ class Service(object):
         """
         while not self.interrupt.is_set():
             self.iterate()
+        self.log_info(text="Interrupt received, exiting loop.")
         
     def iterate(self) -> bool:
         """
@@ -209,6 +226,27 @@ class Service(object):
                     self.add_uuid(self.sent, elem.uuid)
                     return True
         return False
+    
+    def setup_and_loop(self) -> None:
+        """
+        Method for setting up service and running processing loop.
+        """
+        if self.setup():
+            self.log_info(text="Setup succeeded, running loop.")
+            self.loop()
+        else:
+            self.log_info(text="Setup failed.")
+    
+    """
+    Methods to potentially overwrite
+    """
+    
+    def setup(self) -> bool:
+        """
+        Sets up service.
+        :returns: True, if successful else False.
+        """
+        return True
 
     @abstractmethod
     def run(self) -> ServicePackage | Generator[ServicePackage, None, None] | None:
