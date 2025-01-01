@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 from typing import Any
 from enum import Enum
+import json
 from time import time
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse, StreamingResponse
@@ -256,7 +257,7 @@ class ServiceRegistry(object):
         except Empty:
             return None
 
-    async def stream(self, service_request: ServiceRequest) -> AsyncGenerator[ServicePackage, None]:
+    async def stream(self, service_request: ServiceRequest) -> AsyncGenerator[bytes, None]:
         """
         Runs a service process.
         :param service_request: Service request.
@@ -266,12 +267,12 @@ class ServiceRegistry(object):
         input_uuid = service_request.input_package.uuid
         service.input_queue.put(service_request.input_package)
         start = time()
-        response = service.output_queue.get()
+        response: ServicePackage = service.output_queue.get()
         duration = time() - start
 
         wrongly_fetched = []
         while response:
-            yield response
+            yield json.dumps({"response": response.content, "metadata": response.metadata_stack}).encode("utf-8")
             try:
                 response = service.output_queue.get(timeout=duration*1.5)
                 if response.uuid != input_uuid:
