@@ -14,6 +14,7 @@ from logging import Logger
 from uuid import uuid4
 from typing import Any, Tuple, List, Generator
 from threading import Thread
+from multiprocessing import Process
 from src.utility.time_utility import get_timestamp
 
 
@@ -57,16 +58,15 @@ class Service(object):
         :param name: Service name.
         :param description: Service description.
         """
+        self.name = name
+        self.description = description
+
         self.interrupt = Event()
         self.pause = Event()
         self.input_queue = Queue() if input_queue is None else input_queue
         self.output_queue = Queue() if output_queue is None else output_queue
+        self.logger = logger
 
-        self.name = name
-        self.description = description
-        self.config = None
-
-        self.mode = None
         self.thread = None
         self.process = None
         self.received = {}
@@ -143,11 +143,21 @@ class Service(object):
     def to_thread(self) -> Thread:
         """
         Returns a thread for running module process in loop.
+        :return: Thread
         """
         self.thread = Thread(target=self.loop)
         self.thread.daemon = True
         self.mode = "thread"
         return self.thread
+    
+    def to_process(self) -> Process:
+        """
+        Returns a process for running module process in loop.
+        :return: Process.
+        """
+        self.process = Process(target=self.loop)
+        self.process.daemon = True
+        return self.process
     
     def reset(self, restart: bool = True) -> None:
         """
@@ -159,12 +169,11 @@ class Service(object):
         self.flush_inputs()
         self.flush_outputs()
         try:
-            if self.mode == "thread":
-                self.thread.join(1.0) 
-            elif self.mode == "process":
-                self.process.join(1.0) 
+            for worker in [self.thread, self.process]:
+                if worker is not None and worker.is_alive():
+                    worker.join(1.0) 
         except RuntimeError:
-            if self.mode == "process":
+            if self.process is not None and self.process.is_alive():
                 self.process.terminate() 
                 self.process.join(.5) 
         if restart:
@@ -209,13 +218,13 @@ class Service(object):
         """
         pass
 
-    @abstractmethod
-    def run(self) -> ServicePackage | Generator[ServicePackage, None, None] | None:
+    def unpack(self, package: ServicePackage) -> dict:
         """
-        Processes queued input.
-        :returns: Service package, a service package generator or None.
+        Unpacks a service package.
+        :param package: Service package.
+        :returns: Unpacked content.
         """
-        pass
+        return package.model_dump()
 
 class ServiceRegistry(object):
     """
