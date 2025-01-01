@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi import FastAPI, APIRouter
 from queue import Empty
+import traceback
 from typing import List, AsyncGenerator
 import uvicorn
 import traceback
@@ -103,7 +104,7 @@ class BaseResponse(BaseModel):
     """Config payload class."""
     status: str
     results: List[dict] 
-    metadata: dict 
+    metadata: dict | None = None
 
 
 class ServiceRegistry(object):
@@ -127,48 +128,78 @@ class ServiceRegistry(object):
         )
         self.router: APIRouter | None = None
 
-    def get_services(self) -> dict:
+    def setup_router(self) -> APIRouter:
+        """
+        Sets up an API router.
+        :return: API router.
+        """
+        self.router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
+        self.router.add_api_route(path=f"/service/get", endpoint=self.get_services, methods=["GET"])
+        self.router.add_api_route(path=f"/service/process", endpoint=self.process, methods=["POST"])
+        self.router.add_api_route(path=f"/service/stream", endpoint=self.process_as_stream, methods=["POST"])
+        self.router.add_api_route(path=f"/service/run", endpoint=self.setup_and_run_service, methods=["POST"])
+        self.router.add_api_route(path=f"/service/reset", endpoint=self.reset_service, methods=["POST"])
+        self.router.add_api_route(path=f"/service/stop", endpoint=self.stop_service, methods=["POST"])
+        self.router.add_api_route(path="/configs/get", endpoint=self.get_configs, methods=["POST"])
+        self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
+        self.router.add_api_route(path="/configs/patch", endpoint=self.patch_config, methods=["POST"])
+        return self.router
+
+    @interaction_log
+    async def get_services(self) -> BaseResponse:
         """
         Responds available services.
         """
-        return {"services": list(self.services.keys())}
+        return BaseResponse(status="success", results=list(self.services.keys()))
 
-    def setup_and_run_service(self, service: str, process_config: dict) -> bool:
+    @interaction_log
+    async def setup_and_run_service(self, service: str, config_uuid: str | UUID) -> bool:
         """
         Sets up and runs a service.
         :param service: Target service name.
-        :param process_config: Process config.
+        :param config_uuid: Config UUID.
         :return: True, if setup was successful else False.
         """
         service = self.services[service]
+        if isinstance(config_uuid, str):
+            config_uuid = UUID(config_uuid)
         try:
-            service.config = process_config
+            entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service], "id", "==", config_uuid])]))
+            service.config = entry.config
             if service.thread is not None and service.thread.is_alive():
                 service.reset(restart_thread=True)
             else:
                 thread = service.to_thread()
                 thread.start()
-            return True
-        except:
-            return False
+            return BaseResponse(status="success", results=[{"service": service.name, "config_uuid": config_uuid}])
+        except Exception as ex:
+            return BaseResponse(status="error", results=[{"service": service.name, "config_uuid": config_uuid}], metadata={
+                "error": str(ex), "trace": traceback.format_exc()
+            })
     
-    def reset_service(self, service: str, process_config: dict | None = None) -> bool:
+    @interaction_log
+    async def reset_service(self, service: str, config_uuid: str | UUID) -> BaseResponse:
         """
         Resets a service.
         :param service: Target service name.
-        :param process_config: Process config for overwriting.
+        :param config_uuid: Config UUID.
         :return: True, if reset was successful else False.
         """
         service = self.services[service]
+        if isinstance(config_uuid, str):
+            config_uuid = UUID(config_uuid)
         try:
-            if process_config is not None:
-                service.config = process_config
+            entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service], "id", "==", config_uuid])]))
+            service.config = entry.config
             service.reset(restart_thread=True)
-            return True
-        except:
-            return False
+            return BaseResponse(status="success", results=[{"service": service, "config_uuid": config_uuid}])
+        except Exception as ex:
+            return BaseResponse(status="error", results=[{"service": service, "config_uuid": config_uuid}], metadata={
+                "error": str(ex), "trace": traceback.format_exc()
+            })
     
-    def stop_service(self, service: str) -> bool:
+    @interaction_log
+    async def stop_service(self, service: str) -> BaseResponse:
         """
         Stops a service.
         :param service: Target service name.
@@ -177,11 +208,14 @@ class ServiceRegistry(object):
         service = self.services[service]
         try:
             service.reset()
-            return True
-        except:
-            return False
+            return BaseResponse(status="success", results=[{"service": service}])
+        except Exception as ex:
+            return BaseResponse(status="error", results=[{"service": service}], metadata={
+                "error": str(ex), "trace": traceback.format_exc()
+            })
     
-    def process(self, service_request: ServiceRequest) -> ServicePackage | None:
+    @interaction_log
+    async def process(self, service_request: ServiceRequest) -> ServicePackage | None:
         """
         Runs a service process.
         :param service_request: Service request.
@@ -219,30 +253,14 @@ class ServiceRegistry(object):
         for response in wrongly_fetched:
             service.output_queue.put(response)
 
-    def process_as_stream(self, service_request: ServiceRequest) -> StreamingResponse:
+    @interaction_log
+    async def process_as_stream(self, service_request: ServiceRequest) -> StreamingResponse:
         """
         Runs a service process in streamed mode.
         :param service_request: Service request.
         :return: Service package response.
         """
         return StreamingResponse(self.stream(service_request=service_request))
-
-    def setup_router(self) -> APIRouter:
-        """
-        Sets up an API router.
-        :return: API router.
-        """
-        self.router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
-        self.router.add_api_route(path=f"/service/get", endpoint=self.get_services, methods=["GET"])
-        self.router.add_api_route(path=f"/service/process", endpoint=self.process, methods=["POST"])
-        self.router.add_api_route(path=f"/service/stream", endpoint=self.process_as_stream, methods=["POST"])
-        self.router.add_api_route(path=f"/service/run", endpoint=self.setup_and_run_service, methods=["POST"])
-        self.router.add_api_route(path=f"/service/reset", endpoint=self.reset_service, methods=["POST"])
-        self.router.add_api_route(path=f"/service/stop", endpoint=self.stop_service, methods=["POST"])
-        self.router.add_api_route(path="/configs/get", endpoint=self.get_configs, methods=["POST"])
-        self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
-        self.router.add_api_route(path="/configs/patch", endpoint=self.patch_config, methods=["POST"])
-        return self.router
 
     """
     Config handling
