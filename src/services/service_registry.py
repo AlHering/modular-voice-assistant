@@ -180,7 +180,7 @@ class ServiceRegistry(object):
         Sets up and runs a service.
         :param service: Target service name.
         :param config_uuid: Config UUID.
-        :return: True, if setup was successful else False.
+        :return: Response.
         """
         service = self.services[service]
         if isinstance(config_uuid, str):
@@ -205,7 +205,7 @@ class ServiceRegistry(object):
         Resets a service.
         :param service: Target service name.
         :param config_uuid: Config UUID.
-        :return: True, if reset was successful else False.
+        :return: Response.
         """
         service = self.services[service]
         if isinstance(config_uuid, str):
@@ -225,7 +225,7 @@ class ServiceRegistry(object):
         """
         Stops a service.
         :param service: Target service name.
-        :return: True, if stopping was successful else False.
+        :return: Response.
         """
         service = self.services[service]
         try:
