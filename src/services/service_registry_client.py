@@ -78,7 +78,7 @@ class ServiceRegistryClient(object):
         try:
             return requests.post(self.api_base + Endpoints.service_process, json={
                 "service": service,
-                "input_package": input_package,
+                "input_package": input_package.model_dump(),
                 "timeout": timeout
             }).json()
         except json.JSONDecodeError: 
@@ -94,7 +94,7 @@ class ServiceRegistryClient(object):
         """
         with requests.post(self.api_base + Endpoints.service_stream, json={
                 "service": service,
-                "input_package": input_package,
+                "input_package": input_package.model_dump(),
                 "timeout": timeout
             }, stream=True) as response:
             accumulated = ""
