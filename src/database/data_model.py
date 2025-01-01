@@ -110,32 +110,16 @@ def get_default_entries() -> dict:
     return {
         "service_config": [
             {
-                "service_type": "speech_recorder",
-                "config": {}
-            },
-            {
                 "service_type": "transcriber",
                 "config": cfg.DEFAULT_TRANSCRIBER
             },
             {
-                "service_type": "local_chat",
-                "config": cfg.DEFAULT_LOCAL_CHAT
-            },
-            {
-                "service_type": "remote_chat",
-                "config": cfg.DEFAULT_REMOTE_CHAT
+                "service_type": "chat",
+                "config": cfg.DEFAULT_CHAT
             },
             {
                 "service_type": "synthesizer",
                 "config": cfg.DEFAULT_SYNTHESIZER
-            },
-            {
-                "service_type": "audio_player",
-                "config": cfg.DEFAULT_AUDIO_PLAYER
-            },
-            {
-                "service_type": "voice_assistant",
-                "config": cfg.DEFAULT_VOICE_ASSISTANT
-            },
+            }
         ]
     }
