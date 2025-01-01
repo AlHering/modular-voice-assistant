@@ -11,6 +11,7 @@ from typing import Any
 from enum import Enum
 import json
 from time import time
+import uvicorn
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi import FastAPI, APIRouter
@@ -18,14 +19,13 @@ from asyncio import sleep as async_sleep
 from queue import Empty
 import traceback
 from typing import List, AsyncGenerator, Dict
-import uvicorn
 import traceback
 from datetime import datetime as dt
 from uuid import UUID
 from functools import wraps
 import logging
-from src.services.service_abstractions import Service, ServicePackage
 from src.services.services import TranscriberService, ChatService, SynthesizerService
+from src.services.service_abstractions import Service, ServicePackage
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
 from src.configuration import configuration as cfg

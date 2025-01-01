@@ -75,9 +75,7 @@ def main_page_content() -> None:
 
     interaction_columns = st.columns([.8, .2])
     # text input
-    active_worker = st.session_state["loaded_services"]["remote_chat"]
-    if active_worker is None:
-        active_worker = st.session_state["loaded_services"]["local_chat"]
+    active_worker = st.session_state["loaded_services"]["Chat"]
     prompt = interaction_columns[0].chat_input("🖊️ Write something")
     if prompt:
         if active_worker:
@@ -97,17 +95,16 @@ def main_page_content() -> None:
                 new_response.write(response_content)
             st.session_state["chat_history"].append({"role": "assistant", "content": response_content})
         else:
-            st.error("Remote or Local Chat need to be loaded.")
+            st.error("Chat service needs to be loaded.")
     # speech input
-    active_speech_recorder = st.session_state["loaded_services"]["speech_recorder"]
-    active_transcriber = st.session_state["loaded_services"]["transcriber"]
+    active_transcriber = st.session_state["loaded_services"]["Transcriber"]
 
     voice_input = interaction_columns[1].button("🎙️ Say something")
     if voice_input:
-        if active_speech_recorder is not None and active_transcriber is not None:
+        if active_transcriber is not None:
             pass
         else:
-            st.error("Speech Recorder and Transcriber need to be loaded.")
+            st.error("Transcriber service needs to be loaded.")
 
 
     

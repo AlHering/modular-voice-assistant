@@ -63,7 +63,7 @@ class ServiceRegistryClient(object):
         :param service: Target service name.
         :return: Response.
         """
-        return requests.post(self.api_base + Endpoints.service_stop, data={
+        return requests.post(self.api_base + Endpoints.service_stop, params={
             "service": service
         }).json()
     
@@ -142,6 +142,6 @@ class ServiceRegistryClient(object):
         :param service: Target service.
         :return: Response.
         """
-        return requests.post(self.api_base + Endpoints.configs_get, data={
+        return requests.post(self.api_base + Endpoints.configs_get, params={
             "service": service
         }).json()
