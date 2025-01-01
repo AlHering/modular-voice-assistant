@@ -158,7 +158,7 @@ def get_loaded_service() -> dict:
     Retrieves loaded services.
     :return: Response.
     """
-    return CLIENT.get_services()["results"]
+    return CLIENT.get_services()["results"][0]
 
 
 def load_service(service_type: str,

@@ -323,7 +323,7 @@ class ServiceRegistry(object):
         return BaseResponse(status="success", results=[result])
     
     @interaction_log
-    async def get_configs(self, service: str) -> BaseResponse:
+    async def get_configs(self, service: str | None = None) -> BaseResponse:
         """
         Retrieves configs from the database.
         :param service: Target service type.

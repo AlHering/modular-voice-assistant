@@ -142,6 +142,6 @@ class ServiceRegistryClient(object):
         :param service: Target service.
         :return: Response.
         """
-        return requests.post(self.api_base + Endpoints.configs_patch, data={
+        return requests.post(self.api_base + Endpoints.configs_get, data={
             "service": service
         }).json()

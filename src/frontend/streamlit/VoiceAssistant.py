@@ -25,8 +25,8 @@ def render_service_control(parent_widget: Any, service_type: str) -> None:
         service_type,
         key=f"active_{service_type}",
         placeholder="None",
-        options=st.session_state[f"available_services"][service_type],
-        index=st.session_state[f"available_services"][service_type].index(st.session_state["loaded_services"][service_type])
+        options=st.session_state["available_services"][service_type],
+        index=st.session_state["available_services"][service_type].index(st.session_state["loaded_services"][service_type])
     )
 
     loaded = st.session_state[f"active_{service_type}"] == st.session_state["loaded_services"][service_type]
@@ -53,13 +53,11 @@ def main_page_content() -> None:
         service_type: [None] + [entry["id"] for entry in get_configs(config_type=service_type) if not entry["inactive"]]
             for service_type in AVAILABLE_SERVICES
         }
-    column_count = (len(list(AVAILABLE_SERVICES.keys()))+1) // 2
-    upper_service_columns = st.columns(column_count)
-    lower_service_columns = st.columns(column_count)
-    for service_index, service_type in enumerate([key for key in AVAILABLE_SERVICES][:column_count]):
+    print(f"Loaded {st.session_state['loaded_services']}")
+    print(f"Available {st.session_state['available_services']}")
+    upper_service_columns = st.columns(3)
+    for service_index, service_type in enumerate([key for key in AVAILABLE_SERVICES]):
         render_service_control(parent_widget=upper_service_columns[service_index], service_type=service_type)
-    for service_index, service_type in enumerate([key for key in AVAILABLE_SERVICES][column_count:]):
-        render_service_control(parent_widget=lower_service_columns[service_index], service_type=service_type)
         
     st.divider()
     st.write("##### Flags")
