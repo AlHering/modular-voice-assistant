@@ -11,6 +11,7 @@ from typing import Generator, Tuple
 import requests
 from uuid import UUID
 import json
+from src.configuration import configuration as cfg
 from src.services.abstractions.service_abstractions import ServicePackage
 from src.services.abstractions.sound_model_abstractions import SpeechRecorder, AudioPlayer
 from src.services.service_registry import BaseResponse, ServicePackage, Endpoints
@@ -31,11 +32,8 @@ class ServiceRegistryClient(object):
         :param audio_player_parameters: Audio player keyword arguments.
         """
         self.api_base = api_base
-        self.speech_recorder_parameters = {} if speech_recorder_parameters is None else speech_recorder_parameters
-        self.audio_player_parameters = {"backend": "pyaudio"} if audio_player_parameters is None else audio_player_parameters
-
-        self.speech_recorder = SpeechRecorder(**speech_recorder_parameters)
-        self.audio_player = AudioPlayer(**audio_player_parameters)
+        self.speech_recorder = SpeechRecorder(**cfg.DEFAULT_SPEECH_RECORDER if speech_recorder_parameters is None else speech_recorder_parameters)
+        self.audio_player = AudioPlayer(**cfg.DEFAULT_AUDIO_PLAYER if audio_player_parameters is None else audio_player_parameters)
 
     """
     Service interaction
