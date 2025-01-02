@@ -233,13 +233,14 @@ class VoiceAssistantClient(ServiceRegistryClient):
                 ):
                 response_chunk = response.get("content", "") 
                 if response_chunk and output_as_audio:
-                    self.output_audio_for_text(text=response_chunk)
+                    self.synthesize_and_output_speech(text=response_chunk)
                 yield response_chunk, response["metadata_stack"][-1] 
         else:
+            input_package.metadata_stack[-1]["chat_parameters"] = {"stream": False}
             response = self.process(
                 service="Chat", 
                 input_package=input_package
             )
             if response and output_as_audio:
-                self.output_audio_for_text(text=response)
+                self.synthesize_and_output_speech(text=response)
             yield response["content"], response["metadata_stack"][-1] 
