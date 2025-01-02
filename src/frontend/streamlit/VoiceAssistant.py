@@ -80,7 +80,7 @@ def main_page_content() -> None:
         }
     
     service_buttons = st.columns(6)
-    if service_buttons[0].button("Load all..."):
+    if service_buttons[0].button("Load default services..."):
         for service_type in st.session_state["available_services"]:
             with st.spinner(f"Loading {service_type} service..."):
                 target_uuid = st.session_state["available_services"][service_type][1]
@@ -88,7 +88,7 @@ def main_page_content() -> None:
                     st.session_state["loaded_services"][service_type] = target_uuid
                     del st.session_state[f"active_{service_type}"]
         st.rerun()
-    if service_buttons[1].button("Unload all..."):
+    if service_buttons[1].button("Unload all services..."):
         for service_type in st.session_state["loaded_services"]:
             if st.session_state["loaded_services"][service_type] is not None:
                 with st.spinner(f"Unloading {service_type} service..."):
