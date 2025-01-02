@@ -11,6 +11,7 @@ from typing import Generator, Tuple
 from multiprocessing import Queue, Event
 import requests
 from uuid import UUID
+import time
 import json
 from src.configuration import configuration as cfg
 from src.services.abstractions.service_abstractions import ServicePackage
@@ -218,6 +219,7 @@ class VoiceAssistantClient(ServiceRegistryClient):
         :param text: Text input.
         """
         audio_input, playback_parameters = self.synthesize(text=text)
+        time.sleep(1.5)
         self.audio_input_queue.put((audio_input, playback_parameters))
     
     def chat(self,
