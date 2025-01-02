@@ -14,7 +14,7 @@ import uvicorn
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi import FastAPI, APIRouter
-from asyncio import sleep as async_sleep, run as async_run
+import asyncio
 from queue import Empty
 import traceback
 from typing import List, Dict, Generator
@@ -158,6 +158,7 @@ class ServiceRegistry(object):
         self.router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
         self.router.add_api_route(path="/service/get", endpoint=self.get_services, methods=["GET"])
         self.router.add_api_route(path="/service/process", endpoint=self.process, methods=["POST"])
+        self.router.add_api_route(path="/interrupt", endpoint=self.process, methods=["POST"])
         self.router.add_api_route(path="/service/stream", endpoint=self.process_as_stream, methods=["POST"])
         self.router.add_api_route(path="/service/run", endpoint=self.setup_and_run_service, methods=["POST"])
         self.router.add_api_route(path="/service/reset", endpoint=self.reset_service, methods=["POST"])
@@ -166,6 +167,19 @@ class ServiceRegistry(object):
         self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
         self.router.add_api_route(path="/configs/patch", endpoint=self.patch_config, methods=["POST"])
         return self.router
+    
+    """
+    Service interaction
+    """
+    @interaction_log
+    async def interrupt(self) -> BaseResponse:
+        """
+        Interrupt available services.
+        """
+        tasks = [asyncio.create_task(self.reset_service(service)) for service in self.service_uuids if self.service_uuids[service] is not None]
+        # wait for tasks to complete
+        _ = await asyncio.wait(tasks)
+        return BaseResponse(status="success", results=[self.service_uuids])
 
     @interaction_log
     async def get_services(self) -> BaseResponse:
@@ -196,7 +210,7 @@ class ServiceRegistry(object):
                     thread.start()
                 self.service_uuids[service.name] = config_uuid
             while not service.setup_flag:
-               await async_sleep(.5)
+               await asyncio.sleep(.5)
             return BaseResponse(status="success", results=[{"service": service.name, "config_uuid": config_uuid}])
         except Exception as ex:
             return BaseResponse(status="error", results=[{"service": service.name, "config_uuid": config_uuid}], metadata={
@@ -219,7 +233,7 @@ class ServiceRegistry(object):
             service.config = entry["config"]
             service.reset(restart_thread=True)
             while not service.setup_flag:
-                await async_sleep(.5)
+                await asyncio.sleep(.5)
             self.service_uuids[service.name] = config_uuid
             return BaseResponse(status="success", results=[{"service": service, "config_uuid": config_uuid}])
         except Exception as ex:
@@ -335,7 +349,7 @@ class ServiceRegistry(object):
         """
         for service in self.service_uuids:
             if self.service_uuids[service] is not None:
-                async_run(self.stop_service(service))
+                asyncio.run(self.stop_service(service))
 
 
 """
