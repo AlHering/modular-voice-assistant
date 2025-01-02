@@ -252,28 +252,35 @@ def synthesize(text: str,
 
 
 def chat(prompt: str, 
-         chat_parameters: dict | None = None) -> str:
+         chat_parameters: dict | None = None,
+         output_as_audio: bool = False) -> str:
     """
     Fetches chat response from st.session_state["CLIENT"] interface.
     :param prompt: User prompt.
     :param chat_parameters: Chat parameters.
+    :param output_as_audio: Outputting response as audio.
     :return: Chat response.
     """
     kwargs = {"content": prompt}
     if chat_parameters:
         kwargs["metadata_stack"] = [chat_parameters]
-    return st.session_state["CLIENT"].process(
+    response = st.session_state["CLIENT"].process(
         service="Chat", 
         input_package=ServicePackage(**kwargs)
         ).get("content", "")
+    if response and output_as_audio:
+        output_audio_for_text(text=response)
+    return response
         
 
 def chat_streamed(prompt: str, 
-                  chat_parameters: dict | None = None) -> Generator[str, None, None]:
+                  chat_parameters: dict | None = None,
+                  output_as_audio: bool = False) -> Generator[str, None, None]:
     """
     Fetches streamed chat response from st.session_state["CLIENT"] interface.
     :param prompt: User prompt.
     :param chat_parameters: Chat parameters.
+    :param output_as_audio: Outputting response as audio.
     :return: Chat response generator.
     """
     kwargs = {"content": prompt}
@@ -283,7 +290,10 @@ def chat_streamed(prompt: str,
         service="Chat", 
         input_package=ServicePackage(**kwargs)
         ):
-        yield response.get("content", "") 
+        response_chunk = response.get("content", "") 
+        if response_chunk and output_as_audio:
+            output_audio_for_text(text=response_chunk)
+        yield response_chunk
 
 
 """
