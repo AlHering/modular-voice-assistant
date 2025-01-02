@@ -177,7 +177,7 @@ class ServiceRegistry(object):
         """
         Interrupt available services.
         """
-        tasks = [asyncio.create_task(self.reset_service(service)) for service in self.service_uuids if self.service_uuids[service] is not None]
+        tasks = [asyncio.create_task(self.reset_service(service=service, config_uuid=self.service_uuids[service])) for service in self.service_uuids if self.service_uuids[service] is not None]
         # wait for tasks to complete
         _ = await asyncio.wait(tasks)
         return BaseResponse(status="success", results=[self.service_uuids])
