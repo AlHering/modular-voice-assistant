@@ -69,13 +69,12 @@ class TranscriberService(Service):
                 input_content = np.array(input_package.content, input_package.metadata_stack[-1].get("dtype"))
             else:
                 input_content = input_package.content
-            valid_input = (input_content and input_content.size > 0) or input_package.content
-            if valid_input:
-                result = self.cache["transcriber"].transcribe(
-                    audio_input=input_content,
-                    transcription_parameters=input_package.metadata_stack[-1].get("transcription_parameters"))
-                self.log_info(f"Received response\n'{result[0]}'.")             
-                yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
+                
+            result = self.cache["transcriber"].transcribe(
+                audio_input=input_content,
+                transcription_parameters=input_package.metadata_stack[-1].get("transcription_parameters"))
+            self.log_info(f"Received response\n'{result[0]}'.")             
+            yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
 
 
 class ChatService(Service):
