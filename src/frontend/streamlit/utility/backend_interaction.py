@@ -216,7 +216,7 @@ def chat(prompt: str,
     :param output_as_audio: Outputting response as audio.
     :return: Chat response.
     """
-    for response in st.session_state["CLIENT"].chat(prompt=prompt, output_as_audio=output_as_audio):
+    for response in st.session_state["CLIENT"].chat(prompt=prompt, stream=False, output_as_audio=output_as_audio):
         return response[0]
         
 
@@ -228,7 +228,7 @@ def chat_streamed(prompt: str,
     :param output_as_audio: Outputting response as audio.
     :return: Chat response generator.
     """
-    for response in st.session_state["CLIENT"].chat(prompt=prompt, output_as_audio=output_as_audio):
+    for response in st.session_state["CLIENT"].chat(prompt=prompt, stream=True, output_as_audio=output_as_audio):
         yield response
 
 
