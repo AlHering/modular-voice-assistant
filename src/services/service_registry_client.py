@@ -22,18 +22,12 @@ class ServiceRegistryClient(object):
     Service registry client.
     """
 
-    def __init__(self, api_base: str,
-                 speech_recorder_parameters: dict | None = None,
-                 audio_player_parameters: dict | None = None) -> None:
+    def __init__(self, api_base: str) -> None:
         """
         Initiation method.
         :param api_base: API base.
-        :param speech_recorder_parameters: Speech recorder keyword arguments.
-        :param audio_player_parameters: Audio player keyword arguments.
         """
         self.api_base = api_base
-        self.speech_recorder = SpeechRecorder(**cfg.DEFAULT_SPEECH_RECORDER if speech_recorder_parameters is None else speech_recorder_parameters)
-        self.audio_player = AudioPlayer(**cfg.DEFAULT_AUDIO_PLAYER if audio_player_parameters is None else audio_player_parameters)
 
     """
     Service interaction
@@ -157,9 +151,25 @@ class ServiceRegistryClient(object):
             "service": service
         }).json()
 
+
+class VoiceAssistantClient(ServiceRegistryClient):
     """
-    High-level interaction
+    Voice assistant client.
     """
+
+    def __init__(self, api_base: str,
+                 speech_recorder_parameters: dict | None = None,
+                 audio_player_parameters: dict | None = None) -> None:
+        """
+        Initiation method.
+        :param api_base: API base.
+        :param speech_recorder_parameters: Speech recorder keyword arguments.
+        :param audio_player_parameters: Audio player keyword arguments.
+        """
+        super().__init__(api_base=api_base)
+        self.speech_recorder = SpeechRecorder(**cfg.DEFAULT_SPEECH_RECORDER if speech_recorder_parameters is None else speech_recorder_parameters)
+        self.audio_player = AudioPlayer(**cfg.DEFAULT_AUDIO_PLAYER if audio_player_parameters is None else audio_player_parameters)
+
     def transcribe(self, audio_input: np.ndarray) -> Tuple[str, dict]:
         """
         Fetches transcription response from interface.
