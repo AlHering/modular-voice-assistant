@@ -64,7 +64,7 @@ class TranscriberService(Service):
             self.add_uuid(self.received, input_package.uuid)
             self.log_info(f"Received input:\n'{input_package.content}'")
             self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
-            
+
             if not isinstance(input_package.content, np.ndarray):
                 input_content = np.array(input_package.content, input_package.metadata_stack[-1].get("dtype"))
             else:
@@ -230,6 +230,8 @@ class SynthesizerService(Service):
             
             result = self.cache["synthesizer"].synthesize(
                     text=input_package.content,
-                    synthesis_parameters=input_package.metadata_stack[-1].get("chat_parameters"))
+                    synthesis_parameters=input_package.metadata_stack[-1].get("synthesis_parameters"))
             self.log_info(f"Received response\n'{result[0]}'.") 
-            yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0].tolist(), metadata_stack=input_package.metadata_stack + [result[1]] + [{"dtype": str(result[0].dtype)}])
+            synthesis_metadata = result[1]
+            synthesis_metadata["dtype"] = str(result[0].dtype)
+            yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0].tolist(), metadata_stack=input_package.metadata_stack + [synthesis_metadata])
