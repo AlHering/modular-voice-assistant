@@ -43,6 +43,29 @@ def render_service_control(parent_widget: Any, service_type: str) -> None:
                 st.rerun()
 
 
+def handle_prompting(prompt_box: Any, 
+                     response_box: Any, 
+                     chat_kwargs: dict,
+                     stream: bool) -> str:
+    """
+    Handles prompt interaction.
+    :param prompt_box: Prompt box widget.
+    :param response_box: Response box widget.
+    :param chat_kwargs: Chat keyword arguments.
+    :param stream: Flag declaring whether or not to stream response.
+    """
+    prompt_message = prompt_box.chat_message("user")
+    prompt_message.write(chat_kwargs["prompt"])
+    st.session_state["chat_history"].append({"role": "user", "content": chat_kwargs["prompt"]})
+    new_response = response_box.chat_message("assistant")
+    if stream:
+        response_content = new_response.write_stream(chat_streamed(**chat_kwargs))
+    else:
+        response_content = chat(**chat_kwargs)
+        new_response.write(response_content)
+    st.session_state["chat_history"].append({"role": "assistant", "content": response_content})
+
+
 def main_page_content() -> None:
     """
     Renders main page content.
@@ -62,12 +85,11 @@ def main_page_content() -> None:
     st.divider()
     st.write("##### Flags")
     control_service_columns = st.columns(6)
-    streamed = control_service_columns[0].checkbox("Stream Generation")
-    speech_output = control_service_columns[1].checkbox("Output Speech")
+    stream_response = control_service_columns[0].checkbox("Stream Generation",)
+    output_as_audio = control_service_columns[1].checkbox("Output Speech")
     if not st.session_state["loaded_services"]["Synthesizer"] and speech_output:
         speech_output = False
         st.error("Synthesizer service needs to be loaded.")
-
 
     st.divider()
     st.write("##### Chat")
@@ -75,55 +97,42 @@ def main_page_content() -> None:
         message_box = st.chat_message(message["role"])
         message_box.write(message["content"])
     prompt_box = st.empty()
-    new_response_box = st.empty()
-
+    response_box = st.empty()
     interaction_columns = st.columns([.8, .2])
+
     # text input
     active_worker = st.session_state["loaded_services"]["Chat"]
     prompt = interaction_columns[0].chat_input("🖊️ Write something")
     if prompt:
         if active_worker:
-            prompt_message = prompt_box.chat_message("user")
-            prompt_message.write(prompt)
-            st.session_state["chat_history"].append({"role": "user", "content": prompt})
-            new_response = new_response_box.chat_message("assistant")
             chat_kwargs = {
                 "prompt": prompt,
-                "output_as_audio": speech_output
+                "output_as_audio": output_as_audio
             }
-            if streamed:
-                response_content = new_response.write_stream(chat_streamed(**chat_kwargs))
-            else:
-                response_content = chat(**chat_kwargs)
-                new_response.write(response_content)
-            st.session_state["chat_history"].append({"role": "assistant", "content": response_content})
+            handle_prompting(prompt_box=prompt_box,
+                             response_box=response_box,
+                             chat_kwargs=chat_kwargs,
+                             stream=stream_response)
         else:
             st.error("Chat service needs to be loaded.")
+
     # speech input
     active_transcriber = st.session_state["loaded_services"]["Transcriber"]
-
     voice_input = interaction_columns[1].button("🎙️ Say something")
     if voice_input:
         if active_transcriber is not None:
-            prompt_message = prompt_box.chat_message("user")
             prompt = record_and_transcribe_speech()
-            st.session_state["chat_history"].append({"role": "user", "content": prompt})
-            new_response = new_response_box.chat_message("assistant")
             chat_kwargs = {
                 "prompt": prompt,
-                "output_as_audio": speech_output
+                "output_as_audio": output_as_audio
             }
-            prompt_message.write(prompt)
-            response_content = chat(**chat_kwargs)
-            new_response.write(response_content)
-            st.session_state["chat_history"].append({"role": "assistant", "content": response_content})
+            handle_prompting(prompt_box=prompt_box,
+                             response_box=response_box,
+                             chat_kwargs=chat_kwargs,
+                             stream=stream_response)
         else:
             st.error("Transcriber service needs to be loaded.")
-
-
-    
-
-
+            
 
 ###################
 # Entrypoint
