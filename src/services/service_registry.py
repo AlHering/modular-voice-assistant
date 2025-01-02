@@ -14,7 +14,7 @@ import uvicorn
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi import FastAPI, APIRouter
-from asyncio import sleep as async_sleep
+from asyncio import sleep as async_sleep, run as async_run
 from queue import Empty
 import traceback
 from typing import List, Dict, Generator
@@ -328,6 +328,14 @@ class ServiceRegistry(object):
         else:
             results = [self.database.obj_as_dict(entry) for entry in self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service]])])]
         return BaseResponse(status="success", results=results)
+    
+    def __del__(self) -> None:
+        """
+        Deconstructs instance.
+        """
+        for service in self.service_uuids:
+            if self.service_uuids[service] is not None:
+                async_run(self.stop_service(service))
 
 
 """
