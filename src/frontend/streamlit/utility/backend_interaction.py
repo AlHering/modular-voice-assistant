@@ -200,7 +200,7 @@ def record_and_transcribe_speech() -> str:
         return st.session_state["CLIENT"].record_and_transcribe_speech()[0]
 
 
-def synthesize_and_output_speech(self, text: str) -> None:
+def synthesize_and_output_speech(text: str) -> None:
     """
     Synthesizes and outputs speech.
     :param text: Text input.

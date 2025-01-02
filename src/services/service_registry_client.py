@@ -242,5 +242,5 @@ class VoiceAssistantClient(ServiceRegistryClient):
                 input_package=input_package
             )
             if response and output_as_audio:
-                self.synthesize_and_output_speech(text=response)
+                self.synthesize_and_output_speech(text=response["content"])
             yield response["content"], response["metadata_stack"][-1] 
