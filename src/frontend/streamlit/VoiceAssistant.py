@@ -87,8 +87,8 @@ def main_page_content() -> None:
     control_service_columns = st.columns(6)
     stream_response = control_service_columns[0].checkbox("Stream Generation",)
     output_as_audio = control_service_columns[1].checkbox("Output Speech")
-    if not st.session_state["loaded_services"]["Synthesizer"] and speech_output:
-        speech_output = False
+    if not st.session_state["loaded_services"]["Synthesizer"] and output_as_audio:
+        output_as_audio = False
         st.error("Synthesizer service needs to be loaded.")
 
     st.divider()
@@ -132,7 +132,7 @@ def main_page_content() -> None:
                              stream=stream_response)
         else:
             st.error("Transcriber service needs to be loaded.")
-            
+
 
 ###################
 # Entrypoint
