@@ -39,7 +39,7 @@ def render_service_control(parent_widget: Any, service_type: str) -> None:
                     st.session_state["loaded_services"][service_type] = st.session_state[f"active_{service_type}"]
                     st.rerun()
         elif st.session_state["loaded_services"][service_type] is not None:
-            if not "error" in unload_service(service_type=service_type, config_uuid=st.session_state[f"active_{service_type}"]):
+            if not "error" in unload_service(service_type=service_type):
                 st.session_state["loaded_services"][service_type] = None
                 st.rerun()
 
@@ -79,18 +79,34 @@ def main_page_content() -> None:
             for service_type in AVAILABLE_SERVICES
         }
     
+    service_buttons = st.columns(6)
+    if service_buttons[0].button("Load all..."):
+        for service_type in st.session_state["available_services"]:
+            with st.spinner(f"Loading {service_type} service..."):
+                target_uuid = st.session_state["available_services"][service_type][1]
+                if not "error" in load_service(service_type=service_type, config_uuid=target_uuid):
+                    st.session_state["loaded_services"][service_type] = target_uuid
+                    del st.session_state[f"active_{service_type}"]
+        st.rerun()
+    if service_buttons[1].button("Unload all..."):
+        for service_type in st.session_state["loaded_services"]:
+            if st.session_state["loaded_services"][service_type] is not None:
+                with st.spinner(f"Unloading {service_type} service..."):
+                    if not "error" in unload_service(service_type=service_type):
+                        st.session_state["loaded_services"][service_type] = None
+                        del st.session_state[f"active_{service_type}"]
+        st.rerun()
     upper_service_columns = st.columns(3)
     for service_index, service_type in enumerate([key for key in AVAILABLE_SERVICES]):
         render_service_control(parent_widget=upper_service_columns[service_index], service_type=service_type)
         
     st.divider()
-    st.write("##### Flags")
-    control_service_columns = st.columns(6)
-    stream_response = control_service_columns[0].checkbox("Stream Generation",)
-    output_as_audio = control_service_columns[1].checkbox("Output Speech")
-    if control_service_columns[2].button("Interrupt"):
+    chat_flag_columns = st.columns(6)
+    stream_response = chat_flag_columns[0].checkbox("Stream Generation",)
+    output_as_audio = chat_flag_columns[1].checkbox("Output Speech")
+    if chat_flag_columns[2].button("Interrupt"):
         _ = requests.post(st.session_state["API_BASE"] + "/interrupt")
-    if control_service_columns[3].button("Clear Chat"):
+    if chat_flag_columns[3].button("Clear Chat"):
         st.session_state["chat_history"] = []
         if st.session_state["loaded_services"]["Chat"]:
             with st.spinner("Resetting service..."):
