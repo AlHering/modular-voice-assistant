@@ -9,13 +9,11 @@ import os
 from typing import List, Tuple, Any, Generator, Dict
 import traceback
 import streamlit as st
-import numpy as np
 from inspect import getfullargspec
 from uuid import UUID
 from src.services.services import TranscriberService, ChatService, SynthesizerService, Service
 from src.services.services import Transcriber, Synthesizer
-from src.services.abstractions.sound_model_abstractions import SpeechRecorder, AudioPlayer
-from src.services.service_registry_client import ServiceRegistryClient, ServicePackage
+from src.services.service_registry_client import ServiceRegistryClient
 from src.configuration import configuration as cfg
 
 AVAILABLE_SERVICES: Dict[str, Service] = {
@@ -71,8 +69,6 @@ def setup() -> None:
     """
     st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
     st.session_state["CLIENT"] = ServiceRegistryClient(api_base=st.session_state["API_BASE"])
-    st.session_state["SPEECH_RECORDER"] = SpeechRecorder()
-    st.session_state["AUDIO_PLAYER"] = AudioPlayer(backend="pyaudio")
 
 
 def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:
@@ -95,25 +91,6 @@ def fetch_default_config() -> dict:
     :return: Config.
     """
     return cfg.DEFAULT_COMPONENT_CONFIG
-
-
-def record_and_transcribe_speech() -> str:
-    """
-    Records and transcribes a speech input.
-    """
-    audio_input, metadata = st.session_state["SPEECH_RECORDER"].record_single_input()
-    return transcribe(audio_input=audio_input, transcription_parameters=metadata)
-
-
-def output_audio_for_text(text: str) -> None:
-    """
-    Synthesizes and outputs audio.
-    :param text: Text input.
-    """
-    audio_input, playback_parameters = synthesize(text=text)
-    return st.session_state["AUDIO_PLAYER"].play(
-        audio_input=audio_input, 
-        playback_parameters=playback_parameters)
 
 
 """
@@ -216,84 +193,43 @@ def reset_service(service_type: str,
     return st.session_state["CLIENT"].reset_service(service=service_type, config_uuid=config_uuid)
 
 
-def transcribe(audio_input: np.ndarray, 
-              transcription_parameters: dict | None = None) -> str:
-    """
-    Fetches transcription response from st.session_state["CLIENT"] interface.
-    :param audio_input: Audio input.
-    :param transcription_parameters: Transcription parameters.
-    :return: Output text.
-    """
-    kwargs = {"content": audio_input.tolist()}
-    kwargs["metadata_stack"] = [{}] if transcription_parameters is None else [transcription_parameters]
-    kwargs["metadata_stack"][-1]["dtype"] = audio_input.dtype
-    return st.session_state["CLIENT"].process(
-        service="Transcriber", 
-        input_package=ServicePackage(**kwargs)
-        ).get("content", "")
+def record_and_transcribe_speech() -> str:
+        """
+        Records and transcribes a speech input.
+        """
+        return st.session_state["CLIENT"].record_and_transcribe_speech()[0]
 
 
-def synthesize(text: str, 
-              synthesis_parameters: dict | None = None) -> Tuple[np.ndarray, dict]:
+def synthesize_and_output_speech(self, text: str) -> None:
     """
-    Fetches synthesis response from st.session_state["CLIENT"] interface.
+    Synthesizes and outputs speech.
     :param text: Text input.
-    :param synthesis_parameters: Synthesis parameters.
-    :return: Output file path and metadata.
     """
-    kwargs = {"content": text}
-    if synthesis_parameters:
-        kwargs["metadata_stack"] = [synthesis_parameters]
-    response_package = st.session_state["CLIENT"].process(
-        service="Synthesizer", 
-        input_package=ServicePackage(**kwargs)
-        )
-    return response_package["content"], response_package["metadata_stack"][-1]
+    st.session_state["CLIENT"].synthesize_and_output_speech(text=text)
 
 
 def chat(prompt: str, 
-         chat_parameters: dict | None = None,
          output_as_audio: bool = False) -> str:
     """
     Fetches chat response from st.session_state["CLIENT"] interface.
     :param prompt: User prompt.
-    :param chat_parameters: Chat parameters.
     :param output_as_audio: Outputting response as audio.
     :return: Chat response.
     """
-    kwargs = {"content": prompt}
-    if chat_parameters:
-        kwargs["metadata_stack"] = [chat_parameters]
-    response = st.session_state["CLIENT"].process(
-        service="Chat", 
-        input_package=ServicePackage(**kwargs)
-        ).get("content", "")
-    if response and output_as_audio:
-        output_audio_for_text(text=response)
-    return response
+    for response in st.session_state["CLIENT"].chat(prompt=prompt, output_as_audio=output_as_audio):
+        return response[0]
         
 
 def chat_streamed(prompt: str, 
-                  chat_parameters: dict | None = None,
                   output_as_audio: bool = False) -> Generator[str, None, None]:
     """
     Fetches streamed chat response from st.session_state["CLIENT"] interface.
     :param prompt: User prompt.
-    :param chat_parameters: Chat parameters.
     :param output_as_audio: Outputting response as audio.
     :return: Chat response generator.
     """
-    kwargs = {"content": prompt}
-    kwargs["metadata_stack"] = [{"chat_parameters": {} if chat_parameters is None else chat_parameters}]
-    kwargs["metadata_stack"][0]["chat_parameters"]["stream"] = True
-    for response in st.session_state["CLIENT"].stream(
-        service="Chat", 
-        input_package=ServicePackage(**kwargs)
-        ):
-        response_chunk = response.get("content", "") 
-        if response_chunk and output_as_audio:
-            output_audio_for_text(text=response_chunk)
-        yield response_chunk
+    for response in st.session_state["CLIENT"].chat(prompt=prompt, output_as_audio=output_as_audio):
+        yield response
 
 
 """
