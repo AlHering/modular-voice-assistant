@@ -116,6 +116,7 @@ def main_page_content() -> None:
             prompt_message.write(prompt)
             response_content = chat(**chat_kwargs)
             new_response.write(response_content)
+            st.session_state["chat_history"].append({"role": "assistant", "content": response_content})
         else:
             st.error("Transcriber service needs to be loaded.")
 
