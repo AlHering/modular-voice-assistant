@@ -9,6 +9,7 @@ import os
 from typing import List, Tuple, Any, Generator, Dict
 import traceback
 import streamlit as st
+import numpy as np
 from inspect import getfullargspec
 from uuid import UUID
 from src.services.services import TranscriberService, ChatService, SynthesizerService, Service
@@ -94,6 +95,14 @@ def fetch_default_config() -> dict:
     :return: Config.
     """
     return cfg.DEFAULT_COMPONENT_CONFIG
+
+
+def record_speech() -> 
+
+
+"""
+API based interaction
+"""
 
 
 def flatten_config(config: dict) -> None:
@@ -193,12 +202,47 @@ def reset_service(service_type: str,
     return st.session_state["CLIENT"].reset_service(service=service_type, config_uuid=config_uuid)
 
 
+def transcribe(audio_input: np.ndarray, 
+              transcription_parameters: dict | None = None) -> str:
+    """
+    Fetches transcription response from st.session_state["CLIENT"] interface.
+    :param audio_input: Audio input.
+    :param transcription_parameters: Transcription parameters.
+    :return: Output text.
+    """
+    kwargs = {"content": audio_input.tolist()}
+    kwargs["metadata_stack"] = [{}] if transcription_parameters is None else [transcription_parameters]
+    kwargs["metadata_stack"][-1]["dtype"] = audio_input.dtype
+    return st.session_state["CLIENT"].process(
+        service="Transcriber", 
+        input_package=ServicePackage(**kwargs)
+        ).get("content", "")
+
+
+def synthesize(text: str, 
+              synthesis_parameters: dict | None = None) -> Tuple[np.ndarray, dict]:
+    """
+    Fetches synthesis response from st.session_state["CLIENT"] interface.
+    :param text: Text input.
+    :param synthesis_parameters: Synthesis parameters.
+    :return: Output file path and metadata.
+    """
+    kwargs = {"content": text}
+    if synthesis_parameters:
+        kwargs["metadata_stack"] = [synthesis_parameters]
+    return st.session_state["CLIENT"].process(
+        service="Synthesizer", 
+        input_package=ServicePackage(**kwargs)
+        ).get("content", "")
+
+
 def chat(prompt: str, 
          chat_parameters: dict | None = None) -> str:
     """
     Fetches chat response from st.session_state["CLIENT"] interface.
     :param prompt: User prompt.
     :param chat_parameters: Chat parameters.
+    :return: Chat response.
     """
     kwargs = {"content": prompt}
     if chat_parameters:
@@ -208,12 +252,14 @@ def chat(prompt: str,
         input_package=ServicePackage(**kwargs)
         ).get("content", "")
         
+
 def chat_streamed(prompt: str, 
                   chat_parameters: dict | None = None) -> Generator[str, None, None]:
     """
     Fetches streamed chat response from st.session_state["CLIENT"] interface.
     :param prompt: User prompt.
     :param chat_parameters: Chat parameters.
+    :return: Chat response generator.
     """
     kwargs = {"content": prompt}
     kwargs["metadata_stack"] = [{"chat_parameters": {} if chat_parameters is None else chat_parameters}]

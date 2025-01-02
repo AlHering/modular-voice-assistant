@@ -228,4 +228,4 @@ class SynthesizerService(Service):
                     prompt=input_package.content,
                     chat_parameters=input_package.metadata_stack[-1].get("chat_parameters"))
             self.log_info(f"Received response\n'{result[0]}'.") 
-            yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
+            yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0].tolist(), metadata_stack=input_package.metadata_stack + [result[1]] + [{"dtype": str(result[0].dtype)}])

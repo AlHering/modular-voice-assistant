@@ -65,13 +65,15 @@ class Transcriber(object):
             "whisper": transcribe_with_whisper
         }[self.backend]
 
-    def transcribe(self, audio_input: Union[str, list], transcription_parameters: dict | None = None) -> Tuple[str, dict]:
+    def transcribe(self, audio_input: Union[str, list, np.ndarray], transcription_parameters: dict | None = None) -> Tuple[str, dict]:
         """
         Transcribes audio to text.
         :param audio_input: Wave file path or waveform.
         :param transcription_parameters: Transcription parameters as dictionary.
             Defaults to None.
         """
+        if transcription_parameters and "dtype" in transcription_parameters and isinstance(audio_input, list):
+            audio_input = np.array(audio_input, dtype=transcription_parameters["dtype"])
         return self.transcription_function(
             audio_input=audio_input,
             model=self.model,
