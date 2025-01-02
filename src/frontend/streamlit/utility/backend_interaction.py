@@ -97,20 +97,20 @@ def fetch_default_config() -> dict:
     return cfg.DEFAULT_COMPONENT_CONFIG
 
 
-def record_speech() -> Tuple[np.ndarray, dict]:
+def record_and_transcribe_speech() -> str:
     """
-    Records a speech input.
+    Records and transcribes a speech input.
     """
-    return st.session_state["SPEECH_RECORDER"].record_single_input()
+    audio_input, metadata = st.session_state["SPEECH_RECORDER"].record_single_input()
+    return transcribe(audio_input=audio_input, transcription_parameters=metadata)
 
 
-def output_audio(audio_input: np.ndarray, 
-                 playback_parameters: dict) -> None:
+def output_audio_for_text(text: str) -> None:
     """
-    Outputs audio.
-    :param audio_input: Audio input.
-    :param playback_parameters: Playback parameters.
+    Synthesizes and outputs audio.
+    :param text: Text input.
     """
+    audio_input, playback_parameters = synthesize(text=text)
     return st.session_state["AUDIO_PLAYER"].play(
         audio_input=audio_input, 
         playback_parameters=playback_parameters)
@@ -244,10 +244,11 @@ def synthesize(text: str,
     kwargs = {"content": text}
     if synthesis_parameters:
         kwargs["metadata_stack"] = [synthesis_parameters]
-    return st.session_state["CLIENT"].process(
+    response_package = st.session_state["CLIENT"].process(
         service="Synthesizer", 
         input_package=ServicePackage(**kwargs)
-        ).get("content", "")
+        )
+    return response_package["content"], response_package["metadata_stack"][-1]
 
 
 def chat(prompt: str, 
