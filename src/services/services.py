@@ -61,20 +61,21 @@ class TranscriberService(Service):
         """
         if not self.pause.is_set():
             input_package: ServicePackage = self.input_queue.get(block=True)
-            self.add_uuid(self.received, input_package.uuid)
-            if not isinstance(input_package.content, np.ndarray):
-                input_content = np.array(input_package.content, input_package.metadata_stack[-1].get("dtype"))
-                self.log_info(f"Received input:\n'Numpy Array of shape {input_content.shape}'")
-            else:
-                input_content = input_package.content
-                self.log_info(f"Received input:\n'{input_content}'")
-            self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
-                
-            result = self.cache["transcriber"].transcribe(
-                audio_input=input_content,
-                transcription_parameters=input_package.metadata_stack[-1].get("transcription_parameters"))
-            self.log_info(f"Received response\n'{result[0]}'.")             
-            yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
+            if isinstance(input_package, ServicePackage):
+                self.add_uuid(self.received, input_package.uuid)
+                if not isinstance(input_package.content, np.ndarray):
+                    input_content = np.array(input_package.content, input_package.metadata_stack[-1].get("dtype"))
+                    self.log_info(f"Received input:\n'Numpy Array of shape {input_content.shape}'")
+                else:
+                    input_content = input_package.content
+                    self.log_info(f"Received input:\n'{input_content}'")
+                self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
+                    
+                result = self.cache["transcriber"].transcribe(
+                    audio_input=input_content,
+                    transcription_parameters=input_package.metadata_stack[-1].get("transcription_parameters"))
+                self.log_info(f"Received response\n'{result[0]}'.")             
+                yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
 
 
 class ChatService(Service):
