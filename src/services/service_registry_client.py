@@ -10,7 +10,7 @@ from typing import Generator
 import requests
 from uuid import UUID
 import json
-from src.services.service_abstractions import ServicePackage
+from src.services.abstractions.service_abstractions import ServicePackage
 from src.services.service_registry import BaseResponse, ServicePackage, Endpoints
 
 

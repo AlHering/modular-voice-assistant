@@ -24,7 +24,7 @@ from uuid import UUID
 from functools import wraps
 import logging
 from src.services.services import TranscriberService, ChatService, SynthesizerService
-from src.services.service_abstractions import Service, ServicePackage, EndOfStreamPackage
+from src.services.abstractions.service_abstractions import Service, ServicePackage, EndOfStreamPackage
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
 from src.configuration import configuration as cfg

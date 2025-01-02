@@ -14,7 +14,7 @@ from inspect import getfullargspec
 from uuid import UUID
 from src.services.services import TranscriberService, ChatService, SynthesizerService, Service
 from src.services.services import Transcriber, Synthesizer
-from src.services.sound_model_abstractions import SpeechRecorder, AudioPlayer
+from src.services.abstractions.sound_model_abstractions import SpeechRecorder, AudioPlayer
 from src.services.service_registry_client import ServiceRegistryClient, ServicePackage
 from src.configuration import configuration as cfg
 
