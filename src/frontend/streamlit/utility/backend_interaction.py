@@ -219,7 +219,6 @@ def chat_streamed(prompt: str,
         service="Chat", 
         input_package=ServicePackage(**kwargs)
         ):
-        print(response.get("content", "") )
         yield response.get("content", "") 
 
 

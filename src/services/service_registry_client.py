@@ -104,7 +104,6 @@ class ServiceRegistryClient(object):
                 if accumulated.endswith("}"):
                     try:
                         json_chunk = json.loads(accumulated)
-                        print(json_chunk)
                         yield json_chunk
                         accumulated = ""
                     except json.JSONDecodeError:
