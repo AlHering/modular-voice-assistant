@@ -52,6 +52,15 @@ class EndOfStreamPackage(BaseModel):
     metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
 
 
+class InterruptPackage(BaseModel):
+    """
+    Interrupt service package for exchanging data between services.
+    """
+    uuid: str = Field(default_factory=create_uuid)
+    content: None = None
+    metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
+
+
 class Service(object):
     """
     Service.
@@ -127,7 +136,6 @@ class Service(object):
         """
         while not queue.empty():
             queue.get_nowait()
-        queue.notify_all()
 
     def flush_inputs(self) -> None:
         """
@@ -186,6 +194,7 @@ class Service(object):
         self.log_info(text="Stopping process.")
         self.pause.set()
         self.interrupt.set()
+        self.input_queue.put(InterruptPackage())
         self.flush_inputs()
         self.flush_outputs()
         self.log_info(text="Stopping workers.")
