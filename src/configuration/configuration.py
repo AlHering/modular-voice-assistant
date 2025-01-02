@@ -116,17 +116,6 @@ DEFAULT_VOICE_ASSISTANT = {
     "forward_logging": True
 }
 
-DEFAULT_COMPONENT_CONFIG = {
-    "use_remote_llm": False,
-    "download_model_files": False,
-    "speech_recorder": {},
-    "transcriber": DEFAULT_TRANSCRIBER,
-    "chat": DEFAULT_CHAT,
-    "synthesizer": DEFAULT_SYNTHESIZER,
-    "audio_player": DEFAULT_AUDIO_PLAYER,
-    "voice_assistant": DEFAULT_VOICE_ASSISTANT
-}
-
 
 """
 Others
