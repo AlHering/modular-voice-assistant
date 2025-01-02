@@ -8,6 +8,7 @@
 from __future__ import annotations
 import numpy as np
 from typing import Generator, Tuple
+from multiprocessing import Queue, Event
 import requests
 from uuid import UUID
 import json
@@ -169,6 +170,13 @@ class VoiceAssistantClient(ServiceRegistryClient):
         super().__init__(api_base=api_base)
         self.speech_recorder = SpeechRecorder(**cfg.DEFAULT_SPEECH_RECORDER if speech_recorder_parameters is None else speech_recorder_parameters)
         self.audio_player = AudioPlayer(**cfg.DEFAULT_AUDIO_PLAYER if audio_player_parameters is None else audio_player_parameters)
+        self.audio_input_queue = Queue()
+        self.audio_stop_event = Event()
+        self.audio_thread = self.audio_player.spawn_output_thread(
+            input_queue=self.audio_input_queue,
+            stop_event=self.audio_stop_event,
+            loop_pause=0.4
+        )
 
     def transcribe(self, audio_input: np.ndarray) -> Tuple[str, dict]:
         """
@@ -210,8 +218,7 @@ class VoiceAssistantClient(ServiceRegistryClient):
         :param text: Text input.
         """
         audio_input, playback_parameters = self.synthesize(text=text)
-        self.audio_player.play(audio_input=audio_input, 
-                               playback_parameters=playback_parameters)
+        self.audio_input_queue.put((audio_input, playback_parameters))
     
     def chat(self,
              prompt: str, 
@@ -225,18 +232,16 @@ class VoiceAssistantClient(ServiceRegistryClient):
         :return: Chat response.
         """
         input_package = ServicePackage(content=prompt)
+        input_package.metadata_stack[-1]["chat_parameters"] = {"stream": stream}
+
         if stream:
-            input_package.metadata_stack[-1]["chat_parameters"] = {"stream": True}
-            for response in self.stream(
-                service="Chat", 
-                input_package=input_package
-                ):
+            for response in self.stream(service="Chat", 
+                                        input_package=input_package):
                 response_chunk = response.get("content", "") 
                 if response_chunk and output_as_audio:
                     self.synthesize_and_output_speech(text=response_chunk)
                 yield response_chunk, response["metadata_stack"][-1] 
         else:
-            input_package.metadata_stack[-1]["chat_parameters"] = {"stream": False}
             response = self.process(
                 service="Chat", 
                 input_package=input_package
@@ -244,3 +249,10 @@ class VoiceAssistantClient(ServiceRegistryClient):
             if response and output_as_audio:
                 self.synthesize_and_output_speech(text=response["content"])
             yield response["content"], response["metadata_stack"][-1] 
+
+    def __del__(self) -> None:
+        """
+        Deconstructs instance.
+        """
+        self.audio_stop_event.set()
+        self.audio_thread.join()
