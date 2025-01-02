@@ -195,7 +195,7 @@ class VoiceAssistantClient(ServiceRegistryClient):
             service="Synthesizer", 
             input_package=ServicePackage(content=text)
             )
-        return result["content"], result["metadata_stack"][-1]
+        return np.array(result["content"], dtype=result["metadata_stack"][-1].pop("dtype")), result["metadata_stack"][-1]
 
     def record_and_transcribe_speech(self) -> str:
         """
