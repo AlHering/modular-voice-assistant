@@ -11,8 +11,8 @@ import numpy as np
 import requests
 from src.configuration import configuration as cfg
 from src.services.service_abstractions import Service, ServicePackage, EndOfStreamPackage
-from src.utility.sound_model_abstractions import Transcriber, Synthesizer
-from src.utility.language_model_abstractions import LanguageModelInstance, ChatModelInstance, RemoteChatModelInstance
+from src.services.sound_model_abstractions import Transcriber, Synthesizer
+from src.services.language_model_abstractions import LanguageModelInstance, ChatModelInstance, RemoteChatModelInstance
 
 
 class TranscriberService(Service):
