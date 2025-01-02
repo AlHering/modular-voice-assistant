@@ -107,6 +107,8 @@ def main_page_content() -> None:
         if active_transcriber is not None:
             prompt_message = prompt_box.chat_message("user")
             prompt = record_and_transcribe_speech()
+            st.session_state["chat_history"].append({"role": "user", "content": prompt})
+            new_response = new_response_box.chat_message("assistant")
             chat_kwargs = {
                 "prompt": prompt,
                 "output_as_audio": speech_output
