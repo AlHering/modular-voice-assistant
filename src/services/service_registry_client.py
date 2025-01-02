@@ -178,7 +178,7 @@ class VoiceAssistantClient(ServiceRegistryClient):
         :return: Output text and process metadata.
         """
         input_package = ServicePackage(content=audio_input.tolist())
-        input_package.metadata_stack[-1]["dtype"] = audio_input.dtype
+        input_package.metadata_stack[-1]["dtype"] = str(audio_input.dtype)
         result = self.process(
             service="Transcriber", 
             input_package=input_package
