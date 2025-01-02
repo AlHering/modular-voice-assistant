@@ -72,7 +72,7 @@ def setup() -> None:
     st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
     st.session_state["CLIENT"] = ServiceRegistryClient(api_base=st.session_state["API_BASE"])
     st.session_state["SPEECH_RECORDER"] = SpeechRecorder()
-    st.session_state["AUDIO_PLAYER"] = AudioPlayer()
+    st.session_state["AUDIO_PLAYER"] = AudioPlayer(backend="pyaudio")
 
 
 def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:
@@ -97,14 +97,28 @@ def fetch_default_config() -> dict:
     return cfg.DEFAULT_COMPONENT_CONFIG
 
 
-def record_speech() -> 
+def record_speech() -> Tuple[np.ndarray, dict]:
+    """
+    Records a speech input.
+    """
+    return st.session_state["SPEECH_RECORDER"].record_single_input()
+
+
+def output_audio(audio_input: np.ndarray, 
+                 playback_parameters: dict) -> None:
+    """
+    Outputs audio.
+    :param audio_input: Audio input.
+    :param playback_parameters: Playback parameters.
+    """
+    return st.session_state["AUDIO_PLAYER"].play(
+        audio_input=audio_input, 
+        playback_parameters=playback_parameters)
 
 
 """
 API based interaction
 """
-
-
 def flatten_config(config: dict) -> None:
     """
     Flattens config for further usage.
