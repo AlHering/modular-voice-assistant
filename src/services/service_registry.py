@@ -236,9 +236,9 @@ class ServiceRegistry(object):
             while not service.setup_flag:
                 await asyncio.sleep(.5)
             self.service_uuids[service.name] = config_uuid
-            return BaseResponse(status="success", results=[{"service": service, "config_uuid": config_uuid}])
+            return BaseResponse(status="success", results=[{"service": service.name, "config_uuid": config_uuid}])
         except Exception as ex:
-            return BaseResponse(status="error", results=[{"service": service, "config_uuid": config_uuid}], metadata={
+            return BaseResponse(status="error", results=[{"service": service.name, "config_uuid": config_uuid}], metadata={
                 "error": str(ex), "trace": traceback.format_exc()
             })
     
@@ -253,9 +253,9 @@ class ServiceRegistry(object):
         try:
             service.reset()
             self.service_uuids[service.name] = None
-            return BaseResponse(status="success", results=[{"service": service}])
+            return BaseResponse(status="success", results=[{"service": service.name}])
         except Exception as ex:
-            return BaseResponse(status="error", results=[{"service": service}], metadata={
+            return BaseResponse(status="error", results=[{"service": service.name}], metadata={
                 "error": str(ex), "trace": traceback.format_exc()
             })
     
