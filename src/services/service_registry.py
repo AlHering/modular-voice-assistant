@@ -113,6 +113,7 @@ class Endpoints(str, Enum):
     """
     Endpoints config.
     """
+    interrupt = "interrupt"
     services_get = "/service/get"
     service_process = "/service/process"
     service_stream = "/service/stream"
@@ -157,8 +158,8 @@ class ServiceRegistry(object):
         """
         self.router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
         self.router.add_api_route(path="/service/get", endpoint=self.get_services, methods=["GET"])
-        self.router.add_api_route(path="/service/process", endpoint=self.process, methods=["POST"])
         self.router.add_api_route(path="/interrupt", endpoint=self.process, methods=["POST"])
+        self.router.add_api_route(path="/service/process", endpoint=self.process, methods=["POST"])
         self.router.add_api_route(path="/service/stream", endpoint=self.process_as_stream, methods=["POST"])
         self.router.add_api_route(path="/service/run", endpoint=self.setup_and_run_service, methods=["POST"])
         self.router.add_api_route(path="/service/reset", endpoint=self.reset_service, methods=["POST"])
