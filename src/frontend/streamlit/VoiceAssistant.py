@@ -8,6 +8,7 @@
 from typing import Any
 import streamlit as st
 from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, unload_service, get_configs, chat, chat_streamed, load_service, get_loaded_service
+from src.frontend.streamlit.utility.backend_interaction import record_and_transcribe_speech
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 
 
@@ -63,6 +64,10 @@ def main_page_content() -> None:
     control_service_columns = st.columns(6)
     streamed = control_service_columns[0].checkbox("Stream Generation")
     speech_output = control_service_columns[1].checkbox("Output Speech")
+    if not st.session_state["loaded_services"]["Synthesizer"] and speech_output:
+        speech_output = False
+        st.error("Synthesizer service needs to be loaded.")
+
 
     st.divider()
     st.write("##### Chat")
@@ -83,7 +88,8 @@ def main_page_content() -> None:
             st.session_state["chat_history"].append({"role": "user", "content": prompt})
             new_response = new_response_box.chat_message("assistant")
             chat_kwargs = {
-                "prompt": prompt
+                "prompt": prompt,
+                "output_as_audio": speech_output
             }
             if streamed:
                 response_content = new_response.write_stream(chat_streamed(**chat_kwargs))
@@ -99,7 +105,15 @@ def main_page_content() -> None:
     voice_input = interaction_columns[1].button("🎙️ Say something")
     if voice_input:
         if active_transcriber is not None:
-            pass
+            prompt_message = prompt_box.chat_message("user")
+            prompt = record_and_transcribe_speech()
+            chat_kwargs = {
+                "prompt": prompt,
+                "output_as_audio": speech_output
+            }
+            prompt_message.write(prompt)
+            response_content = chat(**chat_kwargs)
+            new_response.write(response_content)
         else:
             st.error("Transcriber service needs to be loaded.")
 
