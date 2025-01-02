@@ -9,7 +9,7 @@ Under construction.
 - common `configuration/`
 - common `utility/` 
 
-`language-model-server/` contains a decoupled LlamaCPP server, which can be used as is or as docker container, serving language models via an OpenAI-compatible API. It can be utilized for other projects, either using the endpoints or the abstraction `RemoteChatModelInstance` found in `src/backend/voice_assistant/language_model_abstractions.py`.
+`language-model-server/` contains a decoupled LlamaCPP server, which can be used as is or as docker container, serving language models via an OpenAI-compatible API. It can be utilized for other projects, either using the endpoints or the abstraction `RemoteChatModelInstance` found in `src/services/abstractions/language_model_abstractions.py`.
 
 ### Top level files and folders
 - `cpu.Dockerfile` can be used to build a CPU-based docker container (currently untested)
