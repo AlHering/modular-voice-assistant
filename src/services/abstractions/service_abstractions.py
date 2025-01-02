@@ -207,10 +207,10 @@ class Service(object):
                 self.process.terminate() 
                 self.process.join(.5) 
         self.setup_flag = False
+        self.pause.clear()
+        self.interrupt.clear()
         if restart_thread or restart_process:
             self.log_info(text="Restarting...")
-            self.pause.clear()
-            self.interrupt.clear()
             if restart_thread:
                 self.to_thread()
                 self.thread.start()
