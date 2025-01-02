@@ -227,8 +227,6 @@ def chat_streamed(prompt: str,
 """
 Parameter dict creation
 """
-
-
 def retrieve_type(input_type: Any) -> Any:
     """
     Retrieves type of input.
