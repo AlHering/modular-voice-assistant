@@ -34,6 +34,12 @@ class ServiceRegistryClient(object):
     """
     Service interaction
     """
+    def interrupt(self) -> dict:
+        """
+        Interrupts services.
+        """
+        return requests.post(self.api_base + Endpoints.interrupt).json()
+    
     def get_services(self) -> dict:
         """
         Responds available services.
@@ -178,6 +184,25 @@ class VoiceAssistantClient(ServiceRegistryClient):
             stop_event=self.audio_stop_event,
             loop_pause=0.4
         )
+
+    def interrupt(self) -> dict:
+        """
+        Interrupts services.
+        """
+        self.audio_stop_event.set()
+        while not self.audio_input_queue.empty():
+            self.audio_input_queue.get_nowait() 
+        self.audio_input_queue.put((np.array([]), {}))
+        self.audio_thread.join()
+        self.audio_input_queue = Queue()
+        self.audio_stop_event = Event()
+        self.audio_thread = self.audio_player.spawn_output_thread(
+            input_queue=self.audio_input_queue,
+            stop_event=self.audio_stop_event,
+            loop_pause=0.4
+        )
+        return requests.post(self.api_base + Endpoints.interrupt).json()
+
 
     def transcribe(self, audio_input: np.ndarray) -> Tuple[str, dict]:
         """
