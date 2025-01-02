@@ -7,8 +7,9 @@
 """
 from typing import Any
 import streamlit as st
+import requests
 from src.frontend.streamlit.utility.backend_interaction import AVAILABLE_SERVICES, unload_service, get_configs, chat, chat_streamed, load_service, get_loaded_service
-from src.frontend.streamlit.utility.backend_interaction import record_and_transcribe_speech
+from src.frontend.streamlit.utility.backend_interaction import record_and_transcribe_speech, reset_service
 from src.frontend.streamlit.utility.frontend_rendering import render_sidebar
 
 
@@ -87,6 +88,13 @@ def main_page_content() -> None:
     control_service_columns = st.columns(6)
     stream_response = control_service_columns[0].checkbox("Stream Generation",)
     output_as_audio = control_service_columns[1].checkbox("Output Speech")
+    if control_service_columns[2].button("Interrupt"):
+        _ = requests.post(st.session_state["API_BASE"] + "/interrupt")
+    if control_service_columns[3].button("Clear Chat"):
+        st.session_state["chat_history"] = []
+        if st.session_state["loaded_services"]["Chat"]:
+            with st.spinner("Resetting service..."):
+                reset_service("Chat", st.session_state["loaded_services"]["Chat"])
     if not st.session_state["loaded_services"]["Synthesizer"] and output_as_audio:
         output_as_audio = False
         st.error("Synthesizer service needs to be loaded.")
