@@ -64,10 +64,10 @@ class TranscriberService(Service):
             self.add_uuid(self.received, input_package.uuid)
             if not isinstance(input_package.content, np.ndarray):
                 input_content = np.array(input_package.content, input_package.metadata_stack[-1].get("dtype"))
-                self.log_info(f"Received input:\n'Numpy Array of shape {input_package.content.shape}'")
+                self.log_info(f"Received input:\n'Numpy Array of shape {input_content.shape}'")
             else:
                 input_content = input_package.content
-                self.log_info(f"Received input:\n'{input_package.content}'")
+                self.log_info(f"Received input:\n'{input_content}'")
             self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
                 
             result = self.cache["transcriber"].transcribe(
