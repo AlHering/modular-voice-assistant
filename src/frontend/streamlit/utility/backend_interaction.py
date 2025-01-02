@@ -229,7 +229,7 @@ def chat_streamed(prompt: str,
     :return: Chat response generator.
     """
     for response in st.session_state["CLIENT"].chat(prompt=prompt, stream=True, output_as_audio=output_as_audio):
-        yield response
+        yield response[0]
 
 
 """
