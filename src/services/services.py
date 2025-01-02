@@ -63,6 +63,8 @@ class TranscriberService(Service):
             input_package: ServicePackage = self.input_queue.get(block=True)
             self.add_uuid(self.received, input_package.uuid)
             self.log_info(f"Received input:\n'{input_package.content}'")
+            self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
+            
             if not isinstance(input_package.content, np.ndarray):
                 input_content = np.array(input_package.content, input_package.metadata_stack[-1].get("dtype"))
             else:
@@ -154,6 +156,7 @@ class ChatService(Service):
             input_package: ServicePackage = self.input_queue.get(block=True)
             self.add_uuid(self.received, input_package.uuid)
             self.log_info(f"Received input:\n'{input_package.content}'")
+            self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
 
             streamed = input_package.metadata_stack[-1].get("chat_parameters", {}).get("stream", False)
             if streamed:
@@ -223,6 +226,7 @@ class SynthesizerService(Service):
             input_package: ServicePackage = self.input_queue.get(block=True)
             self.add_uuid(self.received, input_package.uuid)
             self.log_info(f"Received input:\n'{input_package.content}'")
+            self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
             
             result = self.cache["synthesizer"].synthesize(
                     text=input_package.content,
