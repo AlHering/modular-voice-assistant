@@ -5,10 +5,15 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from queue import Queue
+from __future__ import annotations
+from multiprocessing import Queue, Event as MEvent
+from threading import Thread, Event
+from queue import Empty
 import speech_recognition
 from typing import List, Tuple, Union, Dict
 import pyaudio
+import copy
+from src.utility.commandline_utility import silence_stderr
 import numpy as np
 import time
 from src.utility.sounddevice_utility import get_input_devices, get_output_devices
@@ -77,7 +82,7 @@ class Transcriber(object):
         return self.transcription_function(
             audio_input=audio_input,
             model=self.model,
-            transcription_parameters=self.transcription_parameters if transcription_parameters is None else transcription_parameters
+            transcription_parameters=copy.deepcopy(self.transcription_parameters) if transcription_parameters is None else transcription_parameters
         )
 
 
@@ -138,7 +143,7 @@ class Synthesizer(object):
         return self.sound_out_synthesis_functions(
             text=text, 
             model=self.model,
-            synthesis_parameters=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters)
+            synthesis_parameters=copy.deepcopy(self.synthesis_parameters) if synthesis_parameters is None else synthesis_parameters)
 
     def synthesize_to_file(self, text: str, output_path: str, synthesis_parameters: dict | None = None) -> Tuple[str, dict]:
         """
@@ -153,7 +158,7 @@ class Synthesizer(object):
             text=text, 
             output_path=output_path,
             model=self.model,
-            synthesis_parameters=self.synthesis_parameters if synthesis_parameters is None else synthesis_parameters), {}
+            synthesis_parameters=copy.deepcopy(self.synthesis_parameters) if synthesis_parameters is None else synthesis_parameters), {}
         
 
 class SpeechRecorder(object):
@@ -212,8 +217,8 @@ class SpeechRecorder(object):
             Defaults to None in which case default values are used.
         :return: Recorded input as numpy array and recording metadata.
         """
-        recognizer_parameters = self.recognizer_parameters if recognizer_parameters is None else recognizer_parameters
-        microphone_parameters = self.microphone_parameters if microphone_parameters is None else microphone_parameters
+        recognizer_parameters = copy.deepcopy(self.recognizer_parameters) if recognizer_parameters is None else recognizer_parameters
+        microphone_parameters = copy.deepcopy(self.microphone_parameters) if microphone_parameters is None else microphone_parameters
 
         recognizer = speech_recognition.Recognizer()
         for key in recognizer_parameters:
@@ -243,8 +248,8 @@ class SpeechRecorder(object):
         :param interrupt_threshold: Interrupt threshold of silence after which the recording loop stops.
             Defaults to None in which case the loop runs indefinitely.
         """
-        recognizer_parameters = self.recognizer_parameters if recognizer_parameters is None else recognizer_parameters
-        microphone_parameters = self.microphone_parameters if microphone_parameters is None else microphone_parameters
+        recognizer_parameters = copy.deepcopy(self.recognizer_parameters) if recognizer_parameters is None else recognizer_parameters
+        microphone_parameters = copy.deepcopy(self.microphone_parameters) if microphone_parameters is None else microphone_parameters
 
         audio_queue = Queue()
         recognizer = speech_recognition.Recognizer()
@@ -321,7 +326,7 @@ class AudioPlayer(object):
         self.playback_parameters = {} if playback_parameters is None else playback_parameters
 
     def play(self, 
-             audio_input: Union[str, list], 
+             audio_input: Union[str, list, np.ndarray], 
              playback_parameters: dict | None = None) -> None:
         """
         Plays audio.
@@ -329,9 +334,47 @@ class AudioPlayer(object):
         :param playback_parameters: Playback parameters as dictionary.
             Defaults to None.
         """
-        playback_parameters = self.playback_parameters if playback_parameters is None else playback_parameters
+        playback_parameters = copy.deepcopy(self.playback_parameters) if playback_parameters is None else playback_parameters
+        if "dtype" in playback_parameters and isinstance(audio_input, list):
+            audio_input = np.array(audio_input, dtype=playback_parameters.pop("dtype"))
         if self.backend == "pyaudio":
             play_wave(wave=audio_input,
                       stream_kwargs=playback_parameters)
+            
+    def spawn_output_thread(self, 
+                            input_queue: Queue,
+                            stop_event = Event,
+                            loop_pause: float = .1) -> Thread:
+        """
+        Plays audio.
+        :param input_queue: Input queue.
+        :param stop_event: Stop event.
+        :param audio_input: Wave file path or waveform.
+        :param loop_pause: Pause between queue checks.
+        :return: Output thread.
+        """
+        def handle_audio_queue() -> None:
+            pause_event = MEvent()
+            while not stop_event.is_set():
+                if not pause_event.is_set():
+                    try:
+                        input_package = input_queue.get(timeout=loop_pause)
+                        pause_event.set()
+                        if isinstance(input_package, Tuple):
+                            audio_input, playback_parameters = input_package
+                        else:
+                            audio_input = input_package
+                            playback_parameters = None
+                        forwarded_playback_parameters = copy.deepcopy(self.playback_parameters) if playback_parameters is None else playback_parameters
+                        with silence_stderr():
+                            self.play(audio_input=audio_input, playback_parameters=forwarded_playback_parameters)
+                        pause_event.clear()
+                    except Empty:
+                        time.sleep(loop_pause)
+
+        thread = Thread(target=handle_audio_queue)
+        thread.daemon = True
+        thread.start()
+        return thread
         
         
