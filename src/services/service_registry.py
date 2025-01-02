@@ -17,7 +17,7 @@ from fastapi import FastAPI, APIRouter
 from asyncio import sleep as async_sleep
 from queue import Empty
 import traceback
-from typing import List, AsyncGenerator, Dict
+from typing import List, Dict, Generator
 import traceback
 from datetime import datetime as dt
 from uuid import UUID
@@ -258,14 +258,13 @@ class ServiceRegistry(object):
         except Empty:
             return None
 
-    async def stream(self, service_request: ServiceRequest) -> AsyncGenerator[bytes, None]:
+    def stream(self, service_request: ServiceRequest) -> Generator[bytes, None, None]:
         """
         Runs a service process.
         :param service_request: Service request.
         :return: Service package generator.
         """
         service = self.services[service_request.service]
-        input_uuid = service_request.input_package.uuid
         service.input_queue.put(service_request.input_package)
 
         finished = False
@@ -285,7 +284,7 @@ class ServiceRegistry(object):
         :param service_request: Service request.
         :return: Service package response.
         """
-        return StreamingResponse(self.stream(service_request=service_request))
+        return StreamingResponse(self.stream(service_request=service_request), media_type="text/plain")
 
     """
     Config handling
