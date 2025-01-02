@@ -13,6 +13,7 @@ from inspect import getfullargspec
 from uuid import UUID
 from src.services.services import TranscriberService, ChatService, SynthesizerService, Service
 from src.services.services import Transcriber, Synthesizer
+from src.services.sound_model_abstractions import SpeechRecorder, AudioPlayer
 from src.services.service_registry_client import ServiceRegistryClient, ServicePackage
 from src.configuration import configuration as cfg
 
@@ -69,6 +70,8 @@ def setup() -> None:
     """
     st.session_state["WORKDIR"] = os.path.join(cfg.PATHS.DATA_PATH, "frontend")
     st.session_state["CLIENT"] = ServiceRegistryClient(api_base=st.session_state["API_BASE"])
+    st.session_state["SPEECH_RECORDER"] = SpeechRecorder()
+    st.session_state["AUDIO_PLAYER"] = AudioPlayer()
 
 
 def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:
