@@ -85,6 +85,14 @@ def validate_config(config_type: str, config: dict) -> Tuple[bool | None, str]:
         return False, f"Exception {ex} appeared: {traceback.format_exc()}."
 
 
+def fetch_default_config() -> dict:
+    """
+    Fetches default config.
+    :return: Config.
+    """
+    return cfg.DEFAULT_COMPONENT_CONFIG
+
+
 """
 API based interaction
 """
