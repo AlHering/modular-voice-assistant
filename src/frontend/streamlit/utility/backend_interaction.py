@@ -173,6 +173,15 @@ def load_service(service_type: str,
     return st.session_state["CLIENT"].setup_and_run_service(service=service_type, config_uuid=config_uuid)
 
 
+def reset_service(service_type: str) -> dict:
+    """
+    Unloads a service.
+    :param service_type: Target service type.
+    :return: Response.
+    """
+    return st.session_state["CLIENT"].reset_service(service=service_type)
+
+
 def unload_service(service_type: str) -> dict:
     """
     Unloads a service.
