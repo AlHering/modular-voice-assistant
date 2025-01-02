@@ -153,27 +153,28 @@ class ChatService(Service):
         """
         if not self.pause.is_set():
             input_package: ServicePackage = self.input_queue.get(block=True)
-            self.add_uuid(self.received, input_package.uuid)
-            self.log_info(f"Received input:\n'{input_package.content}'")
-            self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
+            if isinstance(input_package, ServicePackage):
+                self.add_uuid(self.received, input_package.uuid)
+                self.log_info(f"Received input:\n'{input_package.content}'")
+                self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
 
-            streamed = input_package.metadata_stack[-1].get("chat_parameters", {}).get("stream", False)
-            if streamed:
-                result = self.cache["streamed_chat_method"](
-                        prompt=input_package.content,
-                        chat_parameters=input_package.metadata_stack[-1].get("chat_parameters"))
-            else:
-                result = self.cache["chat_method"](
-                        prompt=input_package.content,
-                        chat_parameters=input_package.metadata_stack[-1].get("chat_parameters"))
-            if isinstance(result, Generator):
-                for response_tuple in result:
-                    self.log_info(f"Received response shard\n'{response_tuple[0]}'.")   
-                    yield ServicePackage(uuid=input_package.uuid, content=response_tuple[0], metadata_stack=input_package.metadata_stack + [response_tuple[1]])
-                yield EndOfStreamPackage(uuid=input_package.uuid, content="", metadata_stack=input_package.metadata_stack + [response_tuple[1]])
-            else: 
-                self.log_info(f"Received response\n'{result[0]}'.") 
-                yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
+                streamed = input_package.metadata_stack[-1].get("chat_parameters", {}).get("stream", False)
+                if streamed:
+                    result = self.cache["streamed_chat_method"](
+                            prompt=input_package.content,
+                            chat_parameters=input_package.metadata_stack[-1].get("chat_parameters"))
+                else:
+                    result = self.cache["chat_method"](
+                            prompt=input_package.content,
+                            chat_parameters=input_package.metadata_stack[-1].get("chat_parameters"))
+                if isinstance(result, Generator):
+                    for response_tuple in result:
+                        self.log_info(f"Received response shard\n'{response_tuple[0]}'.")   
+                        yield ServicePackage(uuid=input_package.uuid, content=response_tuple[0], metadata_stack=input_package.metadata_stack + [response_tuple[1]])
+                    yield EndOfStreamPackage(uuid=input_package.uuid, content="", metadata_stack=input_package.metadata_stack + [response_tuple[1]])
+                else: 
+                    self.log_info(f"Received response\n'{result[0]}'.") 
+                    yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
            
 
 
@@ -223,14 +224,15 @@ class SynthesizerService(Service):
         """
         if not self.pause.is_set():
             input_package: ServicePackage = self.input_queue.get(block=True)
-            self.add_uuid(self.received, input_package.uuid)
-            self.log_info(f"Received input:\n'{input_package.content}'")
-            self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
-            
-            result = self.cache["synthesizer"].synthesize(
-                    text=input_package.content,
-                    synthesis_parameters=input_package.metadata_stack[-1].get("synthesis_parameters"))
-            self.log_info(f"Received response\n'{result[0]}'.") 
-            synthesis_metadata = result[1]
-            synthesis_metadata["dtype"] = str(result[0].dtype)
-            yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0].tolist(), metadata_stack=input_package.metadata_stack + [synthesis_metadata])
+            if isinstance(input_package, ServicePackage):
+                self.add_uuid(self.received, input_package.uuid)
+                self.log_info(f"Received input:\n'{input_package.content}'")
+                self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
+                
+                result = self.cache["synthesizer"].synthesize(
+                        text=input_package.content,
+                        synthesis_parameters=input_package.metadata_stack[-1].get("synthesis_parameters"))
+                self.log_info(f"Received response\n'{result[0]}'.") 
+                synthesis_metadata = result[1]
+                synthesis_metadata["dtype"] = str(result[0].dtype)
+                yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0].tolist(), metadata_stack=input_package.metadata_stack + [synthesis_metadata])

@@ -251,7 +251,8 @@ class ServiceRegistry(object):
         """
         service = self.services[service]
         try:
-            service.reset()
+            if service.thread is not None and service.thread.is_alive():
+                service.reset()
             self.service_uuids[service.name] = None
             return BaseResponse(status="success", results=[{"service": service.name}])
         except Exception as ex:
