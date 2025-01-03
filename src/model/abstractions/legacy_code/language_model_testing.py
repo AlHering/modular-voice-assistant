@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 """
+
+WARNING: LEGACY CODE - just for reference
+
 ****************************************************
 *          Basic Language Model Backend            *
 *            (c) 2023 Alexander Hering             *
@@ -8,8 +11,8 @@
 import os
 import traceback
 from typing import List
-from .....src.backend.voice_assistant.language_model_abstractions import LanguageModelInstance
-from src_legacy.configuration import configuration as cfg
+from src.model.abstractions.language_model_abstractions import LanguageModelInstance
+from src.configuration import configuration as cfg
 
 
 """

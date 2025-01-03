@@ -6,7 +6,7 @@
 ****************************************************
 """
 import os
-from .filter_mask import FilterMask
+from src.utility.filter_mask_utility import FilterMask
 from src.utility import sqlalchemy_utility
 from src.utility import time_utility
 from uuid import UUID

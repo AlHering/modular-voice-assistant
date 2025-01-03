@@ -1,6 +1,9 @@
 
 # -*- coding: utf-8 -*-
 """
+
+WARNING: LEGACY CODE - just for reference
+
 ****************************************************
 *          Basic Language Model Backend            *
 *            (c) 2023 Alexander Hering             *
@@ -11,9 +14,9 @@ from pydantic import BaseModel, Field
 from typing import List, Any, Callable, Optional, Type, Union, Tuple
 from uuid import uuid4
 from datetime import datetime as dt
-from .....src.backend.voice_assistant.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
+from src.model.abstractions.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
 from .knowledgebase_abstractions import Knowledgebase, Document
-from .....src.backend.filter_mask import FilterMask
+from src.utility.filter_mask_utility import FilterMask
 
 
 """

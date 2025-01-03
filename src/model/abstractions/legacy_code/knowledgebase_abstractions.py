@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 """
+
+WARNING: LEGACY CODE - just for reference
+
 ****************************************************
 *          Basic Language Model Backend            *
 *            (c) 2024 Alexander Hering             *
@@ -8,8 +11,8 @@
 import copy
 from abc import ABC, abstractmethod
 from typing import List, Callable, Union
-from .....src.backend.filter_mask import FilterMask
-from src.backend.voice_assistant.language_model_abstractions import LanguageModelInstance
+from src.utility.filter_mask_utility import FilterMask
+from src.model.abstractions.language_model_abstractions import LanguageModelInstance
 from chromadb import Settings, PersistentClient, EmbeddingFunction as ChromaEmbeddingFunction, QueryResult as ChromaQueryResult
 from chromadb.utils.embedding_functions import DefaultEmbeddingFunction as ChromaDefaultEmbeddingFunction
 

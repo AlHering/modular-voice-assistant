@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 """
+
+WARNING: LEGACY CODE - just for reference
+
 ****************************************************
 *             Modular Voice Assistant              *
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-from typing import List, Any, Union, Optional
+from typing import Any, Union, Optional
 from datetime import datetime as dt
 from pydantic import BaseModel
-from .....src.backend.voice_assistant.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance, ChatModelConfig, RemoteChatModelConfig
-from .knowledgebase_abstractions import MemoryMetadata, MemoryEntry, Memory, ChromaKnowledgebase
+from src.model.abstractions.language_model_abstractions import ChatModelInstance, ChatModelConfig, RemoteChatModelConfig
+from .knowledgebase_abstractions import Memory
 
 
 class PersonaConfiguration(BaseModel):
