@@ -349,9 +349,7 @@ class ServiceRegistry(object):
         """
         Deconstructs instance.
         """
-        for service in self.service_uuids:
-            if self.service_uuids[service] is not None:
-                asyncio.run(self.stop_service(service))
+        asyncio.run(self.interrupt())
 
 
 """
