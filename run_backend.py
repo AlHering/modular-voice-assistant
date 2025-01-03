@@ -6,7 +6,7 @@
 ****************************************************
 """
 #from src.services.service_interface import run
-from src.services.service_registry import run
+from src.services.service_registry_server import run
 
 if __name__ == "__main__":
     run()
