@@ -130,7 +130,7 @@ class AgentTool(object):
 def create_memory_timestamp() -> str:
     """
     Returns memory timestamp.
-    :return: Ctime formated timestamp.
+    :return: Ctime formatted timestamp.
     """
     return dt.ctime(dt.now())
 
@@ -208,7 +208,7 @@ class Memory(object):
     def document_to_memory(self, document: Document, importance: int = -1, layer: int = 0) -> MemoryEntry:
         """
         Method for converting documents to memory entries. Importance and layer can be used to organize memories.
-        It is recommendet, to use negative integers for custom memory types (like factual knowledge from books).
+        It is recommended, to use negative integers for custom memory types (like factual knowledge from books).
         It is further recommended, to consolidate similar lower layer memories into higher layer memories every now and then, 
         and afterwards respectively retrieve memories from higher to lower layer.
         :param document: Document.
@@ -254,8 +254,8 @@ class Memory(object):
         """
         Method for remembering something.
         This method should be used for memory model agnostic usage.
-        Importance and layer can be used to filtre for specific memories.
-        It is recommendet, to use negative integers for custom memory types (like factual knowledge from books).
+        Importance and layer can be used to filter for specific memories.
+        It is recommended, to use negative integers for custom memory types (like factual knowledge from books).
         It is further recommended, to consolidate similar lower layer memories into higher layer memories every now and then, 
         and afterwards respectively retrieve memories from higher to lower layer.
         :param reference: Recall reference.
@@ -268,7 +268,7 @@ class Memory(object):
             Defaults to None.
         :param max_layer: Maximum layer of the memory.
             Defaults to None.
-        :return: Memories as list of memory texts and metadata entriess.
+        :return: Memories as list of memory texts and metadata entries.
         """
         filtermask = []
         
@@ -323,7 +323,7 @@ class Memory(object):
         """
         Method for retrieving memories by similarity.
         :param reference: Reference for similarity search.
-        :param filtermasks: List of filtermasks for additional filering.
+        :param filtermasks: List of filtermasks for additional filtering.
             Defaults to None.
         :param retrieval_parameters: Keyword arguments for retrieval.
             Defaults to None.
@@ -386,7 +386,7 @@ class Agent(object):
             return None
         return "\n\n" + "\n\n".join(tool.get_guide() for tool in self.tools) + "\n\n"
     
-    def parse_tool_call(self, content: str, metdata: dict) -> Optional[Any]:
+    def parse_tool_call(self, content: str, metadata: dict) -> Optional[Any]:
         """
         Method for parsing a tool call.
         :param content: The generated text content.

@@ -57,7 +57,7 @@ class EmbeddingFunction(object):
                  multi_target_function: Callable | None = None,
                  language_model_instance: LanguageModelInstance = None) -> None:
         """
-        Intiation method. 
+        Initiation method. 
         Needs at least one of the following parameters.
         :param single_target_function: Single target embedding function.
             Should be callable with an input as string,

@@ -59,7 +59,7 @@ class Persona(object):
             self.chat_model.history.append({
                 "role": "assistant", 
                 "content": self.welcome_message, 
-                "metadata": {"intitated": dt.now()}
+                "metadata": {"initiated": dt.now()}
             })
 
         self.memory = memory
