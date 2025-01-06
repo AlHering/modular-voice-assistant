@@ -32,7 +32,7 @@ from src.configuration import configuration as cfg
 
 APP = FastAPI(title=cfg.PROJECT_NAME, version=cfg.PROJECT_VERSION,
               description=cfg.PROJECT_DESCRIPTION)
-INTERFACE: ServiceRegistry | None = None
+INTERFACE: ServiceRegistryServer | None = None
 cfg.LOGGER = logging.getLogger("uvicorn.error")
 cfg.LOGGER.setLevel(logging.DEBUG)
 
@@ -131,7 +131,7 @@ class Endpoints(str, Enum):
         return str(self.value)
 
 
-class ServiceRegistry(object):
+class ServiceRegistryServer(object):
     """
     Service registry.
     """
@@ -360,7 +360,7 @@ def run() -> None:
     Runs backend server.
     """
     global APP, INTERFACE
-    INTERFACE = ServiceRegistry(services=[
+    INTERFACE = ServiceRegistryServer(services=[
         TranscriberService(), 
         ChatService(), 
         SynthesizerService()
