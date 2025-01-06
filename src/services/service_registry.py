@@ -169,6 +169,7 @@ class ServiceRegistry(object):
         Runs service processes in a pipeline.
         :param initial_request: Initial service request.
         :param pipeline: Pipeline as a list of subsequent service names.
+            The first service is part of the initial request.
         :return: Final service package response.
         """
         next_package = self.process[initial_request]
