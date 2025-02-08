@@ -9,7 +9,7 @@ if [[ -f "${SCRIPT_DIR}/venv/bin/activate" ]]
 then
     printf "Starting LlamaCPP server..."
     source "${SCRIPT_DIR}/venv/bin/activate"
-    python run_llama_cpp_server.py $@ &
+    python run_server.py $@ &
     wait
 else
     printf "\n%s\n" "${delimiter}"
