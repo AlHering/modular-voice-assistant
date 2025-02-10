@@ -1,0 +1,64 @@
+{
+    "host": "0.0.0.0",
+    "port": 8123,
+    "models": [
+        {
+            "model": "/language-model-server/models/text_generation_models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
+            "model_alias": "llama-3.1-8B-i1-Q4KM",
+            "chat_format": "chatml",
+            "n_gpu_layers": 26,
+            "offload_kqv": true,
+            "n_ctx": 8192,
+            "flash_attn": true,
+            "use_mlock": false
+        },
+        {
+            "model": "/language-model-server/models/text_generation_models/mradermacher_Llama-3.1-Storm-8B-i1-GGUF/Llama-3.1-Storm-8B.i1-Q4_K_M.gguf",
+            "model_alias": "llama-3.1-storm-8B-i1-Q4KM",
+            "chat_format": "chatml",
+            "n_gpu_layers": 20,
+            "offload_kqv": true,
+            "n_ctx": 8192,
+            "flash_attn": true,
+            "use_mlock": false
+        },
+        {
+            "model": "/language-model-server/models/text_generation_models/mradermacher_Llama-3.1-Storm-8B-i1-GGUF/Llama-3.1-Storm-8B.i1-Q6_K.gguf",
+            "model_alias": "llama-3.1-storm-8B-i1-Q6K",
+            "chat_format": "chatml",
+            "n_gpu_layers": -1,
+            "offload_kqv": true,
+            "n_ctx": 8192,
+            "flash_attn": true,
+            "use_mlock": false
+        },
+        {
+            "model": "/language-model-server/models/text_generation_models/mradermacher_Phi-3.5-mini-instruct_Uncensored-GGUF/Phi-3.5-mini-instruct_Uncensored.Q6_K.gguf",
+            "model_alias": "phi-3.5-mini-instruct-uncensored-Q6K",
+            "n_gpu_layers": -1,
+            "offload_kqv": true,
+            "n_ctx": 8192,
+            "use_mlock": false,
+            "flash_attn": true
+        },
+        {
+            "model": "/language-model-server/models/text_generation_models/bartowski_Phi-3.5-mini-instruct-GGUF/Phi-3.5-mini-instruct-Q6_K.gguf",
+            "model_alias": "phi-3.5-mini-instruct-Q6K",
+            "n_gpu_layers": -1,
+            "offload_kqv": true,
+            "n_ctx": 8192,
+            "use_mlock": false,
+            "flash_attn": true
+        },
+        {
+            "model": "/language-model-server/models/text_generation_models/QuantFactory_Mistral-Nemo-Instruct-2407-GGUF/Mistral-Nemo-Instruct-2407.Q6_K.gguf",
+            "model_alias": "mistral-nemo-instruct-2407-Q6K",
+            "n_gpu_layers": -1,
+            "offload_kqv": true,
+            "n_ctx": 8192,
+            "use_mlock": false,
+            "flash_attn": true
+        }
+    ]
+
+}
