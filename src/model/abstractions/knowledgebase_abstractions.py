@@ -10,7 +10,7 @@ WARNING: LEGACY CODE - just for reference
 """
 import copy
 from abc import ABC, abstractmethod
-from typing import List, Callable, Union
+from typing import List, Callable, Union, Optional, Any
 from src.utility.filter_mask_utility import FilterMask
 from src.model.abstractions.language_model_abstractions import LanguageModelInstance
 from chromadb import Settings, PersistentClient, EmbeddingFunction as ChromaEmbeddingFunction, QueryResult as ChromaQueryResult
@@ -118,7 +118,7 @@ class Knowledgebase(ABC):
                            filtermasks: List[FilterMask] | None = None, 
                            retrieval_method: str | None = None, 
                            retrieval_parameters: dict | None = None,
-                           collection: str = "base") -> List[Entry]:
+                           entry_type: str = "base") -> List[Entry]:
         """
         Method for retrieving entries.
         :param query: Retrieval query.
@@ -128,7 +128,7 @@ class Knowledgebase(ABC):
             Defaults to None.
         :param retrieval_parameters: Retrieval parameters.
             Defaults to None.
-        :param collection: Target collection.
+        :param entry_type: Target entry type.
             Defaults to "base".
         :return: Retrieved entries.
         """
@@ -138,13 +138,13 @@ class Knowledgebase(ABC):
     def embed_entries(self,
                         entries: List[Entry], 
                         embedding_parameters: dict | None = None, 
-                        collection: str = "base") -> None:
+                        entry_type: str = "base") -> None:
         """
         Method for embedding entries.
         :param entries: Entries to embed.
         :param embedding_parameters: Embedding parameters.
             Defaults to None.
-        :param collection: Target collection.
+        :param entry_type: Target entry type.
             Defaults to "base".
         """
         pass
@@ -154,7 +154,7 @@ class Knowledgebase(ABC):
                         embeddings: List[list], 
                         metadatas: List[list] = None, 
                         ids: List[Union[int, str]] = None, 
-                        collection: str = "base") -> None:
+                        entry_type: str = "base") -> None:
         """
         Method for storing embeddings.
         :param embeddings: Embeddings to store.
@@ -163,62 +163,66 @@ class Knowledgebase(ABC):
         :param ids: IDs to store the embedding of the same index under.
             Defaults to None.
         :param embeddings: Entries to embed.
-        :param collection: Target collection.
+        :param entry_type: Target entry type.
             Defaults to "base".
         """
         pass
 
     @abstractmethod
-    def update_document(self, 
-                        document: Entry, 
-                        collection: str = "base") -> None:
+    def update_entry(self, 
+                        entry: Entry, 
+                        entry_type: str = "base") -> None:
         """
-        Abstract method for updating a document in the knowledgebase.
-        :param document: Entry update.
-        :param collection: Target collection.
+        Abstract method for updating a entry in the knowledgebase.
+        :param entry: Entry update.
+        :param entry_type: Target entry type.
             Defaults to "base".
         """
         pass
 
     @abstractmethod
-    def delete_document(self, 
-                        document_id: Union[int, str], 
-                        collection: str = "base") -> None:
+    def delete_entry(self, 
+                        entry_id: Union[int, str], 
+                        entry_type: str = "base") -> None:
         """
-        Abstract method for deleting a document from the knowledgebase.
-        :param document_id: Entry ID.
-        :param collection: Target collection.
+        Abstract method for deleting a entry from the knowledgebase.
+        :param entry_id: Entry ID.
+        :param entry_type: Target entry type.
             Defaults to "base".
         """
         pass
 
     @abstractmethod
     def get_all_entries(self,
-                         collection: str = "base") -> List[Entry]:
+                         entry_type: str = "base") -> List[Entry]:
         """
         Method for retrieving all entries.
-        :param collection: Target collection.
+        :param entry_type: Target entry type.
             Defaults to "base".
         :return: Retrieved entries.
         """
         pass
 
     @abstractmethod
-    def create_collection(self,
-             collection: str) -> None:
+    def create_entry_storage(self,
+                             entry_type: str,
+                             *args: Optional[Any],
+                             **kwargs: Optional[Any]) -> None:
         """
-        Abstract method for creating collections for the knowledgebase.
-        :param collection: Collection name.
+        Abstract method for creating entry storages for the knowledgebase.
+        :param entry_type: Collection name.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
         """
         pass
 
     @abstractmethod
-    def delete_collection(self,
-             collection: str | None = None) -> None:
+    def delete_entry_storage(self,
+                             entry_type: str | None = None) -> None:
         """
-        Abstract method for deleting collections from the knowledgebase.
-        :param collection: Target collection.
-            Defaults to None in which case all collections are wiped.
+        Abstract method for deleting entry storages from the knowledgebase.
+        :param entry_type: Target entry type.
+            Defaults to None in which case all entry types are wiped.
         """
         pass
 
@@ -333,14 +337,14 @@ class ChromaKnowledgebase(Knowledgebase):
             metadata_update["retrieval_filtermasks"] = filtermasks
         for index, id in enumerate(query_result["ids"]):
             for doc_index, text in enumerate(query_result["entries"][index]):
-                new_document = Entry(id=id[index],
+                new_entry = Entry(id=id[index],
                                         content=text, 
                                         metadata=query_result["metadatas"][index][doc_index],
                                         embedding=query_result["embeddings"][index][doc_index] if query_result["embeddings"] else None)
                 if "distances" in query_result:
                     metadata_update["query_distance"] = query_result["distances"][index][doc_index]
-                new_document.metadata.update(metadata_update)
-                entries.append(new_document)
+                new_entry.metadata.update(metadata_update)
+                entries.append(new_entry)
 
         return entries
     
@@ -393,16 +397,16 @@ class ChromaKnowledgebase(Knowledgebase):
             "no_embeddings": {"ids": [], "entries": [], "metadatas": []}
         }
         
-        for document in entries:
-            if document.embedding is None:
-                data["no_embeddings"]["ids"].append(document.id)
-                data["no_embeddings"]["entries"].append(document.content)
-                data["no_embeddings"]["metadatas"].append(document.metadata)
+        for entry in entries:
+            if entry.embedding is None:
+                data["no_embeddings"]["ids"].append(entry.id)
+                data["no_embeddings"]["entries"].append(entry.content)
+                data["no_embeddings"]["metadatas"].append(entry.metadata)
             else:
-                data["with_embeddings"]["ids"].append(document.id)
-                data["with_embeddings"]["entries"].append(document.content)
-                data["with_embeddings"]["metadatas"].append(document.metadata)
-                data["with_embeddings"]["embeddings"].append(document.embedding)
+                data["with_embeddings"]["ids"].append(entry.id)
+                data["with_embeddings"]["entries"].append(entry.content)
+                data["with_embeddings"]["metadatas"].append(entry.metadata)
+                data["with_embeddings"]["embeddings"].append(entry.embedding)
 
         if data["no_embeddings"]["ids"]:
             self.collections[collection].add(**data["no_embeddings"])
@@ -434,33 +438,33 @@ class ChromaKnowledgebase(Knowledgebase):
             metadatas=metadatas
         )
 
-    def update_document(self, 
-                        document: Entry, 
+    def update_entry(self, 
+                        entry: Entry, 
                         collection: str = "base") -> None:
         """
-        Method  for updating a document in the knowledgebase.
-        :param document: Entry update.
+        Method  for updating a entry in the knowledgebase.
+        :param entry: Entry update.
         :param collection: Target collection.
             Defaults to "base".
         """
         self.collections[collection].update(
-            ids=document.id,
-            entries=document.content,
-            metadatas=document.metadata,
-            embeddings=document.embedding
+            ids=entry.id,
+            entries=entry.content,
+            metadatas=entry.metadata,
+            embeddings=entry.embedding
         )
 
-    def delete_document(self, 
-                        document_id: Union[int, str], 
+    def delete_entry(self, 
+                        entry_id: Union[int, str], 
                         collection: str = "base") -> None:
         """
-        Method  for deleting a document from the knowledgebase.
-        :param document_id: Entry ID.
+        Method  for deleting a entry from the knowledgebase.
+        :param entry_id: Entry ID.
         :param collection: Target collection.
             Defaults to "base".
         """
         self.collections[collection].delete(
-            ids=document_id
+            ids=entry_id
         )
 
     def get_all_entries(self,
@@ -473,7 +477,7 @@ class ChromaKnowledgebase(Knowledgebase):
         """
         return self.query_result_conversion(self.collections[collection].get())
 
-    def create_collection(self,
+    def create_entry_storage(self,
              collection: str,
              metadata: dict | None = None,
              embedding_function: ChromaEmbeddingFunction = None) -> None:
@@ -489,7 +493,7 @@ class ChromaKnowledgebase(Knowledgebase):
             embedding_function=embedding_function
         )
 
-    def delete_collection(self,
+    def delete_entry_storage(self,
              collection: str | None = None) -> None:
         """
         Method for deleting collections from the knowledgebase.
@@ -501,5 +505,4 @@ class ChromaKnowledgebase(Knowledgebase):
                 self.client.delete_collection(collection)
         else:
             self.client.delete_collection(collection)
-
 
