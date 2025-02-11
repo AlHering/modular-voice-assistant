@@ -408,7 +408,7 @@ class RelationshipDirection(Enum):
     """
     outgoing = ("-", "->")
     incoming = ("<-", "-")
-    bidrectional = ("-", "-")
+    bidirectional = ("-", "-")
 
 
 class Neo4jKnowledgebase(Knowledgebase):
