@@ -10,10 +10,11 @@ WARNING: LEGACY CODE - just for reference
 """
 import copy
 from abc import ABC, abstractmethod
-from typing import List, Callable, Union, Optional, Any, Dict
+from uuid import UUID
+from typing import List, Callable, Union, Any, Dict
 from enum import Enum
-import neo4j
 import json
+import neo4j
 from src.utility.filter_mask_utility import FilterMask
 from src.model.abstractions.language_model_abstractions import LanguageModelInstance
 from chromadb import Settings, PersistentClient, EmbeddingFunction as ChromaEmbeddingFunction, QueryResult as ChromaQueryResult
@@ -27,27 +28,27 @@ class Entry(object):
     """
     Class, representing entries.
     """
-    def __init__(self, id: Union[int, str], content: str, metadata: dict | None = None, embedding: List[float] | None = None) -> None:
+    def __init__(self, id: int | str | UUID, 
+                 content: str, metadata: dict | None = None, 
+                 embeddings: List[int | float | List[int | float]] | None = None) -> None:
         """
         Initiation method.
         :param id: ID of the entry.
         :param content: Textual content of the entry.
         :param metadata: Metadata of the entry.
-            Defaults to None.
-        :param embedding: Embedding of the entry.
-            Defaults to None.
+        :param embeddings: Embeddings of the entry.
         """
-        self.id = id
-        self.content = content
-        self.metadata = {} if metadata is None else metadata
-        self.embedding = embedding
+        self.id: int | str | UUID  = id
+        self.content: str = content
+        self.metadata: dict = {} if metadata is None else metadata
+        self.embeddings: List[int | float | List[int | float]] | None = embeddings
 
     def __dict__(self) -> dict:
         """
         Returns dictionary representation of a entry.
         :return: Dictionary representation.
         """
-        return {"id": self.id, "content": self.content, "metadata": self.metadata, "embedding": self.embedding}
+        return {"id": self.id, "content": self.content, "metadata": self.metadata, "embeddings": self.embeddings}
 
 
 class EmbeddingFunction(object):
@@ -100,9 +101,7 @@ class EmbeddingFunction(object):
         Method for embedding an input.
         :param input: Input to embed as string or list of strings.
         :param encoding_parameters: Kwargs for encoding as dictionary.
-            Defaults to None.
         :param embedding_parameters: Kwargs for embedding as dictionary.
-            Defaults to None.
         """
         if isinstance(input, str):
             return self.single_target_function(input, encoding_parameters, embedding_parameters)
@@ -114,118 +113,65 @@ class Knowledgebase(ABC):
     """
     Abstract class, representing knowledgebases.
     """
-    
+
     @abstractmethod
-    def retrieve_entries(self, 
-                           query: str, 
-                           filtermasks: List[FilterMask] | None = None, 
-                           retrieval_method: str | None = None, 
-                           retrieval_parameters: dict | None = None,
-                           entry_type: str = "base") -> List[Entry]:
+    def store_entry(self, 
+                    entry: Entry) -> None:
         """
-        Method for retrieving entries.
-        :param query: Retrieval query.
-        :param filtermasks: List of filtermasks.
-            Defaults to None.
-        :param retrieval_method: Retrieval method.
-            Defaults to None.
-        :param retrieval_parameters: Retrieval parameters.
-            Defaults to None.
-        :param entry_type: Target entry type.
-            Defaults to "base".
-        :return: Retrieved entries.
+        Method for storing entries.
+        :param entry: Entry to store.
         """
         pass
 
     @abstractmethod
-    def embed_entries(self,
-                        entries: List[Entry], 
-                        embedding_parameters: dict | None = None, 
-                        entry_type: str = "base") -> None:
-        """
-        Method for embedding entries.
-        :param entries: Entries to embed.
-        :param embedding_parameters: Embedding parameters.
-            Defaults to None.
-        :param entry_type: Target entry type.
-            Defaults to "base".
-        """
-        pass
-
-    @abstractmethod
-    def store_embeddings(self,
-                        embeddings: List[list], 
-                        metadatas: List[list] = None, 
-                        ids: List[Union[int, str]] = None, 
-                        entry_type: str = "base") -> None:
-        """
-        Method for storing embeddings.
-        :param embeddings: Embeddings to store.
-        :param metadatas: Metadata entries to attach to embedding of the same index.
-            Defaults to None.
-        :param ids: IDs to store the embedding of the same index under.
-            Defaults to None.
-        :param embeddings: Entries to embed.
-        :param entry_type: Target entry type.
-            Defaults to "base".
-        """
-        pass
-
-    @abstractmethod
-    def update_entry(self, 
-                        entry: Entry, 
-                        entry_type: str = "base") -> None:
+    def update_entry(self,
+                     entry_or_id: int | str | UUID | Entry,
+                     patch: dict | Entry) -> None:
         """
         Abstract method for updating a entry in the knowledgebase.
-        :param entry: Entry update.
-        :param entry_type: Target entry type.
-            Defaults to "base".
+        :param entry_or_id: Entry or entry ID.
+        :param patch: Entry or dictionary for patching values.
         """
         pass
 
     @abstractmethod
     def delete_entry(self, 
-                        entry_id: Union[int, str], 
-                        entry_type: str = "base") -> None:
+                     entry_or_id: int | str | UUID | Entry) -> None:
         """
         Abstract method for deleting a entry from the knowledgebase.
-        :param entry_id: Entry ID.
-        :param entry_type: Target entry type.
-            Defaults to "base".
+        :param entry_or_id: Entry or entry ID.
         """
         pass
-
+    
     @abstractmethod
-    def get_all_entries(self,
-                         entry_type: str = "base") -> List[Entry]:
+    def retrieve_entries(self, 
+                         query: str | None = None, 
+                         filtermasks: List[FilterMask] | None = None, 
+                         retrieval_parameters: dict | None = None) -> List[Entry]:
         """
-        Method for retrieving all entries.
-        :param entry_type: Target entry type.
-            Defaults to "base".
+        Method for retrieving entries.
+        :param query: Optional retrieval query.
+        :param filtermasks: List of filtermasks.
+        :param retrieval_parameters: Retrieval parameters.
         :return: Retrieved entries.
         """
         pass
 
     @abstractmethod
-    def create_entry_storage(self,
-                             entry_type: str,
-                             *args: Optional[Any],
-                             **kwargs: Optional[Any]) -> None:
+    def get_entry_by_id(self, entry_id: int | str | UUID) -> Entry:
         """
-        Abstract method for creating entry storages for the knowledgebase.
-        :param entry_type: Collection name.
-        :param args: Arbitrary arguments.
-        :param kwargs: Arbitrary keyword arguments.
+        Method for retrieving entries by ID.
+        :param entry_id: Entry ID.
+        :return: Target entry.
         """
         pass
 
     @abstractmethod
-    def delete_entry_storage(self,
-                             entry_type: str | None = None) -> None:
+    def get_all_entries(self) -> List[Entry]:
         """
-        Abstract method for deleting entry storages from the knowledgebase.
+        Method for retrieving all entries.
         :param entry_type: Target entry type.
-            Defaults to None in which case all entry types are wiped.
+        :return: Retrieved entries.
         """
         pass
 
@@ -243,11 +189,8 @@ class ChromaKnowledgebase(Knowledgebase):
         Initiates chroma based knowledgebase.
         :param knowledgebase_path: Knowledgebase path for permanent storage on disk.
         :param embedding_model: Embedding function.
-            Defaults to None.
         :param knowledgebase_parameters: Knowledgebase instantiation parameters.
-            Defaults to None.
-        :param retrieval_parameters: Retrieval parameters.
-            Defaults to None.
+        :param retrieval_parameters: Default retrieval parameters.
         """
         self.knowledgebase_path = knowledgebase_path
         self.embedding_function = ChromaDefaultEmbeddingFunction() if embedding_function is None else embedding_function
@@ -265,17 +208,10 @@ class ChromaKnowledgebase(Knowledgebase):
             path=knowledgebase_path,
             settings=settings)
 
-        collections = self.knowledgebase_parameters.get("collections", {
-            "base": {
-                "embedding_function": self.embedding_function
-            }
-        })
-        self.collections = {
-            collection: self.client.get_or_create_collection(
-                name=collection,
-                **collections[collection])
-                for collection in collections
-        }
+        self.collection = self.client.get_or_create_collection(
+            name="base",
+            embedding_function= self.embedding_function
+        )
 
         self.operation_translation = {
             "equals": "$eq",
@@ -305,6 +241,10 @@ class ChromaKnowledgebase(Knowledgebase):
             "<=": lambda x: {"$lte": x},
             ">=": lambda x: {"$gte": x},
         }
+
+    """
+    Conversion functionality
+    """
 
     def filtermasks_conversion(self, filtermasks: List[FilterMask]) -> dict:
         """
@@ -348,166 +288,118 @@ class ChromaKnowledgebase(Knowledgebase):
                     metadata_update["query_distance"] = query_result["distances"][index][doc_index]
                 new_entry.metadata.update(metadata_update)
                 entries.append(new_entry)
-
         return entries
-    
-    def retrieve_entries(self, 
-                           query: str | None = None, 
-                           filtermasks: List[FilterMask] | None = None, 
-                           retrieval_parameters: dict | None = None,
-                           entry_type: str = "base") -> List[Entry]:
-        """
-        Method for retrieving entries.
-        :param query: Retrieval query.
-            Defaults to None.
-        :param filtermasks: List of filtermasks.
-            Defaults to None.
-        :param retrieval_method: Retrieval method.
-            Defaults to None.
-        :param retrieval_parameters: Retrieval parameters.
-            Defaults to None.
-        :param entry_type: Target entry type.
-            Defaults to "base".
-        :return: Retrieved entries.
-        """
-        retrieval_parameters = copy.deepcopy(self.retrieval_parameters) if retrieval_parameters is None else copy.deepcopy(retrieval_parameters)
-        if query is not None:
-            retrieval_parameters["query_texts"] = [query]
-        if filtermasks is not None:
-            retrieval_parameters["where"] = self.filtermasks_conversion(filtermasks)
-        if "include" not in retrieval_parameters:
-            retrieval_parameters["include"] = ["embeddings", "metadatas", "entries", "distances"]
 
-        result = self.collections[entry_type].query(
-            **retrieval_parameters
-        )
-        return self.query_result_conversion(result)
-
-    def embed_entries(self,
-                        entries: List[Entry], 
-                        embedding_parameters: dict | None = None, 
-                        entry_type: str = "base") -> None:
-        """
-        Method for embedding entries.
-        :param entries: Entries to embed.
-        :param embedding_parameters: Embedding parameters.
-            Defaults to None and is not used for the ChromaDB backend.
-        :param entry_type: Target entry type.
-            Defaults to "base".
-        """
-        data = {
-            "embeddings": {"ids": [], "entries": [], "metadatas": [], "embeddings":[]},
-            "no_embeddings": {"ids": [], "entries": [], "metadatas": []}
-        }
-        
-        for entry in entries:
-            if entry.embedding is None:
-                data["no_embeddings"]["ids"].append(entry.id)
-                data["no_embeddings"]["entries"].append(entry.content)
-                data["no_embeddings"]["metadatas"].append(entry.metadata)
-            else:
-                data["with_embeddings"]["ids"].append(entry.id)
-                data["with_embeddings"]["entries"].append(entry.content)
-                data["with_embeddings"]["metadatas"].append(entry.metadata)
-                data["with_embeddings"]["embeddings"].append(entry.embedding)
-
-        if data["no_embeddings"]["ids"]:
-            self.collections[entry_type].add(**data["no_embeddings"])
-        if data["with_embeddings"]["ids"]:
-            self.collections[entry_type].add(**data["with_embeddings"])
+    """
+    Extended access
+    """
 
     def store_embeddings(self,
                         ids: List[Union[int, str]],
                         embeddings: List[list], 
                         contents: List[str] = None, 
-                        metadatas: List[list] = None, 
-                        entry_type: str = "base") -> None:
+                        metadatas: List[list] = None) -> None:
         """
         Method for storing embeddings.
         :param ids: IDs to store the embedding of the same index under.
         :param embeddings: Embeddings to store.
         :param contents: Content entries to attach to embedding of the same index.
-            Defaults to None.
         :param metadatas: Metadata entries to attach to embedding of the same index.
-            Defaults to None.
         :param embeddings: Entries to embed.
-        :param entry_type: Target entry type.
-            Defaults to "base".
         """
-        self.collections[entry_type].add(
+        self.collection.add(
             ids=ids,
             embeddings=embeddings,
             entries=contents,
             metadatas=metadatas
         )
 
-    def update_entry(self, 
-                        entry: Entry, 
-                        entry_type: str = "base") -> None:
+    """
+    Knowledgebase access
+    """
+    
+    def store_entry(self, 
+                    entry: Entry) -> None:
         """
-        Method  for updating a entry in the knowledgebase.
-        :param entry: Entry update.
-        :param entry_type: Target entry type.
-            Defaults to "base".
+        Method for storing entries.
+        :param entry: Entry to store.
         """
-        self.collections[entry_type].update(
-            ids=entry.id,
-            entries=entry.content,
+        self.collection.add(
+            ids=entry.id, 
+            embeddings=entry.embeddings,
             metadatas=entry.metadata,
-            embeddings=entry.embedding
+            documents=entry.content
+        )
+
+    def update_entry(self,
+                     entry_or_id: int | str | UUID | Entry,
+                     patch: dict) -> None:
+        """
+        Abstract method for updating a entry in the knowledgebase.
+        :param entry_or_id: Entry or entry ID.
+        :param patch: Dictionary for patching values.
+        """
+        entry = entry_or_id if isinstance(entry_or_id, Entry) else self.get_entry_by_id(entry_id=entry_or_id)
+        self.collection.update(
+            ids=entry_or_id.id if isinstance(entry_or_id, Entry) else entry_or_id,
+            entries=patch.get("content", entry.content),
+            metadatas=patch.get("metadata", entry.metadata),
+            embeddings=patch.get("embeddings", entry.embeddings)
         )
 
     def delete_entry(self, 
-                        entry_id: Union[int, str], 
-                        entry_type: str = "base") -> None:
+                     entry_or_id: int | str | UUID | Entry) -> None:
         """
-        Method  for deleting a entry from the knowledgebase.
-        :param entry_id: Entry ID.
-        :param entry_type: Target entry type.
-            Defaults to "base".
+        Abstract method for deleting a entry from the knowledgebase.
+        :param entry_or_id: Entry or entry ID.
         """
-        self.collections[entry_type].delete(
-            ids=entry_id
+        entry = entry_or_id if isinstance(entry_or_id, Entry) else self.get_entry_by_id(entry_id=entry_or_id)
+        self.collection.delete(
+            ids=entry.id
         )
+    
+    def retrieve_entries(self, 
+                         query: str | None = None, 
+                         filtermasks: List[FilterMask] | None = None, 
+                         retrieval_parameters: dict | None = None) -> List[Entry]:
+        """
+        Method for retrieving entries.
+        :param query: Optional retrieval query.
+        :param filtermasks: List of filtermasks.
+        :param retrieval_parameters: Retrieval parameters.
+        :return: Retrieved entries.
+        """
+        retrieval_parameters = copy.deepcopy(self.retrieval_parameters) if retrieval_parameters is None else copy.deepcopy(retrieval_parameters)
+        if query is not None:
+            retrieval_parameters["query_texts"] = query
+        if filtermasks is not None:
+            retrieval_parameters["where"] = self.filtermasks_conversion(filtermasks)
+        if "include" not in retrieval_parameters:
+            retrieval_parameters["include"] = ["embeddings", "metadatas", "entries", "distances"]
 
-    def get_all_entries(self,
-                        entry_type: str = "base") -> List[Entry]:
+        result = self.collection.query(
+            **retrieval_parameters
+        )
+        return self.query_result_conversion(result)
+
+    def get_entry_by_id(self, 
+                        entry_id: int | str | UUID) -> Entry:
+        """
+        Method for retrieving entries by ID.
+        :param entry_id: Entry ID.
+        :param collection: Target collection.
+        :return: Target entry.
+        """
+        return self.query_result_conversion(self.collection.get(ids=entry_id,
+                                            include=["embeddings", "metadatas", "entries", "distances"])) 
+
+    def get_all_entries(self) -> List[Entry]:
         """
         Method for retrieving all entries.
         :param entry_type: Target entry type.
-            Defaults to "base".
         :return: Retrieved entries.
         """
-        return self.query_result_conversion(self.collections[entry_type].get())
-
-    def create_entry_storage(self,
-             entry_type: str,
-             metadata: dict | None = None,
-             embedding_function: ChromaEmbeddingFunction = None) -> None:
-        """
-        Method for creating entry storages for the knowledgebase.
-        :param entry_type: entry type name.
-        :param metadata: Entry type metadata.
-        :param embedding_function: Entry type embedding function.
-        """
-        self.collections[entry_type] = self.client.get_or_create_collection(
-            name=entry_type,
-            metadata=metadata,
-            embedding_function=embedding_function
-        )
-
-    def delete_entry_storage(self,
-                            entry_type: str | None = None) -> None:
-        """
-        Method for deleting entry storages from the knowledgebase.
-        :param entry_type: Target entry type.
-            Defaults to None in which case all entry storages are wiped.
-        """
-        if collection is None:
-            for collection in self.collections:
-                self.client.delete_collection(collection)
-        else:
-            self.client.delete_collection(collection)
+        return self.query_result_conversion(self.collection.get(include=["embeddings", "metadatas", "entries", "distances"])) 
 
 
 class RelationshipDirection(Enum):
@@ -524,19 +416,23 @@ class Neo4jKnowledgebase(Knowledgebase):
     Represents a neo4j based knowledgebase.
     """
     def __init__(self,
-                 db_uri: str,
-                 db_username: str,
-                 db_password: str,
-                 db_params: dict = None) -> None:
+                 neo4j_uri: str,
+                 neo4j_username: str,
+                 neo4j_password: str,
+                 neo4j_params: dict = None) -> None:
         """
         Initiates KnowledgeGraph instance.
+        :param neo4j_uri: Neo4j database URI.
+        :param neo4j_username: Neo4j database user.
+        :param neo4j_password: Neo4j database password.
+        :param neo4j_params: Neo4j database driver parameters.
         """
         db_params = {} if db_params is None else db_params
-        self.db_uri = db_uri
+        self.neo4j_uri = neo4j_uri
         self.database = neo4j.GraphDatabase.driver(
-            uri=db_uri,
-            auth=(db_username, db_password),
-            **db_params 
+            uri=self.neo4j_uri,
+            auth=(neo4j_username, neo4j_password),
+            **neo4j_params 
         )
         self.prepare_labels = lambda labels: ":".join(labels) if isinstance(labels, list) else labels
         self.prepare_properties = lambda properties: None if properties is None else {k: v for k, v in properties.items() if v is not None}
@@ -556,6 +452,28 @@ class Neo4jKnowledgebase(Knowledgebase):
         if isinstance(query, list):
             query = "\n".join(query)
         return neo4j.Query(query)
+    
+    """
+    Conversion functionality
+    """
+
+    def filtermasks_conversion(self, filtermasks: List[FilterMask]) -> str:
+        """
+        Function for converting Filtermasks to Neo4j filters.
+        :param filtermasks: Filtermasks.
+        :return: Query component.
+        """
+        return ""
+    
+    def query_result_conversion(self, query_result: neo4j.Result, query: str | None = None, filtermasks: List[FilterMask] | None = None) -> List[Entry]:
+        """
+        Method for converting a Neo4j query result to entries.
+        :param query_result: Neo4j query result.
+        :param query: Retrieval query.
+        :param filtermasks: List of retrieval filter masks.
+        :return: List of entries.
+        """
+        return []
     
     """
     Node and relationship management
@@ -670,7 +588,9 @@ class Neo4jKnowledgebase(Knowledgebase):
         target_properties = self.prepare_properties(target_properties)
 
         target_prop_clause = f"{{ {', '.join([f'{key}: ${key}' for key in target_properties])} }}" if target_properties else ""
-        query = [f"MATCH (target:{target_label} {target_prop_clause})"]
+        query = [
+            f"MATCH (target:{target_label} {target_prop_clause})"
+        ]
         
         query.append(f"RETURN target")
         query = self._build_query(query)
@@ -703,9 +623,11 @@ class Neo4jKnowledgebase(Knowledgebase):
         from_prop_clause = f"{{ {', '.join([f'{key}: $from_{key}' for key in from_properties])} }}" if from_properties else ""
         relation_prop_clause = f"{{ {', '.join([f'{key}: $rel_{key}' for key in relation_properties])} }}" if relation_properties else ""
         to_prop_clause = f"{{ {', '.join([f'{key}: $to_{key}' for key in to_properties])} }}" if to_properties else ""
-        query = [f"MATCH (source:{from_label} {from_prop_clause})",
-                 f"-[relation:{relation_label} {relation_prop_clause}]-",
-                 f"(target:{to_label} {to_prop_clause})"]
+        query = [
+            f"MATCH (source:{from_label} {from_prop_clause})",
+            f"-[relation:{relation_label} {relation_prop_clause}]-",
+            f"(target:{to_label} {to_prop_clause})"
+        ]
         query_params = {f"from_{k}": v for k, v in from_properties.items()}
         query_params.update({f"to_{k}": v for k, v in to_properties.items()})
         query_params.update({f"rel_{k}": v for k, v in relation_properties.items()})
@@ -741,7 +663,9 @@ class Neo4jKnowledgebase(Knowledgebase):
         allowed_relationships = allowed_relationships or []
 
         source_prop_clause = f"{{ {', '.join([f'{key}: $source_{key}' for key in source_properties])} }}" if source_properties else ""
-        query = [f"MATCH (source:{source_label} {source_prop_clause})"]
+        query = [
+            f"MATCH (source:{source_label} {source_prop_clause})"
+        ]
         if source_properties:
             query_params = {"source_" + key: source_properties[key] for key in source_properties}
         else:
@@ -758,6 +682,24 @@ class Neo4jKnowledgebase(Knowledgebase):
             query.append(f"LIMIT {limit}")
         query = self._build_query(query)
         return self.database.session().run(query, **query_params).data()
+    
+    def get_full_graph(self, limit: int = -1) -> List[Dict[str, Any]]:
+        """
+        Retrieves all nodes and relationships.
+        :param limit: Element limit.
+        :return: Network graph in Neo4j path structure.
+        """
+        retrieval_query = """
+        MATCH (source)-[relation]->(target) 
+
+        RETURN
+        {elementId: ELEMENTID(source), labels: LABELS(source), properties: PROPERTIES(source)} AS source,
+        {elementId: ELEMENTID(relation), type: TYPE(relation), properties: PROPERTIES(relation)} AS relation,
+        {elementId: ELEMENTID(target), labels: LABELS(target), properties: PROPERTIES(target)} AS target
+        """
+        if limit > 0:
+            retrieval_query += f"\nLIMIT {limit}"
+        return self.run_query(retrieval_query)
     
     def flush_graph(self) -> List[Dict[str, Any]]:
         """
@@ -839,13 +781,19 @@ class Neo4jKnowledgebase(Knowledgebase):
         Flushes vector index.
         :return: Deletion query result.
         """
-        return self.database.session().run(self._build_query(
-            f"DROP INDEX {index_name}"
-        )).data()
+        return self.database.session().run(self._build_query(f"DROP INDEX {index_name}")).data()
     
     """
     General access
     """
+
+    def change_setting(self, setting: str, value: str) -> List[Dict[str, Any]]:
+        """
+        Changes Neo4j setting.
+        :param setting: Neo4j setting.
+        :param value: Target value.
+        """
+        self.run_query(f"CALL dbms.setConfigValue(‘{setting}’,’{value}');")
 
     def run_query(self, query: str) -> List[Dict[str, Any]]:
         """
@@ -858,108 +806,57 @@ class Neo4jKnowledgebase(Knowledgebase):
     Knowledgebase access
     """
 
-    def retrieve_entries(self, 
-                           query: str, 
-                           filtermasks: List[FilterMask] | None = None, 
-                           retrieval_method: str | None = None, 
-                           retrieval_parameters: dict | None = None,
-                           entry_type: str = "base") -> List[Entry]:
+    def store_entry(self, 
+                    entry: Entry) -> None:
         """
-        Method for retrieving entries.
-        :param query: Retrieval query.
-        :param filtermasks: List of filtermasks.
-            Defaults to None.
-        :param retrieval_method: Retrieval method.
-            Defaults to None.
-        :param retrieval_parameters: Retrieval parameters.
-            Defaults to None.
-        :param entry_type: Target entry type.
-            Defaults to "base".
-        :return: Retrieved entries.
+        Method for storing entries.
+        :param entry: Entry to store.
         """
         pass
 
-    def embed_entries(self,
-                        entries: List[Entry], 
-                        embedding_parameters: dict | None = None, 
-                        entry_type: str = "base") -> None:
-        """
-        Method for embedding entries.
-        :param entries: Entries to embed.
-        :param embedding_parameters: Embedding parameters.
-            Defaults to None.
-        :param entry_type: Target entry type.
-            Defaults to "base".
-        """
-        pass
-
-    def store_embeddings(self,
-                        embeddings: List[list], 
-                        metadatas: List[list] = None, 
-                        ids: List[Union[int, str]] = None, 
-                        entry_type: str = "base") -> None:
-        """
-        Method for storing embeddings.
-        :param embeddings: Embeddings to store.
-        :param metadatas: Metadata entries to attach to embedding of the same index.
-            Defaults to None.
-        :param ids: IDs to store the embedding of the same index under.
-            Defaults to None.
-        :param embeddings: Entries to embed.
-        :param entry_type: Target entry type.
-            Defaults to "base".
-        """
-        pass
-
-    def update_entry(self, 
-                        entry: Entry, 
-                        entry_type: str = "base") -> None:
+    def update_entry(self,
+                     entry_or_id: int | str | UUID | Entry,
+                     patch: dict | Entry) -> None:
         """
         Abstract method for updating a entry in the knowledgebase.
-        :param entry: Entry update.
-        :param entry_type: Target entry type.
-            Defaults to "base".
+        :param entry_or_id: Entry or entry ID.
+        :param patch: Entry or dictionary for patching values.
         """
         pass
 
     def delete_entry(self, 
-                        entry_id: Union[int, str], 
-                        entry_type: str = "base") -> None:
+                     entry_or_id: int | str | UUID | Entry) -> None:
         """
         Abstract method for deleting a entry from the knowledgebase.
-        :param entry_id: Entry ID.
-        :param entry_type: Target entry type.
-            Defaults to "base".
+        :param entry_or_id: Entry or entry ID.
         """
         pass
-
-    def get_all_entries(self,
-                         entry_type: str = "base") -> List[Entry]:
+    
+    def retrieve_entries(self, 
+                         query: str | None = None, 
+                         filtermasks: List[FilterMask] | None = None, 
+                         retrieval_parameters: dict | None = None) -> List[Entry]:
         """
-        Method for retrieving all entries.
-        :param entry_type: Target entry type.
-            Defaults to "base".
+        Method for retrieving entries.
+        :param query: Optional retrieval query.
+        :param filtermasks: List of filtermasks.
+        :param retrieval_parameters: Retrieval parameters.
         :return: Retrieved entries.
         """
         pass
 
-    def create_entry_storage(self,
-                             entry_type: str,
-                             *args: Optional[Any],
-                             **kwargs: Optional[Any]) -> None:
+    def get_entry_by_id(self, entry_id: int | str | UUID) -> Entry:
         """
-        Abstract method for creating entry storages for the knowledgebase.
-        :param entry_type: Collection name.
-        :param args: Arbitrary arguments.
-        :param kwargs: Arbitrary keyword arguments.
+        Method for retrieving entries by ID.
+        :param entry_id: Entry ID.
+        :return: Target entry.
         """
         pass
 
-    def delete_entry_storage(self,
-                             entry_type: str | None = None) -> None:
+    def get_all_entries(self) -> List[Entry]:
         """
-        Abstract method for deleting entry storages from the knowledgebase.
+        Method for retrieving all entries.
         :param entry_type: Target entry type.
-            Defaults to None in which case all entry types are wiped.
+        :return: Retrieved entries.
         """
         pass
