@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-
-WARNING: LEGACY CODE - just for reference
-
 ****************************************************
 *          Basic Language Model Backend            *
 *            (c) 2025 Alexander Hering             *
