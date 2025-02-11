@@ -547,7 +547,7 @@ class Neo4jKnowledgebase(Knowledgebase):
         """
         self.database.close()
 
-    def _refine_query(self, query: str | List[str]) -> str:
+    def _build_query(self, query: str | List[str]) -> str:
         """
         Refines a query.
         :param query: Raw query as string or list of strings.
@@ -556,6 +556,10 @@ class Neo4jKnowledgebase(Knowledgebase):
         if isinstance(query, list):
             query = "\n".join(query)
         return neo4j.Query(query)
+    
+    """
+    Node and relationship management
+    """
 
     def create_node(self, node_labels: str | List[str], node_properties: dict) -> List[Dict[str, Any]]:
         """
@@ -574,7 +578,7 @@ class Neo4jKnowledgebase(Knowledgebase):
             return already_existing
         else:
             query = f"CREATE (target:{node_label} $node_properties) RETURN target"
-            return self.database.session().run(self._refine_query(query), node_properties=node_properties).data()
+            return self.database.session().run(self._build_query(query), node_properties=node_properties).data()
     
     def create_relationship(self, 
                             relation_labels: str | List[str], 
@@ -623,61 +627,8 @@ class Neo4jKnowledgebase(Knowledgebase):
             query_params = {f"from_{k}": v for k, v in from_properties.items()}
             query_params.update({f"to_{k}": v for k, v in to_properties.items()})
             query_params.update({f"rel_{k}": v for k, v in relation_properties.items()})
-            return self.database.session().run(self._refine_query(query), 
+            return self.database.session().run(self._build_query(query), 
                                             **query_params).data()
-        
-    def create_vector_index(self, 
-                            source_labels:  str | List[str],
-                            index_name:  str,
-                            vector_property: str,
-                            index_config: dict) -> List[Dict[str, Any]]:
-        """
-        Creates a vector index.
-        :param source_labels: Label(s) of the node.
-        :param index_name: Index name.
-        :param vector_property: Name of the vector property.
-        :param index_config: The index config.
-        """
-        source_label = self.prepare_labels(source_labels)
-        index_config = json.dumps(index_config).replace('{"', '{`').replace(', "', ', `').replace('":', '`:')
-        query = [
-            f"CREATE VECTOR INDEX {index_name} IF NOT EXISTS",
-            f"FOR (source:{source_label})",
-            f"ON source.{vector_property}",
-            f"OPTIONS {{ indexConfig: {index_config}}}"
-        ]
-        query = self._refine_query(query)
-        return self.database.session().run(query).data()
-    
-    def retrieve_vector_indexes(self) -> List[Dict[str, Any]]:
-        """
-        Retrieves available vector indexes.
-        """
-        query =  [
-            "SHOW VECTOR INDEXES YIELD name, type, entityType, labelsOrTypes, properties",
-            "RETURN name, type, entityType, labelsOrTypes, properties"
-        ]
-        query = self._refine_query(query)
-        return self.database.session().run(query).data()
-    
-    def retrieve_node(self, 
-                      target_labels: str | List[str], 
-                      target_properties: dict) -> List[Dict[str, Any]]:
-        """
-        Retrieves a graph node.
-        :param target_labels: Label(s) of the node.
-        :param target_properties: Target properties as dictionary.
-        :return: Retrieval query result.
-        """
-        target_label = self.prepare_labels(target_labels)
-        target_properties = self.prepare_properties(target_properties)
-
-        target_prop_clause = f"{{ {', '.join([f'{key}: ${key}' for key in target_properties])} }}" if target_properties else ""
-        query = [f"MATCH (target:{target_label} {target_prop_clause})"]
-        
-        query.append(f"RETURN target")
-        query = self._refine_query(query)
-        return self.database.session().run(query, **target_properties).data()
     
     def update_node(self, 
                     target_labels: str | List[str], 
@@ -703,36 +654,27 @@ class Neo4jKnowledgebase(Knowledgebase):
         ]
         target_properties["target_update"] = target_update
 
-        query = self._refine_query(query)
+        query = self._build_query(query)
         return self.database.session().run(query, **target_properties).data()
     
-    def retrieve_nearest_neighbors(self,
-                                    source_labels:  str | List[str],
-                                    source_properties: dict,
-                                    index_name:  str,
-                                    embeddings: List[List[float]],
-                                    max_neighbors: int = 5) -> List[Dict[str, Any]]:
+    def retrieve_node(self, 
+                      target_labels: str | List[str], 
+                      target_properties: dict) -> List[Dict[str, Any]]:
         """
-        Creates a vector index.
-        :param source_labels: Label(s) of the node.
-        :param source_properties: Source properties as dictionary.
-        :param index_name: Index name.
-        :param embeddings: Embeddings to score against.
-        :param index_config: The index config.
-        :param max_neighbors: Max number of neighbors.
+        Retrieves a graph node.
+        :param target_labels: Label(s) of the node.
+        :param target_properties: Target properties as dictionary.
+        :return: Retrieval query result.
         """
-        source_label = self.prepare_labels(source_labels)
-        source_properties = self.prepare_properties(source_properties)
+        target_label = self.prepare_labels(target_labels)
+        target_properties = self.prepare_properties(target_properties)
 
-        source_prop_clause = f"{{ {', '.join([f'{key}: ${key}' for key in source_properties])} }}" if source_properties else ""
-        query = [
-            f"MATCH (source:{source_label} {source_prop_clause})"
-            f"CALL db.index.vector.queryNodes('{index_name}', {max_neighbors}, {embeddings})",
-            "YIELD node AS target, score",
-            "RETURN target, score"
-        ]
-        query = self._refine_query(query)
-        return self.database.session().run(query).data()    
+        target_prop_clause = f"{{ {', '.join([f'{key}: ${key}' for key in target_properties])} }}" if target_properties else ""
+        query = [f"MATCH (target:{target_label} {target_prop_clause})"]
+        
+        query.append(f"RETURN target")
+        query = self._build_query(query)
+        return self.database.session().run(query, **target_properties).data()
 
     def retrieve_relation(self, 
                           relation_labels: str | List[str], 
@@ -769,7 +711,7 @@ class Neo4jKnowledgebase(Knowledgebase):
         query_params.update({f"rel_{k}": v for k, v in relation_properties.items()})
         
         query.append(f"RETURN relation")
-        query = self._refine_query(query)
+        query = self._build_query(query)
         return self.database.session().run(query, **query_params).data()
 
     def retrieve_network(self, 
@@ -814,26 +756,96 @@ class Neo4jKnowledgebase(Knowledgebase):
         query.append(f"RETURN source, target, relation")
         if limit > 0:
             query.append(f"LIMIT {limit}")
-        query = self._refine_query(query)
+        query = self._build_query(query)
         return self.database.session().run(query, **query_params).data()
     
-    def flush(self) -> List[Dict[str, Any]]:
+    def flush_graph(self) -> List[Dict[str, Any]]:
         """
         Flushes nodes and relationships.
         :return: Deletion query result.
         """
-        return self.database.session().run(self._refine_query(
+        return self.database.session().run(self._build_query(
             "MATCH (n) OPTIONAL MATCH (n)-[r]-() DELETE n,r"
         )).data()
+    
+    """
+    Vector index management
+    """
+
+    def create_vector_index(self, 
+                            source_labels:  str | List[str],
+                            index_name:  str,
+                            vector_property: str,
+                            index_config: dict) -> List[Dict[str, Any]]:
+        """
+        Creates a vector index.
+        :param source_labels: Label(s) of the node.
+        :param index_name: Index name.
+        :param vector_property: Name of the vector property.
+        :param index_config: The index config.
+        """
+        source_label = self.prepare_labels(source_labels)
+        index_config = json.dumps(index_config).replace('{"', '{`').replace(', "', ', `').replace('":', '`:')
+        query = [
+            f"CREATE VECTOR INDEX {index_name} IF NOT EXISTS",
+            f"FOR (source:{source_label})",
+            f"ON source.{vector_property}",
+            f"OPTIONS {{ indexConfig: {index_config}}}"
+        ]
+        query = self._build_query(query)
+        return self.database.session().run(query).data()
+    
+    def retrieve_vector_indexes(self) -> List[Dict[str, Any]]:
+        """
+        Retrieves available vector indexes.
+        """
+        query =  [
+            "SHOW VECTOR INDEXES YIELD name, type, entityType, labelsOrTypes, properties",
+            "RETURN name, type, entityType, labelsOrTypes, properties"
+        ]
+        query = self._build_query(query)
+        return self.database.session().run(query).data()
+        
+    def retrieve_nearest_neighbors(self,
+                                    source_labels:  str | List[str],
+                                    source_properties: dict,
+                                    index_name:  str,
+                                    embeddings: List[List[float]],
+                                    max_neighbors: int = 5) -> List[Dict[str, Any]]:
+        """
+        Creates a vector index.
+        :param source_labels: Label(s) of the node.
+        :param source_properties: Source properties as dictionary.
+        :param index_name: Index name.
+        :param embeddings: Embeddings to score against.
+        :param index_config: The index config.
+        :param max_neighbors: Max number of neighbors.
+        """
+        source_label = self.prepare_labels(source_labels)
+        source_properties = self.prepare_properties(source_properties)
+
+        source_prop_clause = f"{{ {', '.join([f'{key}: ${key}' for key in source_properties])} }}" if source_properties else ""
+        query = [
+            f"MATCH (source:{source_label} {source_prop_clause})"
+            f"CALL db.index.vector.queryNodes('{index_name}', {max_neighbors}, {embeddings})",
+            "YIELD node AS target, score",
+            "RETURN target, score"
+        ]
+        query = self._build_query(query)
+        return self.database.session().run(query).data()    
 
     def flush_vector_index(self, index_name: str) -> List[Dict[str, Any]]:
         """
         Flushes vector index.
         :return: Deletion query result.
         """
-        return self.database.session().run(self._refine_query(
+        return self.database.session().run(self._build_query(
             f"DROP INDEX {index_name}"
         )).data()
+    
+    """
+    General access
+    """
 
     def run_query(self, query: str) -> List[Dict[str, Any]]:
         """
@@ -841,3 +853,113 @@ class Neo4jKnowledgebase(Knowledgebase):
         :return: Query result.
         """
         return self.database.session().run(query).data()
+    
+    """
+    Knowledgebase access
+    """
+
+    def retrieve_entries(self, 
+                           query: str, 
+                           filtermasks: List[FilterMask] | None = None, 
+                           retrieval_method: str | None = None, 
+                           retrieval_parameters: dict | None = None,
+                           entry_type: str = "base") -> List[Entry]:
+        """
+        Method for retrieving entries.
+        :param query: Retrieval query.
+        :param filtermasks: List of filtermasks.
+            Defaults to None.
+        :param retrieval_method: Retrieval method.
+            Defaults to None.
+        :param retrieval_parameters: Retrieval parameters.
+            Defaults to None.
+        :param entry_type: Target entry type.
+            Defaults to "base".
+        :return: Retrieved entries.
+        """
+        pass
+
+    def embed_entries(self,
+                        entries: List[Entry], 
+                        embedding_parameters: dict | None = None, 
+                        entry_type: str = "base") -> None:
+        """
+        Method for embedding entries.
+        :param entries: Entries to embed.
+        :param embedding_parameters: Embedding parameters.
+            Defaults to None.
+        :param entry_type: Target entry type.
+            Defaults to "base".
+        """
+        pass
+
+    def store_embeddings(self,
+                        embeddings: List[list], 
+                        metadatas: List[list] = None, 
+                        ids: List[Union[int, str]] = None, 
+                        entry_type: str = "base") -> None:
+        """
+        Method for storing embeddings.
+        :param embeddings: Embeddings to store.
+        :param metadatas: Metadata entries to attach to embedding of the same index.
+            Defaults to None.
+        :param ids: IDs to store the embedding of the same index under.
+            Defaults to None.
+        :param embeddings: Entries to embed.
+        :param entry_type: Target entry type.
+            Defaults to "base".
+        """
+        pass
+
+    def update_entry(self, 
+                        entry: Entry, 
+                        entry_type: str = "base") -> None:
+        """
+        Abstract method for updating a entry in the knowledgebase.
+        :param entry: Entry update.
+        :param entry_type: Target entry type.
+            Defaults to "base".
+        """
+        pass
+
+    def delete_entry(self, 
+                        entry_id: Union[int, str], 
+                        entry_type: str = "base") -> None:
+        """
+        Abstract method for deleting a entry from the knowledgebase.
+        :param entry_id: Entry ID.
+        :param entry_type: Target entry type.
+            Defaults to "base".
+        """
+        pass
+
+    def get_all_entries(self,
+                         entry_type: str = "base") -> List[Entry]:
+        """
+        Method for retrieving all entries.
+        :param entry_type: Target entry type.
+            Defaults to "base".
+        :return: Retrieved entries.
+        """
+        pass
+
+    def create_entry_storage(self,
+                             entry_type: str,
+                             *args: Optional[Any],
+                             **kwargs: Optional[Any]) -> None:
+        """
+        Abstract method for creating entry storages for the knowledgebase.
+        :param entry_type: Collection name.
+        :param args: Arbitrary arguments.
+        :param kwargs: Arbitrary keyword arguments.
+        """
+        pass
+
+    def delete_entry_storage(self,
+                             entry_type: str | None = None) -> None:
+        """
+        Abstract method for deleting entry storages from the knowledgebase.
+        :param entry_type: Target entry type.
+            Defaults to None in which case all entry types are wiped.
+        """
+        pass
