@@ -419,20 +419,20 @@ class Neo4jKnowledgebase(Knowledgebase):
                  neo4j_uri: str,
                  neo4j_username: str,
                  neo4j_password: str,
-                 neo4j_params: dict = None) -> None:
+                 neo4j_driver_params: dict = None) -> None:
         """
         Initiates KnowledgeGraph instance.
         :param neo4j_uri: Neo4j database URI.
         :param neo4j_username: Neo4j database user.
         :param neo4j_password: Neo4j database password.
-        :param neo4j_params: Neo4j database driver parameters.
+        :param neo4j_driver_params: Neo4j database driver parameters.
         """
         db_params = {} if db_params is None else db_params
         self.neo4j_uri = neo4j_uri
         self.database = neo4j.GraphDatabase.driver(
             uri=self.neo4j_uri,
             auth=(neo4j_username, neo4j_password),
-            **neo4j_params 
+            **neo4j_driver_params 
         )
         self.prepare_labels = lambda labels: ":".join(labels) if isinstance(labels, list) else labels
         self.prepare_properties = lambda properties: None if properties is None else {k: v for k, v in properties.items() if v is not None}
