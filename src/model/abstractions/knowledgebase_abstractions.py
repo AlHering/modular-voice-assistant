@@ -293,7 +293,7 @@ class ChromaKnowledgebase(Knowledgebase):
 
     def store_embeddings(self,
                         ids: List[Union[int, str]],
-                        embeddings: List[list], 
+                        embeddings: List[int | float | List[int | float]], 
                         contents: List[str] = None, 
                         metadatas: List[list] = None) -> None:
         """
