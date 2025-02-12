@@ -745,20 +745,20 @@ class Neo4jKnowledgebase(Knowledgebase):
         query = self._build_query(query)
         return self.database.session().run(query).data()
         
-    def retrieve_nearest_neighbors(self,
+    def retrieve_by_semantic_similarity(self,
                                     source_labels:  str | List[str],
                                     source_properties: dict,
                                     index_name:  str,
                                     embeddings: List[List[float]],
-                                    max_neighbors: int = 5) -> List[Dict[str, Any]]:
+                                    max_nodes: int = 5) -> List[Dict[str, Any]]:
         """
-        Creates a vector index.
+        Retrieves nodes by semantic similarity.
         :param source_labels: Label(s) of the node.
         :param source_properties: Source properties as dictionary.
         :param index_name: Index name.
         :param embeddings: Embeddings to score against.
         :param index_config: The index config.
-        :param max_neighbors: Max number of neighbors.
+        :param max_nodes: Max number of retrieved nodes.
         """
         source_label = self.prepare_labels(source_labels)
         source_properties = self.prepare_properties(source_properties)
@@ -766,7 +766,7 @@ class Neo4jKnowledgebase(Knowledgebase):
         source_prop_clause = f"{{ {', '.join([f'{key}: ${key}' for key in source_properties])} }}" if source_properties else ""
         query = [
             f"MATCH (source:{source_label} {source_prop_clause})"
-            f"CALL db.index.vector.queryNodes('{index_name}', {max_neighbors}, {embeddings})",
+            f"CALL db.index.vector.queryNodes('{index_name}', {max_nodes}, {embeddings})",
             "YIELD node AS target, score",
             "RETURN target, score"
         ]
