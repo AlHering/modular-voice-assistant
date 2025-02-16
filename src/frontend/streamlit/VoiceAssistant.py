@@ -122,7 +122,8 @@ def main_page_content() -> None:
         message_box.write(message["content"])
     prompt_box = st.empty()
     response_box = st.empty()
-    interaction_columns = st.columns([.8, .2])
+    interaction_box = st.empty()
+    interaction_columns = interaction_box.columns([.8, .2])
 
     # text input
     active_worker = st.session_state["loaded_services"]["Chat"]
