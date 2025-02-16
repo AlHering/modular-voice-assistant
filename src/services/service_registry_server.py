@@ -235,6 +235,8 @@ class ServiceRegistryServer(object):
             service.reset(restart_thread=True)
             while not service.setup_flag:
                 await asyncio.sleep(.5)
+            service.flush_inputs()
+            service.flush_outputs()
             self.service_uuids[service.name] = config_uuid
             return BaseResponse(status="success", results=[{"service": service.name, "config_uuid": config_uuid}])
         except Exception as ex:

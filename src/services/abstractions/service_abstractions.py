@@ -207,8 +207,6 @@ class Service(object):
                 self.process.terminate() 
                 self.process.join(.5) 
         self.setup_flag = False
-        self.flush_inputs()
-        self.flush_outputs()
         self.pause.clear()
         self.interrupt.clear()
         if restart_thread or restart_process:
