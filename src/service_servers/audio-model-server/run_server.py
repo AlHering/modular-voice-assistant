@@ -13,8 +13,6 @@ from fastapi.responses import RedirectResponse
 from fastapi import FastAPI, APIRouter
 from typing import List
 import logging
-from src.services.abstractions.service_abstractions import ServicePackage
-from src.configuration import configuration as cfg
 from utility import ENV
 
 
@@ -42,7 +40,7 @@ async def root() -> dict:
 class ServiceRequest(BaseModel):
     """Config payload class."""
     service: str
-    input_package: ServicePackage
+    input_package: None
     timeout: float | None = None
 
 
@@ -80,17 +78,9 @@ def setup_router() -> APIRouter:
     Sets up an API router.
     :return: API router.
     """
-    router = APIRouter(prefix=cfg.BACKEND_ENDPOINT_BASE)
-    router.add_api_route(path="/service/get", endpoint=get_services, methods=["GET"])
-    router.add_api_route(path="/interrupt", endpoint=interrupt, methods=["POST"])
-    router.add_api_route(path="/service/process", endpoint=process, methods=["POST"])
-    router.add_api_route(path="/service/stream", endpoint=process_as_stream, methods=["POST"])
-    router.add_api_route(path="/service/run", endpoint=setup_and_run_service, methods=["POST"])
-    router.add_api_route(path="/service/reset", endpoint=reset_service, methods=["POST"])
-    router.add_api_route(path="/service/stop", endpoint=stop_service, methods=["POST"])
-    router.add_api_route(path="/configs/get", endpoint=get_configs, methods=["POST"])
-    router.add_api_route(path="/configs/add", endpoint=add_config, methods=["POST"])
-    router.add_api_route(path="/configs/patch", endpoint=patch_config, methods=["POST"])
+    router = APIRouter(prefix=ENV.get("API_BASE", "api/v1"))
+    #router.add_api_route(path="/service/get", endpoint=get_services, methods=["GET"])
+    #router.add_api_route(path="/interrupt", endpoint=interrupt, methods=["POST"])
     return router
     
 
@@ -106,8 +96,8 @@ def run() -> None:
     router = setup_router()
     APP.include_router(router)
     uvicorn.run("run_server:APP",
-                host=ENV.get("host", "0.0.0.0"),
-                port=ENV.get("port", "8125"),
+                host=ENV.get("HOST", "0.0.0.0"),
+                port=ENV.get("PORT", "8125"),
                 log_level="debug")
 
 
