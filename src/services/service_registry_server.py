@@ -366,7 +366,7 @@ def run() -> None:
         SynthesizerService()
     ])
     APP.include_router(INTERFACE.setup_router())
-    uvicorn.run("src.services.service_registry:APP",
+    uvicorn.run("src.services.service_registry_server:APP",
                 host=cfg.BACKEND_HOST,
                 port=cfg.BACKEND_PORT,
                 log_level="debug")
