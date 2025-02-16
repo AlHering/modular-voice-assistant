@@ -7,7 +7,7 @@
 """
 import sys
 import os
-import streamlit
+import streamlit as streamlit
 from src.configuration import configuration as cfg
 
 
