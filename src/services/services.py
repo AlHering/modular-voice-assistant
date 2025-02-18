@@ -178,7 +178,6 @@ class ChatService(Service):
                     yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
            
 
-
 class SynthesizerService(Service):
     """
     Synthesizer service.
