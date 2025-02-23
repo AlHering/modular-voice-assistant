@@ -6,7 +6,7 @@
 ****************************************************
 """
 from typing import Callable, List, Any
-from smolagents import OpenAIServerModel, MultiStepAgent, Tool
+from smolagents import OpenAIServerModel, CodeAgent, Tool
 
 
 def get_remote_agent(
@@ -31,6 +31,6 @@ def get_remote_agent(
     )
     agent_parameters["tools"] = [] if tools is None else tools
     if agent_class is None:
-        return MultiStepAgent(**agent_parameters)
+        return CodeAgent(**agent_parameters)
     else:
         return agent_class(**agent_parameters)
