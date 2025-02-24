@@ -6,7 +6,11 @@
 ****************************************************
 """
 from typing import Callable, List, Any
-from smolagents import OpenAIServerModel, CodeAgent, Tool, DuckDuckGoSearchTool
+from agno.agent import Agent, Toolkit
+from agno.models.openai import OpenAIChat
+#from agno.embedder.openai import OpenAIEmbedder
+#from agno.vectordb.lancedb import LanceDb, SearchType
+from agno.tools.duckduckgo import DuckDuckGoTools
 
 
 def get_remote_agent(
@@ -14,7 +18,7 @@ def get_remote_agent(
     api_token: str | None = None,
     model_id: str = "default",
     model_parameters: dict | None = None,
-    tools: List[Tool] | None = None,
+    tools: List[Toolkit] | None = None,
     agent_class: Callable | None = None,
     agent_parameters: dict | None = None
 ) -> Any:
@@ -23,14 +27,11 @@ def get_remote_agent(
     """
     model_parameters = {} if model_parameters is None else model_parameters
     agent_parameters = {} if agent_parameters is None else agent_parameters
-    agent_parameters["model"] = OpenAIServerModel(
-        model_id=model_id,
-        api_base=api_base,
+    agent_parameters["model"] = OpenAIChat(
+        id=model_id,
+        base_url=api_base,
         api_key=api_token,
         **model_parameters
     )
-    agent_parameters["tools"] = [DuckDuckGoSearchTool()] if tools is None else tools
-    if agent_class is None:
-        return CodeAgent(**agent_parameters)
-    else:
-        return agent_class(**agent_parameters)
+    agent_parameters["tools"] = [DuckDuckGoTools()] if tools is None else tools
+    return Agent(**agent_parameters)
