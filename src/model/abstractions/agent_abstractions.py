@@ -7,6 +7,22 @@
 """
 from typing import Callable, Any
 from pydantic import BaseModel
+from src.utility.foreign.json_schema_to_grammar import SchemaConverter
+
+
+def convert_pydantic_model_to_grammar(model: BaseModel) -> str:
+    """
+    Converts pydantic BaseModel class to GBNF grammar.
+    :param model: Pydantic BaseModel class.
+    :return: GBNF grammar as string.
+    """
+    conv = SchemaConverter(prop_order={},
+                           allow_fetch=False,
+                           dotall=False,
+                           raw_pattern=False)
+    schema = conv.resolve_refs(model.model_json_schema(), "")
+    conv.visit(schema, "")
+    return conv.format_grammar()
 
 
 class Memory(object):
@@ -48,6 +64,18 @@ class AgentTool(object):
             "description": self.description,
             "parameters": self.input_declaration.model_json_schema()
         }
+    
+    def get_input_grammar(self) -> str:
+        """
+        Returns input grammar.
+        """
+        return convert_pydantic_model_to_grammar(model=self.input_declaration)
+
+    def get_output_grammar(self) -> str:
+        """
+        Returns output grammar.
+        """
+        return convert_pydantic_model_to_grammar(model=self.output_declaration)
     
     def __call__(self) -> Any:
         """
