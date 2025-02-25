@@ -7,8 +7,10 @@
 """
 from typing import Callable, Any, List
 from pydantic import BaseModel
+import json
 from uuid import UUID, uuid4
 from enum import Enum
+from src.model.abstractions.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
 from src.model.abstractions.knowledgebase_abstractions import Entry, ChromaKnowledgeBase, Neo4jKnowledgebase, Knowledgebase
 from src.utility.filter_mask_utility import FilterMask
 from src.utility.foreign.json_schema_to_grammar import SchemaConverter
@@ -34,7 +36,7 @@ class MemoryType(str, Enum):
     neo4j = "neo4j"
 
 
-class Memory(object):
+class AgentMemory(object):
     """
     Class, representing an agent's memory.
     """
@@ -173,3 +175,95 @@ class AgentTool(object):
         :return: Function output.
         """
         return self.func(*args, **kwargs)
+    
+
+class AgentStep(BaseModel):
+    """
+    Representation of agent step.
+    """
+    step: str
+    use_tool: bool
+    tool: str
+
+
+class AgentPlan(BaseModel):
+    """
+    Representation of agent plan.
+    """
+    steps: List[AgentStep]
+    return_tool_output: bool
+
+
+class Agent(object):
+    """
+    Class, representing an agent.
+    """
+    def __init__(self,
+                 chat_model_instance: ChatModelInstance | RemoteChatModelInstance,
+                 tools: List[AgentTool],
+                 memory: ChromaKnowledgeBase,
+                 world_knowledge: Neo4jKnowledgebase) -> None:
+        """
+        Initiation method.
+        :param chat_model_instance: Chat model instance for handling generative tasks.
+        :param tools: List of available tools.
+        :param memory: Conversation memory.
+        :param world_knowledge: World knowledge memory.
+        :param grammar_field: Grammar field in chat method metadata for constrained decoding.
+        """
+        self.chat_model_instance = chat_model_instance
+        self.tools = tools
+        self.memory = memory
+        self.world_knowledge = world_knowledge
+        
+    def plan(self, task: str) -> List[AgentStep]:
+        """
+        Creates a plan, consisting of agent steps.
+        :param task: Task description.
+        :result: Plan.
+        """
+        prompt = f"""Please create an AgentPlan in JSON format to handle given task which consist of solution steps. Here is the structure of an AgentPlan:
+        ```python
+        class AgentStep:
+            step: str #Description of the solution step
+            use_tool: bool #Whether to use a tool in this step
+            tool: str #Name of the tool, if a tool is to be used in this step
+
+        class AgentPlan:
+            steps: List[AgentStep] #The solution steps that build up the plan
+            return_tool_output: bool #Whether the final result is a tool output
+        ```
+        
+        TASK:
+        {task}
+
+        Return only the JSON representation for an AgentPlan object."""
+        plan_params = self.chat_model_instance.chat(
+            prompt=prompt,
+            chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentPlan)}
+        ) 
+        try: 
+            result_params = json.loads(plan_params)
+        except json.JSONDecodeError:
+            prompt = f"""Please clean up the given JSON to meet the structure of an AgentPlan. Here is the structure of an AgentPlan:
+            ```python
+            class AgentStep:
+                step: str #Description of the solution step
+                use_tool: bool #Whether to use a tool in this step
+                tool: str #Name of the tool, if a tool is to be used in this step
+
+            class AgentPlan:
+                steps: List[AgentStep] #The solution steps that build up the plan
+                return_tool_output: bool #Whether the final result is a tool output
+            ```
+            
+            JSON:
+            {result_params}"""
+            plan_params = self.chat_model_instance.chat(
+                prompt=prompt,
+                chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentPlan)}
+            ) 
+            result_params = json.loads(plan_params)
+        if "AgentPlan" in result_params:
+            result_params = result_params["AgentPlan"]
+        return AgentPlan(**result_params)
