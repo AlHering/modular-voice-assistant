@@ -5,7 +5,7 @@
 *            (c) 2025 Alexander Hering             *
 ****************************************************
 """
-from typing import Callable, Any, List
+from typing import Callable, Any, List, Tuple
 from pydantic import BaseModel
 from uuid import UUID, uuid4
 from enum import Enum
@@ -188,7 +188,7 @@ class AgentStep(BaseModel):
     """
     Representation of agent step.
     """
-    step: str
+    task: str
     use_tool: bool
     tool: str
 
@@ -219,7 +219,7 @@ class Agent(object):
         :param grammar_field: Grammar field in chat method metadata for constrained decoding.
         """
         self.chat_model_instance = chat_model_instance
-        self.tools = {tool.name: tool for tool in tools}
+        self.tools = {tool.name.lower(): tool for tool in tools}
         # TODO: Store previous sessions, feedback and relevant entities in memory.
         self.memory = memory
         # TODO: Enrich world knowledge for faster and offline retrieval
@@ -229,29 +229,27 @@ class Agent(object):
             "You are a helpful AI Agent, assisting the user with his tasks. You work involves planning and executing planned steps to solve tasks."
             "You can use the following tools:"
         ])
-        tool_explanations = [
-            "\n".join([
-                f"Tool: {tool.name}",
-                f"Description: {tool.description}",
-                f"Input JSON: {'No input needed.' if tool.input_declaration is None else tool.input_declaration.model_json_schema()}",
-                f"Output JSON: {'No output.' if tool.output_declaration is None else tool.output_declaration.model_json_schema()}",
-            ]) for tool in tools
-        ]
+        tool_explanations = ["\n".join([
+            f"Tool: {tool.name}",
+            f"Description: {tool.description}",
+            f"Input JSON: {'No input needed.' if tool.input_declaration is None else tool.input_declaration.model_json_schema()}",
+            f"Output JSON: {'No output.' if tool.output_declaration is None else tool.output_declaration.model_json_schema()}",
+        ]) for tool in tools]
+        tool_explanations.append("")
         self.system_prompt += "\n\n".join(tool_explanations)
-        self.system_prompt += "\n\n"
 
-    def use_tool(self, tool_name: str, input_data: dict | BaseModel) -> Any:
+    def use_tool(self, tool_name: str, tool_input: dict | BaseModel) -> Any:
         """
         Utilizes tool to fetch result.
         :param tool_name: Tool name.
-        :param input_data: Input data.
+        :param tool_input: Tool input.
         :return: Tool result.
         """
         if tool_name in self.tools:
-            if isinstance(input_data, dict):
-                return self.tools[tool_name](**input_data)
+            if isinstance(tool_input, dict):
+                return self.tools[tool_name](**tool_input)
             else:
-                return self.tools[tool_name](**input_data.model_dump_json())
+                return self.tools[tool_name](**tool_input.model_dump_json())
         else:
             return None
         
@@ -270,7 +268,7 @@ class Agent(object):
         prompt = f"""Please create an AgentPlan in JSON format to handle given task which consist of solution steps. Here is the structure of an AgentPlan:
         ```python
         class AgentStep:
-            step: str #Description of the solution step
+            task: str #Description of the task in this step
             use_tool: bool #Whether to use a tool in this step
             tool: str #Name of the tool, if a tool is to be used in this step
 
@@ -313,9 +311,42 @@ class Agent(object):
             result_params = result_params["AgentPlan"]
         return AgentPlan(**result_params)
     
+    def act(self, step: AgentStep, step_index: int) -> Tuple[bool, Any]:
+        """
+        Handles an agent step.
+        :param step: Step to handle.
+        :param step_index: Step index.
+        :return: True and result if successful else False and reason as string.
+        """
+        if step.use_tool:
+            tool = self.tools.get(step.tool.lower())
+            if tool is None:
+                return False, f"The tool '{step.tool}' is not available."
+            else:
+                tool_input = {}
+                if tool.input_declaration is not None:
+                    response = self.chat_model_instance.chat(
+                        prompt="\n".join([
+                            f"Your goal is to solve task {step_index+1}: {step.task}"
+                            f"Please respond with the input parameters for the tool '{step.tool} as JSON structure. Follow the tool's Input JSON structure."
+                        ]),
+                        chat_parameters={"grammar": convert_pydantic_model_to_grammar(tool.input_declaration)}
+                    ) 
+                    try:
+                        tool_input = json.loads(response)
+                    except json.JSONDecodeError:
+                        return False, "Tool input is no valid JSON structure."
+                return self.use_tool(tool_name=tool.name.lower(), tool_input=tool_input)
+        else:
+            return self.chat_model_instance.chat(
+                prompt=f"Your goal is to solve task {step_index+1}: {step.task}. Please respond with the solution."
+            ) 
+    
     def run(self, task: str) -> Any:
         """
         Runs agent cycle.
+        :param task: User task.
+        :return: Task result.
         """
         plan = self.plan(task=task)
         for step_index, step in enumerate(plan):
@@ -326,3 +357,8 @@ class Agent(object):
                 prompt=prompt,
                 chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentPlan)}
             ) 
+
+        # TODO: Save session, result, potentially feedback in memory
+
+
+# TODO: Implement hybrid assistant/agent with intention prediction (chat - based on multiple templates, plan, act, observe, tool use)
