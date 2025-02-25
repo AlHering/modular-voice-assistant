@@ -122,6 +122,7 @@ class AgentTool(object):
         :param func: Target function.
         :return: AgentTool instance.
         """
+        raise NotImplementedError("Function to tool conversion not yet implemented.")
         parameters = {}
         return cls(**parameters)
 
