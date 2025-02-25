@@ -7,9 +7,9 @@
 """
 from typing import Callable, Any, List
 from pydantic import BaseModel
-from uuid import UUID
+from uuid import UUID, uuid4
 from enum import Enum
-from src.model.abstractions.knowledgebase_abstractions import Entry, ChromaKnowledgeBase, Neo4jKnowledgebase
+from src.model.abstractions.knowledgebase_abstractions import Entry, ChromaKnowledgeBase, Neo4jKnowledgebase, Knowledgebase
 from src.utility.filter_mask_utility import FilterMask
 from src.utility.foreign.json_schema_to_grammar import SchemaConverter
 
@@ -55,13 +55,25 @@ class Memory(object):
             "chroma": ChromaKnowledgeBase,
             "neo4j": Neo4jKnowledgebase
         }[memory_type.value()]
-        self.memory = self.memory_type(**self.memory_parameters)
+        self.memory: Knowledgebase = self.memory_type(**self.memory_parameters)
 
     def store(self, content: str, metadata: dict) -> Entry:
         """
         Stores a memory.
         :param content: Textual content.
         :param metadata: Memory metadata.
+        """
+        entry = Entry(id=uuid4(),
+                      content=content,
+                      metadata=metadata)
+        self.memory.store_entry(entry=entry)
+        return entry
+    
+    def prepare_prompt_addition(self, one_or_multiple_entries: Entry | List[Entry]) -> str:
+        """
+        Prepares prompt addition for incorporating memory entries.
+        :param one_or_multiple_entries: Memory entry or list of memory entries.
+        :return: Prompt memory addition as string.
         """
         pass
 
@@ -71,24 +83,24 @@ class Memory(object):
         :param entry_id: Entry ID.
         :return: Prompt memory addition as string.
         """
-        pass
+        return self.prepare_prompt_addition(self.memory.get_entry_by_id(entry_id=entry_id))
 
-    def retrieve_by_metadata(self, filter_masks: List[FilterMask]) -> str:
+    def retrieve_by_metadata(self, filtermasks: List[FilterMask]) -> str:
         """
         Retrieves a memories by metadata filters.
-        :param filter_masks: List of filter masks.
+        :param filtermasks: List of filter masks.
         :return: Prompt memory addition as string.
         """
-        pass
+        return self.prepare_prompt_addition(self.memory.retrieve_entries(filtermasks=filtermasks))
 
-    def retrieve_by_similarity(self, reference: str, filter_masks: List[FilterMask]) -> str:
+    def retrieve_by_similarity(self, reference: str, filtermasks: List[FilterMask] | None = None) -> str:
         """
         Retrieves a memories by similarity.
         :param reference: Textual reference.
-        :param filter_masks: List of filter masks.
+        :param filtermasks: List of filter masks.
         :param metadata: Prompt memory addition as string.
         """
-        pass
+        return self.prepare_prompt_addition(self.memory.retrieve_entries(query=reference, filtermasks=filtermasks))
 
 
 class AgentTool(object):
