@@ -5,8 +5,12 @@
 *            (c) 2025 Alexander Hering             *
 ****************************************************
 """
-from typing import Callable, Any
+from typing import Callable, Any, List
 from pydantic import BaseModel
+from uuid import UUID
+from enum import Enum
+from src.model.abstractions.knowledgebase_abstractions import Entry, ChromaKnowledgeBase, Neo4jKnowledgebase
+from src.utility.filter_mask_utility import FilterMask
 from src.utility.foreign.json_schema_to_grammar import SchemaConverter
 
 
@@ -25,15 +29,72 @@ def convert_pydantic_model_to_grammar(model: BaseModel) -> str:
     return conv.format_grammar()
 
 
+class MemoryType(str, Enum):
+    chroma = "chroma"
+    neo4j = "neo4j"
+
+
 class Memory(object):
-    pass
+    """
+    Class, representing an agent's memory.
+    """
+    def __init__(self, 
+                 memory_type: MemoryType = MemoryType.chroma, 
+                 memory_parameters: dict | None = None,
+                 retrieval_parameters: dict | None = None) -> None:
+        """
+        Initiation method.
+        :param memory_type: Memory type.
+        :param memory_parameters: Memory instantiation parameters.
+        :param retrieval_parameters: Retrieval parameters. 
+        """
+        self.memory_parameters = {} if memory_parameters is None else memory_parameters
+        self.retrieval_parameters = {} if retrieval_parameters is None else retrieval_parameters
+
+        self.memory_type = {
+            "chroma": ChromaKnowledgeBase,
+            "neo4j": Neo4jKnowledgebase
+        }[memory_type.value()]
+        self.memory = self.memory_type(**self.memory_parameters)
+
+    def store(self, content: str, metadata: dict) -> Entry:
+        """
+        Stores a memory.
+        :param content: Textual content.
+        :param metadata: Memory metadata.
+        """
+        pass
+
+    def retrieve_by_id(self, entry_id: int | str | UUID) -> str:
+        """
+        Retrieves a memory by its ID.
+        :param entry_id: Entry ID.
+        :return: Prompt memory addition as string.
+        """
+        pass
+
+    def retrieve_by_metadata(self, filter_masks: List[FilterMask]) -> str:
+        """
+        Retrieves a memories by metadata filters.
+        :param filter_masks: List of filter masks.
+        :return: Prompt memory addition as string.
+        """
+        pass
+
+    def retrieve_by_similarity(self, reference: str, filter_masks: List[FilterMask]) -> str:
+        """
+        Retrieves a memories by similarity.
+        :param reference: Textual reference.
+        :param filter_masks: List of filter masks.
+        :param metadata: Prompt memory addition as string.
+        """
+        pass
 
 
 class AgentTool(object):
     """
-    Class, representing a agent tool.
+    Class, representing an agent tool.
     """
-
     def __init__(self,
                  name: str,
                  description: str,
@@ -53,6 +114,16 @@ class AgentTool(object):
         self.func = func
         self.input_declaration = input_declaration
         self.output_declaration = output_declaration
+
+    @classmethod
+    def from_function(cls, func: Callable) -> Any:
+        """
+        Returns a tool instance from a function.
+        :param func: Target function.
+        :return: AgentTool instance.
+        """
+        parameters = {}
+        return cls(**parameters)
 
     def get_openai_function_representation(self) -> dict:
         """
@@ -77,8 +148,11 @@ class AgentTool(object):
         """
         return convert_pydantic_model_to_grammar(model=self.output_declaration)
     
-    def __call__(self) -> Any:
+    def __call__(self, *args: Any | None, **kwargs: Any | None) -> Any:
         """
         Call method for running tool function with arguments.
+        :param args: Arbitrary function arguments.
+        :param kwargs: Arbitrary function keyword arguments.
+        :return: Function output.
         """
-        return self.func(**self.input_declaration.model_dump())
+        return self.func(*args, **kwargs)
