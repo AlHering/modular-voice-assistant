@@ -8,6 +8,7 @@
 from typing import Callable, Any, List
 from pydantic import BaseModel
 import json
+from datetime import datetime as dt
 from uuid import UUID, uuid4
 from enum import Enum
 from src.model.abstractions.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
@@ -212,9 +213,38 @@ class Agent(object):
         :param grammar_field: Grammar field in chat method metadata for constrained decoding.
         """
         self.chat_model_instance = chat_model_instance
-        self.tools = tools
+        self.tools = {tool.name: tool for tool in tools}
         self.memory = memory
         self.world_knowledge = world_knowledge
+
+        self.system_prompt = "\n".join([
+            "You are a helpful AI Agent, assisting the user with his tasks. You work involves planning and executing planned steps to solve tasks."
+            "You can use the following tools:"
+        ])
+        self.system_prompt += "\n\n".join(
+            f"Tool: {tool.name}\nDescription: {tool.description}\nInput JSON: {tool.input_declaration.model_json_schema()}\nOutput JSON: {tool.output_declaration.model_json_schema()}" for tool in tools)
+        self.system_prompt += "\n\n"
+        if not self.chat_model_instance.history or self.chat_model_instance.history[0]["content"] != self.system_prompt:
+            self.chat_model_instance.history.append({
+                "role": "system", 
+                "content": self.system_prompt,
+                "metadata": {"initiated": dt.now()}
+            })
+
+    def use_tool(self, tool_name: str, input_data: dict | BaseModel) -> Any:
+        """
+        Utilizes tool to fetch result.
+        :param tool_name: Tool name.
+        :param input_data: Input data.
+        :return: Tool result.
+        """
+        if tool_name in self.tools:
+            if isinstance(input_data, dict):
+                return self.tools[tool_name](**input_data)
+            else:
+                return self.tools[tool_name](**input_data.model_dump_json())
+        else:
+            return None
         
     def plan(self, task: str) -> List[AgentStep]:
         """
@@ -267,3 +297,17 @@ class Agent(object):
         if "AgentPlan" in result_params:
             result_params = result_params["AgentPlan"]
         return AgentPlan(**result_params)
+    
+    def run(self, task: str) -> Any:
+        """
+        Runs agent cycle.
+        """
+        plan = self.plan(task=task)
+        for step_index, step in enumerate(plan):
+            prompt = "\n".join([
+                f"Your task is to solve task {step_index+1}:"
+            ])
+            response = self.chat_model_instance.chat(
+                prompt=prompt,
+                chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentPlan)}
+            ) 
