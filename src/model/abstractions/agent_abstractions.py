@@ -253,7 +253,7 @@ class Agent(object):
         else:
             return None
         
-    def plan(self, task: str) -> List[AgentStep]:
+    def plan(self, task: str) -> AgentPlan:
         """
         Creates a plan, consisting of agent steps.
         :param task: Task description.
@@ -265,22 +265,25 @@ class Agent(object):
             "metadata": {"initiated": dt.now()}
         }]
 
-        prompt = f"""Please create an AgentPlan in JSON format to handle given task which consist of solution steps. Here is the structure of an AgentPlan:
-        ```python
-        class AgentStep:
-            task: str #Description of the task in this step
-            use_tool: bool #Whether to use a tool in this step
-            tool: str #Name of the tool, if a tool is to be used in this step
-
-        class AgentPlan:
-            steps: List[AgentStep] #The solution steps that build up the plan
-            return_tool_output: bool #Whether the final result is a tool output
-        ```
-        
-        TASK:
-        {task}
-
-        Return only the JSON representation for an AgentPlan object."""
+        prompt = "\n".join([
+            f"Please create an AgentPlan in JSON format to handle given task which consist of solution steps. Such a solution step is called AgentStep.",
+            f"Here is the structure of an AgentPlan:",
+            "```python",
+            "class AgentStep:",
+            "   task: str #Description of the task in this step",
+            "   use_tool: bool #Whether to use a tool in this step",
+            "   tool: str #Name of the tool, if a tool is to be used in this step",
+            "",
+            "class AgentPlan:",
+            "steps: List[AgentStep] #The solution steps that build up the plan",
+            "return_tool_output: bool #Whether the final result is a tool output",
+            "```",
+            "",
+            "TASK:",
+            f"{task}",
+            "",
+            "Return only the JSON representation for an AgentPlan object."
+        ])
         plan_params = self.chat_model_instance.chat(
             prompt=prompt,
             chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentPlan)}
@@ -311,7 +314,7 @@ class Agent(object):
             result_params = result_params["AgentPlan"]
         return AgentPlan(**result_params)
     
-    def act(self, step: AgentStep, step_index: int) -> Tuple[bool, Any]:
+    def act(self, step: AgentStep, step_index: int | str) -> Tuple[bool, Any]:
         """
         Handles an agent step.
         :param step: Step to handle.
@@ -327,7 +330,7 @@ class Agent(object):
                 if tool.input_declaration is not None:
                     response = self.chat_model_instance.chat(
                         prompt="\n".join([
-                            f"Your goal is to solve task {step_index+1}: {step.task}"
+                            f"Your goal is to solve task {step_index}: {step.task}"
                             f"Please respond with the input parameters for the tool '{step.tool} as JSON structure. Follow the tool's Input JSON structure."
                         ]),
                         chat_parameters={"grammar": convert_pydantic_model_to_grammar(tool.input_declaration)}
@@ -339,25 +342,38 @@ class Agent(object):
                 return self.use_tool(tool_name=tool.name.lower(), tool_input=tool_input)
         else:
             return self.chat_model_instance.chat(
-                prompt=f"Your goal is to solve task {step_index+1}: {step.task}. Please respond with the solution."
+                prompt=f"Your goal is to solve task {step_index}: {step.task}. Please respond with the solution."
             ) 
     
-    def run(self, task: str) -> Any:
+    def run(self, task: str, max_step_retries: int = 3) -> Any:
         """
         Runs agent cycle.
         :param task: User task.
+        :param max_step_retries: Maximum step retries.
         :return: Task result.
         """
         plan = self.plan(task=task)
-        for step_index, step in enumerate(plan):
-            prompt = "\n".join([
-                f"Your task is to solve task {step_index+1}:"
-            ])
-            response = self.chat_model_instance.chat(
-                prompt=prompt,
-                chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentPlan)}
-            ) 
-
+        for step_index, step in enumerate(plan.steps):
+            retries = 0
+            success, result_or_reason = self.act(step=step, step_index=step_index+1)
+            while not success and retries < max_step_retries:
+                new_step = self.chat_model_instance.chat(
+                    prompt=f"Task {step_index+1}: {step.task} failed: {result_or_reason}.\nRespond with an additional AgentStep JSON object for solving the issue.",
+                    chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentStep)}
+                ) 
+                try:
+                    new_step = json.loads(new_step)
+                except json.JSONDecodeError:
+                    new_step = self.chat_model_instance.chat(
+                        prompt=f"The AgentStep object from the previous response is not a valid JSON structure. Please respond with a valid structure.",
+                        chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentStep)}
+                    ) 
+                success, result_or_reason = self.act(step=AgentStep(**new_step), step_index=f"{step_index+1}.{retries+1}")
+                max_step_retries += 1
+            if not success:
+                return None
+        if success:
+            return result_or_reason
         # TODO: Save session, result, potentially feedback in memory
 
 
