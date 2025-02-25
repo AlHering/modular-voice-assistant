@@ -220,7 +220,9 @@ class Agent(object):
         """
         self.chat_model_instance = chat_model_instance
         self.tools = {tool.name: tool for tool in tools}
+        # TODO: Store previous sessions, feedback and relevant entities in memory.
         self.memory = memory
+        # TODO: Enrich world knowledge for faster and offline retrieval
         self.world_knowledge = world_knowledge
 
         self.system_prompt = "\n".join([
@@ -237,12 +239,6 @@ class Agent(object):
         ]
         self.system_prompt += "\n\n".join(tool_explanations)
         self.system_prompt += "\n\n"
-        if not self.chat_model_instance.history or self.chat_model_instance.history[0]["content"] != self.system_prompt:
-            self.chat_model_instance.history.append({
-                "role": "system", 
-                "content": self.system_prompt,
-                "metadata": {"initiated": dt.now()}
-            })
 
     def use_tool(self, tool_name: str, input_data: dict | BaseModel) -> Any:
         """
@@ -265,6 +261,12 @@ class Agent(object):
         :param task: Task description.
         :result: Plan.
         """
+        self.chat_model_instance.history = [{
+            "role": "system", 
+            "content": self.system_prompt,
+            "metadata": {"initiated": dt.now()}
+        }]
+
         prompt = f"""Please create an AgentPlan in JSON format to handle given task which consist of solution steps. Here is the structure of an AgentPlan:
         ```python
         class AgentStep:
