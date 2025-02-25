@@ -118,8 +118,8 @@ class AgentTool(object):
                  name: str,
                  description: str,
                  func: Callable,
-                 input_declaration: BaseModel,
-                 output_declaration: BaseModel) -> None:
+                 input_declaration: BaseModel | None = None,
+                 output_declaration: BaseModel | None = None) -> None:
         """
         Initiation method.
         :param name: Name of the tool.
@@ -160,13 +160,19 @@ class AgentTool(object):
         """
         Returns input grammar.
         """
-        return convert_pydantic_model_to_grammar(model=self.input_declaration)
+        if self.input_declaration is None:
+            return ""
+        else:
+            return convert_pydantic_model_to_grammar(model=self.input_declaration)
 
     def get_output_grammar(self) -> str:
         """
         Returns output grammar.
         """
-        return convert_pydantic_model_to_grammar(model=self.output_declaration)
+        if self.output_declaration is None:
+            return ""
+        else:
+            return convert_pydantic_model_to_grammar(model=self.input_declaration)
     
     def __call__(self, *args: Any | None, **kwargs: Any | None) -> Any:
         """
