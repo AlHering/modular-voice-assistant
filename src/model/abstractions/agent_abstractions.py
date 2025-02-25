@@ -75,7 +75,11 @@ class Memory(object):
         :param one_or_multiple_entries: Memory entry or list of memory entries.
         :return: Prompt memory addition as string.
         """
-        pass
+        if isinstance(one_or_multiple_entries, Entry):
+            one_or_multiple_entries = [one_or_multiple_entries]
+        return "\nHere is a list of memories:\n" + "\n".join(
+            f"Memory '{entry.id}':\nContent: '{entry.content}'\nMetadata{entry.metadata}" 
+            for entry in one_or_multiple_entries) * "\n\n"
 
     def retrieve_by_id(self, entry_id: int | str | UUID) -> str:
         """
