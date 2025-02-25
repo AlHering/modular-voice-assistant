@@ -7,10 +7,10 @@
 """
 from typing import Callable, Any, List
 from pydantic import BaseModel
-import json
-from datetime import datetime as dt
 from uuid import UUID, uuid4
 from enum import Enum
+import json
+from datetime import datetime as dt
 from src.model.abstractions.language_model_abstractions import ChatModelInstance, RemoteChatModelInstance
 from src.model.abstractions.knowledgebase_abstractions import Entry, ChromaKnowledgeBase, Neo4jKnowledgebase, Knowledgebase
 from src.utility.filter_mask_utility import FilterMask
@@ -227,8 +227,15 @@ class Agent(object):
             "You are a helpful AI Agent, assisting the user with his tasks. You work involves planning and executing planned steps to solve tasks."
             "You can use the following tools:"
         ])
-        self.system_prompt += "\n\n".join(
-            f"Tool: {tool.name}\nDescription: {tool.description}\nInput JSON: {tool.input_declaration.model_json_schema()}\nOutput JSON: {tool.output_declaration.model_json_schema()}" for tool in tools)
+        tool_explanations = [
+            "\n".join([
+                f"Tool: {tool.name}",
+                f"Description: {tool.description}",
+                f"Input JSON: {'No input needed.' if tool.input_declaration is None else tool.input_declaration.model_json_schema()}",
+                f"Output JSON: {'No output.' if tool.output_declaration is None else tool.output_declaration.model_json_schema()}",
+            ]) for tool in tools
+        ]
+        self.system_prompt += "\n\n".join(tool_explanations)
         self.system_prompt += "\n\n"
         if not self.chat_model_instance.history or self.chat_model_instance.history[0]["content"] != self.system_prompt:
             self.chat_model_instance.history.append({
