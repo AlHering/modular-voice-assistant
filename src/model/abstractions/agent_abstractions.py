@@ -207,10 +207,21 @@ class UserIntent(str, Enum):
     """
     chatting = "chatting" #request for casual chatting
     tutoring = "tutoring" #request for tutoring
-    plan = "plan" # request for planning a solution
-    solve = "solve" # request for solving a task
-    validate = "validate" # validate the solution of a task
-    tool_use = "tool_use" # use a specific tool
+    plan = "plan" #request for planning a solution
+    solve = "solve" #request for solving a task
+    validate = "validate" #validate the solution of a task
+    tool_use = "tool_use" #use a specific tool
+
+    intent_content: str | None = None #intent content, e.g. additional instructions, target topics or tool input
+
+
+class UserRequest(BaseModel):
+    """
+    Represents a user request.
+    """
+    content: str #user prompt
+    metadata: dict  #request metadata
+    intent: UserIntent | None = None #user intent
 
 
 class Agent(object):
