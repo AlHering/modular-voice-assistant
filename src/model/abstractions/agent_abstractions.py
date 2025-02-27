@@ -297,7 +297,11 @@ class Agent(object):
             )
             request.intent = json.loads(response)["intent"]
         if request.intent == GenerationIntent.chatting.value():
-            pass
+            response = self.chat_model_instance.chat(
+                prompt=request.content,
+                chat_parameters=request.metadata.get("chat_parameters")
+            )
+            return response
         elif request.intent == GenerationIntent.chatting.value():
             pass
         elif request.intent == GenerationIntent.tutoring.value():
