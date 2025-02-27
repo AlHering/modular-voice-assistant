@@ -201,6 +201,18 @@ class AgentPlan(BaseModel):
     return_tool_output: bool
 
 
+class UserIntent(str, Enum):
+    """
+    Representation of user intent.
+    """
+    chatting = "chatting" #request for casual chatting
+    tutoring = "tutoring" #request for tutoring
+    plan = "plan" # request for planning a solution
+    solve = "solve" # request for solving a task
+    validate = "validate" # validate the solution of a task
+    tool_use = "tool_use" # use a specific tool
+
+
 class Agent(object):
     """
     Class, representing an agent.
