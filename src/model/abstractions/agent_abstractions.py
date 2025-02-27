@@ -206,7 +206,6 @@ class GenerationIntent(str, Enum):
     Representation of generation intent.
     """
     chatting = "chatting" #request for casual chatting
-    tutoring = "tutoring" #request for tutoring
     planning = "planning" #request for planning a solution
     solving = "solving" #request for solving a task
     validating = "validating" #request for validating the solution of a task
@@ -303,8 +302,6 @@ class Agent(object):
             )
             return response
         elif request.intent == GenerationIntent.chatting.value():
-            pass
-        elif request.intent == GenerationIntent.tutoring.value():
             pass
         elif request.intent == GenerationIntent.planning.value():
             pass
