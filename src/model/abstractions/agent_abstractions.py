@@ -301,8 +301,6 @@ class Agent(object):
                 chat_parameters=request.metadata.get("chat_parameters")
             )
             return response
-        elif request.intent == GenerationIntent.chatting.value():
-            pass
         elif request.intent == GenerationIntent.planning.value():
             pass
         elif request.intent == GenerationIntent.solving.value():
@@ -362,28 +360,8 @@ class Agent(object):
             prompt=prompt,
             chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentPlan)}
         ) 
-        try: 
-            result_params = json.loads(plan_params)
-        except json.JSONDecodeError:
-            prompt = f"""Please clean up the given JSON to meet the structure of an AgentPlan. Here is the structure of an AgentPlan:
-            ```python
-            class AgentStep:
-                step: str #Description of the solution step
-                use_tool: bool #Whether to use a tool in this step
-                tool: str #Name of the tool, if a tool is to be used in this step
-
-            class AgentPlan:
-                steps: List[AgentStep] #The solution steps that build up the plan
-                return_tool_output: bool #Whether the final result is a tool output
-            ```
-            
-            JSON:
-            {result_params}"""
-            plan_params = self.chat_model_instance.chat(
-                prompt=prompt,
-                chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentPlan)}
-            ) 
-            result_params = json.loads(plan_params)
+        result_params = json.loads(plan_params)
+        # TODO: Remove / adjust after test run
         if "AgentPlan" in result_params:
             result_params = result_params["AgentPlan"]
         return AgentPlan(**result_params)
