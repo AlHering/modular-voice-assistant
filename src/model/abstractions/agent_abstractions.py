@@ -300,9 +300,9 @@ class Agent(object):
                 prompt=request.content,
                 chat_parameters=request.metadata.get("chat_parameters")
             )
-            return response
+            return response[0]
         elif request.intent == GenerationIntent.planning.value():
-            pass
+            return self.plan(task=request.content)
         elif request.intent == GenerationIntent.solving.value():
             pass
         elif request.intent == GenerationIntent.validating.value():
