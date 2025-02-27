@@ -201,27 +201,25 @@ class AgentPlan(BaseModel):
     return_tool_output: bool
 
 
-class UserIntent(str, Enum):
+class GenerationIntent(str, Enum):
     """
-    Representation of user intent.
+    Representation of generation intent.
     """
     chatting = "chatting" #request for casual chatting
     tutoring = "tutoring" #request for tutoring
-    plan = "plan" #request for planning a solution
-    solve = "solve" #request for solving a task
-    validate = "validate" #validate the solution of a task
-    tool_use = "tool_use" #use a specific tool
-
-    intent_content: str | None = None #intent content, e.g. additional instructions, target topics or tool input
+    planning = "planning" #request for planning a solution
+    solving = "solving" #request for solving a task
+    validating = "validating" #request for validating the solution of a task
+    using_tool = "using_tool" #request for using a specific tool
 
 
-class UserRequest(BaseModel):
+class GenerationRequest(BaseModel):
     """
-    Represents a user request.
+    Represents a generation request.
     """
-    content: str #user prompt
+    content: str #request prompt
     metadata: dict  #request metadata
-    intent: UserIntent | None = None #user intent
+    intent: GenerationIntent | None = None #request intent
 
 
 class Agent(object):
@@ -260,6 +258,58 @@ class Agent(object):
         ]) for tool in tools]
         tool_explanations.append("")
         self.system_prompt += "\n\n".join(tool_explanations)
+
+    def handle_request(self, request: GenerationRequest) -> Any:
+        """
+        Handles a generation request.
+        :param request: Generation Request.
+        :return: Generation response.
+        """
+        if request.intent is None:
+            # Replace with more efficient intent prediction algorithm later on
+            intention_generation_prompt = "\n".join([
+                f"Your task is to choose the intent of the incoming request. Here is the structure of a request:",
+                "",
+                "```python",
+                "class GenerationIntent(str, Enum):",
+                "   chatting = \"chatting\" #request for casual chatting",
+                "   tutoring = \"tutoring\" #request for tutoring",
+                "   planning = \"planning\" #request for planning a solution",
+                "   solving = \"solving\" #request for solving a task",
+                "   validating = \"validating\" #request for validating the solution of a task",
+                "   using_tool = \"using_tool\" #request for using a specific tool"
+                "",
+                "",
+                "class GenerationRequest(BaseModel):",
+                    "content: str #request prompt",
+                    "metadata: dict  #request metadata",
+                    "intent: GenerationIntent | None = None #request intent",
+                "```",
+                "",
+                "Here is the incoming request without intent:",
+                json.dumps(request.model_dump_json()),
+                "",
+                "Choose the correct intent for the given request and respond with the resulting GenerationRequest in JSON format."
+            ])
+            response = self.chat_model_instance.chat(
+                prompt=intention_generation_prompt,
+                chat_parameters={"grammar": convert_pydantic_model_to_grammar(GenerationRequest)}
+            )
+            request.intent = json.loads(response)["intent"]
+        if request.intent == GenerationIntent.chatting.value():
+            pass
+        elif request.intent == GenerationIntent.chatting.value():
+            pass
+        elif request.intent == GenerationIntent.tutoring.value():
+            pass
+        elif request.intent == GenerationIntent.planning.value():
+            pass
+        elif request.intent == GenerationIntent.solving.value():
+            pass
+        elif request.intent == GenerationIntent.validating.value():
+            pass
+        elif request.intent == GenerationIntent.using_tool.value():
+            pass        
 
     def use_tool(self, tool_name: str, tool_input: dict | BaseModel) -> Any:
         """
