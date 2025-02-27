@@ -290,7 +290,7 @@ class Agent(object):
                 "",
                 "Choose the correct intent for the given request and respond with the resulting GenerationRequest in JSON format."
             ])
-            response = self.chat_model_instance.chat(
+            response, _ = self.chat_model_instance.chat(
                 prompt=intention_generation_prompt,
                 chat_parameters={"grammar": convert_pydantic_model_to_grammar(GenerationRequest)}
             )
@@ -356,7 +356,7 @@ class Agent(object):
             "",
             "Return only the JSON representation for an AgentPlan object."
         ])
-        plan_params = self.chat_model_instance.chat(
+        plan_params, _ = self.chat_model_instance.chat(
             prompt=prompt,
             chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentPlan)}
         ) 
@@ -380,7 +380,7 @@ class Agent(object):
             else:
                 tool_input = {}
                 if tool.input_declaration is not None:
-                    response = self.chat_model_instance.chat(
+                    response, _ = self.chat_model_instance.chat(
                         prompt="\n".join([
                             f"Your goal is to solve task {step_index}: {step.task}"
                             f"Please respond with the input parameters for the tool '{step.tool} as JSON structure. Follow the tool's Input JSON structure."
@@ -391,11 +391,11 @@ class Agent(object):
                         tool_input = json.loads(response)
                     except json.JSONDecodeError:
                         return False, "Tool input is no valid JSON structure."
-                return self.use_tool(tool_name=tool.name.lower(), tool_input=tool_input)
+                return True, self.use_tool(tool_name=tool.name.lower(), tool_input=tool_input)
         else:
-            return self.chat_model_instance.chat(
+            return True, self.chat_model_instance.chat(
                 prompt=f"Your goal is to solve task {step_index}: {step.task}. Please respond with the solution."
-            ) 
+            )[0]
     
     def run(self, task: str, max_step_retries: int = 3) -> Any:
         """
@@ -409,14 +409,14 @@ class Agent(object):
             retries = 0
             success, result_or_reason = self.act(step=step, step_index=step_index+1)
             while not success and retries < max_step_retries:
-                new_step = self.chat_model_instance.chat(
+                new_step, _ = self.chat_model_instance.chat(
                     prompt=f"Task {step_index+1}: {step.task} failed: {result_or_reason}.\nRespond with an additional AgentStep JSON object for solving the issue.",
                     chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentStep)}
                 ) 
                 try:
                     new_step = json.loads(new_step)
                 except json.JSONDecodeError:
-                    new_step = self.chat_model_instance.chat(
+                    new_step, _ = self.chat_model_instance.chat(
                         prompt=f"The AgentStep object from the previous response is not a valid JSON structure. Please respond with a valid structure.",
                         chat_parameters={"grammar": convert_pydantic_model_to_grammar(AgentStep)}
                     ) 
