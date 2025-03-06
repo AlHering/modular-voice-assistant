@@ -219,6 +219,7 @@ class GenerationRequest(BaseModel):
     content: str #request prompt
     metadata: dict  #request metadata
     intent: GenerationIntent | None = None #request intent
+    intended_tool: str | None = None #intended tool, only in case of intent being 'using_tool' 
 
 
 class Agent(object):
@@ -308,7 +309,25 @@ class Agent(object):
         elif request.intent == GenerationIntent.validating.value():
             pass
         elif request.intent == GenerationIntent.using_tool.value():
-            pass        
+            if request.intended_tool.lower() in self.tools:
+                tool = self.tools[request.intended_tool.lower()]
+                tool_input = {}
+                if tool.input_declaration is not None:
+                    tool_input_prompt = "\n".join([
+                        f"Your task is to generate the input data for the tool '{request.intended_tool}'.",
+                        "Here is the schema for the tool input:",
+                        json.dump(tool.input_declaration.model_json_schema(), indent=4, ensure_ascii=False),
+                        "",
+                        "Here is the user request:",
+                        json.dump(request.model_dump_json(), indent=4, ensure_ascii=False),
+                        "",
+                        "Generate the tool input from the user request in JSON format. Respond with the generated JSON."
+                    ])
+                    tool_input = json.loads(self.chat_model_instance.chat(
+                        prompt=tool_input_prompt,
+                        chat_parameters={"grammar": convert_pydantic_model_to_grammar(tool.input_declaration)}
+                    )[0])
+                return self.use_tool(tool_name=request.intended_tool.lower(), tool_input=tool_input)
 
     def use_tool(self, tool_name: str, tool_input: dict | BaseModel) -> Any:
         """
@@ -322,8 +341,6 @@ class Agent(object):
                 return self.tools[tool_name](**tool_input)
             else:
                 return self.tools[tool_name](**tool_input.model_dump_json())
-        else:
-            return None
         
     def plan(self, task: str) -> AgentPlan:
         """
