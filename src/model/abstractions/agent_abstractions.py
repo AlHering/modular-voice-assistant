@@ -188,9 +188,9 @@ class AgentStep(BaseModel):
     """
     Representation of agent step.
     """
-    task: str
-    use_tool: bool
-    tool: str
+    task: str # the task to solve in this step
+    goal: str # the goal of solving the task
+    tool: str | None = None # the name of the tool if a tool needs to be used, else None
 
 
 class AgentPlan(BaseModel):
@@ -198,18 +198,66 @@ class AgentPlan(BaseModel):
     Representation of agent plan.
     """
     steps: List[AgentStep]
-    return_tool_output: bool
 
 
 class GenerationIntent(str, Enum):
     """
     Representation of generation intent.
     """
-    chatting = "chatting" #request for casual chatting
-    planning = "planning" #request for planning a solution
-    solving = "solving" #request for solving a task
-    validating = "validating" #request for validating the solution of a task
-    using_tool = "using_tool" #request for using a specific tool
+    chatting = "chatting"  # request for casual chatting
+    planning = "planning"  # request for planning a solution
+    solving = "solving"  # request for solving a task
+    validating = "validating"  # request for validating the solution of a task
+
+
+class ChattingMetadata(BaseModel):
+    """
+    Metadata for chatting intent.
+    """
+    topics: List[str]  # list of keywords on the requested content topics
+    memory: List[str]  # list of textual memories related to the conversation
+    knowledge: List[str]  # list of potentially relevant world knowledge entries
+    tone: str  # formulation tone such as serious, concise, snarky, funny, etc.
+
+
+class PlanningMetadata(BaseModel):
+    """
+    Metadata for planning intent.
+    """
+    task: str  # overall task to create a plan for
+    memory: List[str]  # list of potentially relevant memories
+    knowledge: List[str]  # list of potentially relevant world knowledge entries
+
+class SolvingMetadata(BaseModel):
+    """
+    Metadata for solving intent.
+    """
+    task: str  # the task to solve
+    goal: str  # the goal of solving the task
+    tool: str | None = None  # the name of the tool if needed, else None
+    tool_input: dict | None = None  # input for the tool if required, else None
+
+
+class ValidatingMetadata(BaseModel):
+    """
+    Metadata for validating intent.
+    """
+    task: str  # the task to validate
+    goal: str  # the goal of validation
+    tool: str | None = None  # the name of the tool if needed, else None
+    tool_input: dict | None = None  # input for the tool if required, else None
+    tool_output: dict | None = None  # output from the tool if applicable, else None
+    response: str  # response or evaluation of the validation
+
+
+class GenerationRequest(BaseModel):
+    """
+    Represents a generation request.
+    """
+    content: str  # request content
+    metadata: dict  # request metadata
+    intent: GenerationIntent | None = None  # request intent
+    intent_metadata: ChattingMetadata | PlanningMetadata | SolvingMetadata | ValidatingMetadata = None  # metadata on the intent
 
 
 class GenerationRequest(BaseModel):
