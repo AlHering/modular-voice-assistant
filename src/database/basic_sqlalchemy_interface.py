@@ -5,12 +5,11 @@
 *            (c) 2023 Alexander Hering             *
 ****************************************************
 """
-import os
 from src.utility.filter_mask_utility import FilterMask
 from src.utility import sqlalchemy_utility
 from src.utility import time_utility
 from uuid import UUID
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 from typing import Optional, Any, List, Dict
 
 
@@ -20,31 +19,36 @@ class BasicSQLAlchemyInterface(object):
     """
 
     def __init__(self, 
-                 working_directory: str, 
                  database_uri: str | None = None, 
+                 working_directory: str | None  = None, 
                  population_function: Any = None, 
                  default_entries: Dict[str, List[dict]] = None,
-                 schema: str = "", 
+                 schema: str = "",
+                 engine_kwargs: dict = {"pool_recycle": 280, "encoding": "utf-8", "timeout": 60},
+                 session_kwargs: dict = {"autocommit": False, "autoflush": False, "expire_on_commit": False},
                  logger: Any = None) -> None:
         """
         Initiation method.
-        :param working_directory: Working directory.
         :param database_uri: Database URI. Defaults to SQLite DB in the working directory.
+        :param working_directory: Working directory.
         :param population_function: A function, taking an engine, schema and a dataclass dictionary (later one can be empty and is to be populated).
             Defaults to None.
         :param default_entries: Default entries to populate database with.
+        :param engine_kwargs: Engine instantiation parameters.
+        :param session_kwargs: Session maker instantiation parameters.
         :param logger: Logger instance. 
             Defaults to None in which case separate logging is disabled.
         """
+        if database_uri is None and working_directory is None:
+            raise ValueError("Either database URI or working directory must be given.")
         self.logger = logger
-        self.working_directory = working_directory
-        if not os.path.exists(self.working_directory):
-            os.makedirs(self.working_directory)
         self.database_uri = f"sqlite:///{self.working_directory}/database.db" if database_uri is None else database_uri
         self.population_function = population_function
         self.default_entries = default_entries
 
         # Database infrastructure
+        self.engine_kwargs = engine_kwargs
+        self.session_kwargs = session_kwargs
         self.base = None
         self.engine = None
         self.model = None
@@ -210,6 +214,19 @@ class BasicSQLAlchemyInterface(object):
             getattr(self.model[object_type],
                     self.primary_keys[object_type]) == object_id
         ).first()
+    
+    def get_objects_by_timedelta(self, object_type: str, datetime_attribute: str, timedelta: timedelta) -> List[Any]:
+        """
+        Method for acquiring objects by timedelta on a certain attribute.
+        :param object_type: Target object type.
+        :param datetime_attribute: Target datetime attribute.
+        :param timedelta: Time delta for querying.
+        :return: A list of objects of the given type, based on the given timedelta.
+        """
+        return self.session_factory().query(self.model[object_type]).filter(
+            getattr(self.model[object_type],
+                    datetime_attribute) >= timedelta
+        ).all()
 
     def get_objects_by_filtermasks(self, object_type: str, filtermasks: List[FilterMask]) -> List[Any]:
         """

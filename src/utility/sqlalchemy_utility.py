@@ -42,7 +42,15 @@ SQLALCHEMY_FILTER_CONVERTER = {
     "not": lambda x: not_(x),
     "&&": lambda *x: and_(*x),
     "||": lambda *x: or_(*x),
-    "!": lambda x: not_(x)
+    "!": lambda x: not_(x),
+    "smaller": lambda x, y: x < y,
+    "greater": lambda x, y: x > y,
+    "smaller_or_equal": lambda x, y: x <= y,
+    "greater_or_equal": lambda x, y: x >= y,
+    "<": lambda x, y: x < y,
+    ">": lambda x, y: x > y,
+    "<=": lambda x, y: x <= y,
+    ">=": lambda x, y: x >= y,
 }
 
 # Supported dialects
@@ -94,20 +102,21 @@ SQLALCHEMY_TYPING_FROM_COLUMN_DICTIONARY = {
 }
 
 
-def get_engine(engine_url: str, pool_recycle: int = 280, encoding: str = "utf-8") -> Engine:
+def get_engine(engine_url: str, **engine_kwargs: dict) -> Engine:
     """
     Function for getting database engine.
     :param engine_url: URL to create engine for.
-    :param pool_recycle: Parameter for preventing the reuse of connections that were stale for some time.
-    :param encoding: Encoding string. Defaults to 'utf-8'.
+    :param engine_kwargs: Engine keyword arguments.
     :return: Engine to given database.
     """
     try:
         # SQLAlchemy 1.4
-        return create_engine(engine_url, encoding=encoding, pool_recycle=pool_recycle)
+        return create_engine(engine_url, **engine_kwargs)
     except TypeError:
         # SQLAlchemy 2.0
-        return create_engine(engine_url, pool_recycle=pool_recycle)
+        if "encoding" in engine_kwargs:
+            engine_kwargs.pop("encoding")
+        return create_engine(engine_url, **engine_kwargs)
 
 
 def execute_command(engine: Engine, command: str) -> Optional[Any]:
@@ -120,18 +129,23 @@ def execute_command(engine: Engine, command: str) -> Optional[Any]:
     return engine.execute(text(command))
 
 
-def get_session_factory(engine: Engine) -> Any:
+def get_session_factory(engine: Engine, **session_kwargs: dict) -> Any:
     """
     Function for getting database session factory.
     :param engine: Engine to bind session factory to.
+    :param session_kwargs: Session keyword arguments.
     :return: Engine to given database.
     """
+    session_parameters = {
+        "autocommit": False,
+        "autoflush": False,
+        "bind": engine,
+        "expire_on_commit": False}
+    if session_kwargs:
+        session_parameters.update(session_kwargs)
     return orm.scoped_session(
         orm.sessionmaker(
-            autocommit=False,
-            autoflush=False,
-            bind=engine,
-            expire_on_commit=False,
+            **session_parameters
         ),
     )
 
