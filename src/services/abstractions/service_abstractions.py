@@ -13,8 +13,11 @@ from pydantic import BaseModel, Field
 from logging import Logger
 from uuid import uuid4
 from multiprocessing import Process, Queue, Event
+import socket
 from threading import Thread
-from typing import Any, List
+from traceback import format_exc
+from typing import Any, List, Callable
+import json
 from src.utility.time_utility import get_timestamp
 
 
@@ -80,7 +83,6 @@ class Service(object):
         :param input_queue: Input queue.
         :param output_queue: Output queue.
         :param logger: Logger.
-        :param name: A name to distinguish log messages.
         """
         self.name = name
         self.description = description
@@ -157,14 +159,18 @@ class Service(object):
         """
         return self.input_queue.qsize() > 0 or self.output_queue.qsize() > 0
     
-    def log_info(self, text: str) -> None:
+    def log_info(self, text: str, as_warning: bool = False) -> None:
         """
         Logs info, if logger is available.
         :param text: Text content to log.
+        :param as_warning: Whether to log message as warning.
         """
         if self.logger is not None:
             text = f"[{type(self).__name__}<{self.name}>] " + text
-            self.logger.info(text)
+            if as_warning:
+                self.logger.warning(text)
+            else:
+                self.logger.info(text)
 
     def to_thread(self) -> Thread:
         """
@@ -208,16 +214,16 @@ class Service(object):
                 self.process.join(.5) 
         self.setup_flag = False
         self.pause.clear()
-        self.interrupt.clear()
         if restart_thread or restart_process:
-            self.log_info(text="Restarting...")
+            self.log_info(text="Restarting as thread...")
             if restart_thread:
                 self.to_thread()
                 self.thread.start()
-            self.interrupt.clear()
-            if restart_process:
-                self.to_process()
-                self.process.start()
+        if restart_process:
+            self.log_info(text="Restarting as process...")
+            self.to_process()
+            self.process.start()
+        self.interrupt.clear()
 
     def loop(self) -> None:
         """
@@ -286,3 +292,123 @@ class Service(object):
         """
         return package.model_dump()
     
+
+class SocketService(Service):
+    def __init__(self, 
+                 host: str,
+                 port: int,
+                 name: str, 
+                 description: str,
+                 config: dict,
+                 input_queue: Queue | None = None,
+                 output_queue: Queue | None = None,
+                 logger: Logger | None = None) -> None:
+        """
+        Initiates an instance.
+        :param host: Socket server host.
+        :param port: Socket server port.
+        :param name: Service name.
+        :param description: Service description.
+        :param config: Service config.
+        :param input_queue: Input queue.
+        :param output_queue: Output queue.
+        :param logger: Logger.
+        """
+        super().__init__(name=name, description=description, config=config, input_queue=input_queue, output_queue=output_queue, logger=logger)
+        self.host = host
+        self.port = port
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.connection_thread = None
+        self.client_threads = []
+
+    # Overwrite
+    def setup(self) -> bool:
+        """
+        Sets up socket and connection handling.
+        :returns: True if setup was successful, else False.
+        """
+        try:
+            self.server_socket.bind((self.host, self.port))
+            self.server_socket.listen(5)
+            self.log_info(f"Listening on {self.host}:{self.port}.")
+            self.connection_thread = Thread(target=self.connection_loop)
+            self.connection_thread.daemon = True
+            self.connection_thread.start()
+            return True
+        except Exception as ex:
+            self.log_info(f"Failed to set up socket server: {ex}\nTrace: {format_exc()}", as_warning=True)
+            return False
+
+    def connection_loop(self) -> None:
+        """
+        Runs connection accept loop.
+        """
+        while not self.interrupt.is_set():
+            try:
+                client_socket, addr = self.server_socket.accept()
+                self.log_info(f"Accepted connection from {addr}.")
+                thread = Thread(target=self.handle_client, args=(client_socket,))
+                thread.daemon = True
+                thread.start()
+                self.client_threads.append(thread)
+            except socket.error as ex:
+                self.log_info(f"Failed to set up socket server: {ex}\nTrace: {format_exc()}", as_warning=True)
+
+    def handle_client(self, client_socket: socket.socket) -> None:
+        """
+        Handles client interaction.
+        :param client_socket: Client socket.
+        """
+        try:
+            input_package = self.decode_input_package(client_socket=client_socket)
+            self.add_uuid(self.received, input_package.uuid)
+
+            def send_back(pkg: ServicePackage):
+                serialized = json.dumps(pkg.model_dump()) + "\n"
+                client_socket.sendall(serialized.encode("utf-8"))
+
+            self.input_queue.put(input_package)
+            self.iterate(callback_function=send_back)
+        except Exception as ex:
+            client_socket.sendall(json.dumps({"error": str(ex), "trace": format_exc()}).encode("utf-8"))
+        client_socket.close()
+
+    def decode_input_package(self, client_socket: socket.socket) -> ServicePackage:
+        """
+        Decodes received input message.
+        :param client_socket: Client socket.
+        :returns: Input service package.
+        """
+        buffer = b""
+        while True:
+            part = client_socket.recv(4096)
+            if not part:
+                break
+            buffer += part
+            if b"\n" in part:
+                break
+        return ServicePackage(**json.loads(buffer.decode("utf-8").strip()))
+
+    # Overwrite
+    def iterate(self, callback_function: Callable) -> bool:
+        """
+        Runs a single processing cycle.
+        :param callback_function: Callback function for returning results.
+        :returns: True if an element was forwarded, else False. 
+            (Note, that a service does not have to forward an element.)
+        """    
+        result = self.run()
+        if result is not None:
+            if isinstance(result, ServicePackage):
+                callback_function(result)
+                self.add_uuid(self.sent, elem.uuid)
+                return True
+            elif isinstance(result, Generator):
+                elem = None
+                for elem in result:
+                    callback_function(elem)
+                if elem is not None:
+                    self.add_uuid(self.sent, elem.uuid)
+                    return True
+        return False
