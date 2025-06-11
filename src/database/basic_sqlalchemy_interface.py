@@ -10,7 +10,7 @@ from src.utility import sqlalchemy_utility
 from src.utility import time_utility
 from uuid import UUID
 from datetime import datetime as dt, timedelta
-from typing import Optional, Any, List, Dict
+from typing import Optional, Any, List, Dict, Callable 
 
 
 class BasicSQLAlchemyInterface(object):
@@ -215,17 +215,19 @@ class BasicSQLAlchemyInterface(object):
                     self.primary_keys[object_type]) == object_id
         ).first()
     
-    def get_objects_by_timedelta(self, object_type: str, datetime_attribute: str, timedelta: timedelta) -> List[Any]:
+    def get_objects_by_timedelta(self, object_type: str, datetime_attribute: str, timedelta: timedelta, comparison_function: Callable = lambda timestamp, delta: timestamp >= delta) -> List[Any]:
         """
         Method for acquiring objects by timedelta on a certain attribute.
         :param object_type: Target object type.
         :param datetime_attribute: Target datetime attribute.
         :param timedelta: Time delta for querying.
+        :param comparison_function: Comparison function taking timestamp and delta as parameters.
+            Defaults to 'lambda timestamp, delta: timestamp >= delta'
         :return: A list of objects of the given type, based on the given timedelta.
         """
         return self.session_factory().query(self.model[object_type]).filter(
-            getattr(self.model[object_type],
-                    datetime_attribute) >= timedelta
+            comparison_function(getattr(self.model[object_type],
+                    datetime_attribute), timedelta)
         ).all()
 
     def get_objects_by_filtermasks(self, object_type: str, filtermasks: List[FilterMask]) -> List[Any]:
