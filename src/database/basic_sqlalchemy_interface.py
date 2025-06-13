@@ -42,7 +42,7 @@ class BasicSQLAlchemyInterface(object):
         if database_uri is None and working_directory is None:
             raise ValueError("Either database URI or working directory must be given.")
         self.logger = logger
-        self.database_uri = f"sqlite:///{self.working_directory}/database.db" if database_uri is None else database_uri
+        self.database_uri = f"sqlite:///{working_directory}/database.db" if database_uri is None else database_uri
         self.population_function = population_function
         self.default_entries = default_entries
 
@@ -323,7 +323,7 @@ class BasicSQLAlchemyInterface(object):
                     session.delete(obj)
                 session.commit()
         return obj
-        
+    
     def put_object(self, object_type: str, reference_attributes: List[str] = None,  **object_attributes: Optional[Any]) -> Optional[Any]:
             """
             Method for putting in an object.
