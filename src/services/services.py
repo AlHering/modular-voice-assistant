@@ -89,7 +89,7 @@ class ChatService(Service):
         super().__init__(
             name="Chat", 
             description="Generates chat responses via a language model.", 
-            config=cfg.DEFAULT_CHAT, 
+            config=cfg.DEFAULT_CHAT_SMALL, 
             logger=cfg.LOGGER)
         
     @classmethod
