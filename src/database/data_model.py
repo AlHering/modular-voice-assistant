@@ -115,7 +115,15 @@ def get_default_entries() -> dict:
             },
             {
                 "service_type": "Chat",
-                "config": cfg.DEFAULT_CHAT
+                "config": cfg.DEFAULT_CHAT_SMALL
+            },
+            {
+                "service_type": "Chat",
+                "config": cfg.DEFAULT_CHAT_LARGE
+            },
+            {
+                "service_type": "Chat",
+                "config": cfg.DEFAULT_CHAT_REMOTE
             },
             {
                 "service_type": "Synthesizer",
