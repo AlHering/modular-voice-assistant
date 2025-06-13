@@ -70,13 +70,13 @@ DEFAULT_TRANSCRIBER = {
         "local_files_only": True
     }
 }
-DEFAULT_CHAT = {
+DEFAULT_CHAT_REMOTE = {
     "api_base": "http://localhost:8123/v1",
     "chat_parameters": {"model": "llama-3.1-storm-8B-i1-Q4KM"},
     "system_prompt": "You are a helpful and sentient assistant. Your task is to help the user in an effective and concise manner.",
     "stream": True
 }
-DEFAULT_CHAT = {
+DEFAULT_CHAT_LARGE = {
     "language_model": {
         "backend": "llama-cpp",
         "model_path": os.path.join(PATHS.MODEL_PATH, 
@@ -87,6 +87,22 @@ DEFAULT_CHAT = {
             "temperature": 0.8, 
             "repetition_penalty": 1.6,
             "n_gpu_layers": 33
+        },
+        "generating_parameters": {
+            "max_tokens": 256
+        }
+    }
+}
+DEFAULT_CHAT_SMALL = {
+    "language_model": {
+        "backend": "llama-cpp",
+        "model_path": os.path.join(PATHS.MODEL_PATH, 
+                                        "text_generation/models/text_generation_models/bartowski_Qwen2.5-3B-Instruct-GGUF"),
+        "model_file": "Qwen2.5-3B-Instruct-Q8_0.gguf",
+        "model_parameters": {
+            "n_ctx": 4096, 
+            "temperature": 0.8, 
+            "repetition_penalty": 1.6
         },
         "generating_parameters": {
             "max_tokens": 256
@@ -120,7 +136,7 @@ DEFAULT_COMPONENT_CONFIG = {
     "download_model_files": False,
     "speech_recorder": {},
     "transcriber": DEFAULT_TRANSCRIBER,
-    "chat": DEFAULT_CHAT,
+    "chat": DEFAULT_CHAT_SMALL,
     "synthesizer": DEFAULT_SYNTHESIZER,
     "audio_player": DEFAULT_AUDIO_PLAYER,
     "voice_assistant": DEFAULT_VOICE_ASSISTANT
