@@ -202,6 +202,26 @@ class BasicSQLAlchemyInterface(object):
         :return: List of objects of given type.
         """
         return self.session_factory().query(self.model[object_type]).all()
+    
+    def get_objects_by_slice(self, object_type: str, start_index: int, end_index: int) -> List[Any]:
+        """
+        Method for acquiring objects.
+        :param object_type: Target object type.
+        :param start_index: Starting index of slice.
+        :param end_index: Ending index of slice.
+        :return: List of objects of given type.
+        """
+        return self.session_factory().query(self.model[object_type]).slice(start_index, end_index)
+    
+    def get_objects_by_offset(self, object_type: str, offset: int, limit: int) -> List[Any]:
+        """
+        Method for acquiring objects.
+        :param object_type: Target object type.
+        :param offset: Starting index of slice.
+        :param limit: Number of objects to fetch.
+        :return: List of objects of given type.
+        """
+        return self.session_factory().query(self.model[object_type]).offset(offset).fetch(limit)
 
     def get_object_by_id(self, object_type: str, object_id: Any) -> Optional[Any]:
         """
