@@ -46,9 +46,9 @@ class ServicePackage(BaseModel):
     metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
 
 
-class EndOfStreamPackage(BaseModel):
+class FinalPackage(BaseModel):
     """
-    End of stream service package for exchanging data between services.
+    Final response service package for exchanging data between services.
     """
     uuid: str = Field(default_factory=create_uuid)
     content: Any

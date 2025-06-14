@@ -24,7 +24,7 @@ from uuid import UUID
 from functools import wraps
 import logging
 from src.services.services import TranscriberService, ChatService, SynthesizerService
-from src.services.abstractions.service_abstractions import Service, ServicePackage, EndOfStreamPackage
+from src.services.abstractions.service_abstractions import Service, ServicePackage, FinalPackage
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
 from src.configuration import configuration as cfg
@@ -263,7 +263,7 @@ class ServiceRegistryServer(object):
             })
     
     @interaction_log
-    async def process(self, service_request: ServiceRequest) -> ServicePackage | None:
+    async def process(self, service_request: ServiceRequest) -> ServicePackage | List[ServicePackage] | None:
         """
         Runs a service process.
         :param service_request: Service request.
@@ -272,7 +272,21 @@ class ServiceRegistryServer(object):
         service = self.services[service_request.service]
         service.input_queue.put(service_request.input_package)
         try:
-            return service.output_queue.get(timeout=service_request.timeout)
+            output_package = None
+            requeue = []
+            responses = []
+            while not isinstance(output_package, FinalPackage):
+                output_package = service.output_queue.get(timeout=service_request.timeout)
+                if output_package.uuid == service_request.input_package.uuid:
+                    responses.append(output_package)
+                else:
+                    requeue.append(output_package)
+            for package in requeue:
+                service.output_queue.put(package)
+            if len(responses) == 1:
+                return responses[0]
+            else:
+                return responses
         except Empty:
             return None
 
@@ -289,7 +303,7 @@ class ServiceRegistryServer(object):
         while not finished:
             try:
                 response = service.output_queue.get(timeout=service_request.timeout)
-                if isinstance(response, EndOfStreamPackage):
+                if isinstance(response, FinalPackage):
                     finished = True
                 yield json.dumps(response.model_dump()).encode("utf-8")
             except Empty:

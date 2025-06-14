@@ -10,7 +10,7 @@ from typing import Generator, Tuple
 import numpy as np
 import requests
 from src.configuration import configuration as cfg
-from src.services.abstractions.service_abstractions import Service, ServicePackage, EndOfStreamPackage
+from src.services.abstractions.service_abstractions import Service, ServicePackage, FinalPackage
 from src.model.abstractions.sound_model_abstractions import Transcriber, Synthesizer
 from src.model.abstractions.language_model_abstractions import LanguageModelInstance, ChatModelInstance, RemoteChatModelInstance
 
@@ -75,7 +75,7 @@ class TranscriberService(Service):
                     audio_input=input_content,
                     transcription_parameters=input_package.metadata_stack[-1].get("transcription_parameters"))
                 self.log_info(f"Received response\n'{result[0]}'.")             
-                yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
+                yield FinalPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
 
 
 class ChatService(Service):
@@ -172,10 +172,10 @@ class ChatService(Service):
                     for response_tuple in result:
                         self.log_info(f"Received response shard\n'{response_tuple[0]}'.")   
                         yield ServicePackage(uuid=input_package.uuid, content=response_tuple[0], metadata_stack=input_package.metadata_stack + [response_tuple[1]])
-                    yield EndOfStreamPackage(uuid=input_package.uuid, content="", metadata_stack=input_package.metadata_stack + [response_tuple[1]])
+                    yield FinalPackage(uuid=input_package.uuid, content="", metadata_stack=input_package.metadata_stack + [response_tuple[1]])
                 else: 
                     self.log_info(f"Received response\n'{result[0]}'.") 
-                    yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
+                    yield FinalPackage(uuid=input_package.uuid, content=result[0], metadata_stack=input_package.metadata_stack + [result[1]])
            
 
 class SynthesizerService(Service):
@@ -235,4 +235,4 @@ class SynthesizerService(Service):
                 self.log_info(f"Received response\n'{result[0]}'.") 
                 synthesis_metadata = result[1]
                 synthesis_metadata["dtype"] = str(result[0].dtype)
-                yield EndOfStreamPackage(uuid=input_package.uuid, content=result[0].tolist(), metadata_stack=input_package.metadata_stack + [synthesis_metadata])
+                yield FinalPackage(uuid=input_package.uuid, content=result[0].tolist(), metadata_stack=input_package.metadata_stack + [synthesis_metadata])
