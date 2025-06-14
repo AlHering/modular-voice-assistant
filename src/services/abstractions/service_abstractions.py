@@ -293,67 +293,57 @@ class Service(object):
         return package.model_dump()
     
 
-class SocketService(Service):
+class SocketService(object):
     def __init__(self, 
                  host: str,
                  port: int,
-                 name: str, 
-                 description: str,
-                 config: dict,
-                 input_queue: Queue | None = None,
-                 output_queue: Queue | None = None,
-                 logger: Logger | None = None) -> None:
+                 service: Service) -> None:
         """
         Initiates an instance.
         :param host: Socket server host.
         :param port: Socket server port.
-        :param name: Service name.
-        :param description: Service description.
-        :param config: Service config.
-        :param input_queue: Input queue.
-        :param output_queue: Output queue.
-        :param logger: Logger.
+        :param service: Service to wrap into socket interaction.
         """
-        super().__init__(name=name, description=description, config=config, input_queue=input_queue, output_queue=output_queue, logger=logger)
         self.host = host
         self.port = port
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.service = service
+        self.server_socket = None
         self.connection_thread = None
         self.client_threads = []
 
-    # Overwrite
-    def setup(self) -> bool:
+    def setup_socket(self) -> bool:
         """
         Sets up socket and connection handling.
         :returns: True if setup was successful, else False.
         """
         try:
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(5)
-            self.log_info(f"Listening on {self.host}:{self.port}.")
+            self.service.log_info(f"Listening on {self.host}:{self.port}.")
             self.connection_thread = Thread(target=self.connection_loop)
             self.connection_thread.daemon = True
             self.connection_thread.start()
             return True
         except Exception as ex:
-            self.log_info(f"Failed to set up socket server: {ex}\nTrace: {format_exc()}", as_warning=True)
+            self.service.log_info(f"Failed to set up socket server: {ex}\nTrace: {format_exc()}", as_warning=True)
             return False
 
     def connection_loop(self) -> None:
         """
         Runs connection accept loop.
         """
-        while not self.interrupt.is_set():
+        while not self.service.interrupt.is_set():
             try:
                 client_socket, addr = self.server_socket.accept()
-                self.log_info(f"Accepted connection from {addr}.")
+                self.service.log_info(f"Accepted connection from {addr}.")
                 thread = Thread(target=self.handle_client, args=(client_socket,))
                 thread.daemon = True
                 thread.start()
                 self.client_threads.append(thread)
             except socket.error as ex:
-                self.log_info(f"Failed to set up socket server: {ex}\nTrace: {format_exc()}", as_warning=True)
+                self.service.log_info(f"Failed to set up socket server: {ex}\nTrace: {format_exc()}", as_warning=True)
 
     def handle_client(self, client_socket: socket.socket) -> None:
         """
@@ -362,13 +352,13 @@ class SocketService(Service):
         """
         try:
             input_package = self.decode_input_package(client_socket=client_socket)
-            self.add_uuid(self.received, input_package.uuid)
+            self.service.add_uuid(self.service.received, input_package.uuid)
 
-            def send_back(pkg: ServicePackage):
-                serialized = json.dumps(pkg.model_dump()) + "\n"
+            def send_back(package: ServicePackage):
+                serialized = json.dumps(package.model_dump()) + "\n"
                 client_socket.sendall(serialized.encode("utf-8"))
 
-            self.input_queue.put(input_package)
+            self.service.input_queue.put(input_package)
             self.iterate(callback_function=send_back)
         except Exception as ex:
             client_socket.sendall(json.dumps({"error": str(ex), "trace": format_exc()}).encode("utf-8"))
@@ -390,7 +380,6 @@ class SocketService(Service):
                 break
         return ServicePackage(**json.loads(buffer.decode("utf-8").strip()))
 
-    # Overwrite
     def iterate(self, callback_function: Callable) -> bool:
         """
         Runs a single processing cycle.
@@ -398,17 +387,38 @@ class SocketService(Service):
         :returns: True if an element was forwarded, else False. 
             (Note, that a service does not have to forward an element.)
         """    
-        result = self.run()
+        result = self.service.run()
         if result is not None:
             if isinstance(result, ServicePackage):
                 callback_function(result)
-                self.add_uuid(self.sent, elem.uuid)
+                self.service.add_uuid(self.service.sent, elem.uuid)
                 return True
             elif isinstance(result, Generator):
                 elem = None
                 for elem in result:
                     callback_function(elem)
                 if elem is not None:
-                    self.add_uuid(self.sent, elem.uuid)
+                    self.service.add_uuid(self.service.sent, elem.uuid)
                     return True
         return False
+        
+    def shutdown_socket(self) -> None:
+        """
+        Shuts down the socket server and closes connections.
+        """
+        self.service.interrupt.set()
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((self.host, self.port))
+                s.close()
+            self.server_socket.close()
+        except Exception:
+            pass
+
+        self.connection_thread.join()
+        for thread in self.client_threads:
+            thread.join()
+
+        self.client_threads.clear()
+        self.connection_thread = None
+        self.service.interrupt.clear()
