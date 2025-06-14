@@ -46,7 +46,7 @@ class ServicePackage(BaseModel):
     metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
 
 
-class FinalPackage(BaseModel):
+class FinalPackage(ServicePackage):
     """
     Final response service package for exchanging data between services.
     """
