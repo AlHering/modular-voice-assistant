@@ -110,23 +110,23 @@ def get_default_entries() -> dict:
     return {
         "service_config": [
             {
-                "service_type": "Transcriber",
+                "service_type": "transcriber",
                 "config": cfg.DEFAULT_TRANSCRIBER
             },
             {
-                "service_type": "Chat",
+                "service_type": "chat",
                 "config": cfg.DEFAULT_CHAT_SMALL
             },
             {
-                "service_type": "Chat",
+                "service_type": "chat",
                 "config": cfg.DEFAULT_CHAT_LARGE
             },
             {
-                "service_type": "Chat",
+                "service_type": "chat",
                 "config": cfg.DEFAULT_CHAT_REMOTE
             },
             {
-                "service_type": "Synthesizer",
+                "service_type": "synthesizer",
                 "config": cfg.DEFAULT_SYNTHESIZER
             }
         ]

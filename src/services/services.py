@@ -24,7 +24,7 @@ class TranscriberService(Service):
         Initiates an instance.
         """
         super().__init__(
-            name="Transcriber", 
+            name="transcriber", 
             description="Transcribes audio data.", 
             config=cfg.DEFAULT_TRANSCRIBER, 
             logger=cfg.LOGGER)
@@ -87,7 +87,7 @@ class ChatService(Service):
         Initiates an instance.
         """
         super().__init__(
-            name="Chat", 
+            name="chat", 
             description="Generates chat responses via a language model.", 
             config=cfg.DEFAULT_CHAT_SMALL, 
             logger=cfg.LOGGER)
@@ -187,7 +187,7 @@ class SynthesizerService(Service):
         Initiates an instance.
         """
         super().__init__(
-            name="Synthesizer", 
+            name="synthesizer", 
             description="Synthesizes audio from text.", 
             config=cfg.DEFAULT_SYNTHESIZER, 
             logger=cfg.LOGGER)
