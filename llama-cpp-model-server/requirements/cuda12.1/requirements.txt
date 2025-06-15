@@ -11,4 +11,4 @@ psutil==6.0.0
 torch==2.2.2 
 torchvision==0.17.2 
 torchaudio==2.2.2
-xformers
+xformers==0.0.25.post1
