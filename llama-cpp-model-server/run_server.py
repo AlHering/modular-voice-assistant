@@ -15,41 +15,55 @@ import requests
 import time
 import click
 from uuid import uuid4
-from typing import Union
-from utility import load_json, save_json, get_valid_config_path, get_default_config
+from utility import load_json, save_json, fix_config_path, fix_model_paths
+from dotenv import dotenv_values
+
+
+"""
+Environment file
+"""
+WORK_DIR = os.path.dirname(__file__)
+CONFIGS_DIR = os.path.join(WORK_DIR, "configs")
+MODELS_DIR = os.path.join(WORK_DIR, "models")
+ENV_PATH = os.path.join(WORK_DIR, ".env")
+ENV = dotenv_values(ENV_PATH) if os.path.exists(ENV_PATH) else {}
 
 
 """
 Configuration construction
 """
-DEFAULT_MODEL_CONFIGS = [
-    {
-        "model": "/llama-cpp-model-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
-        "model_alias": "llama3.1-8B-i1",
-        "chat_format": "chatml",
-        "n_gpu_layers": -1,
-        "offload_kqv": True,
-#            "n_ctx": 131072,
-        "n_ctx": 65536,
-        "flash_attn": True,
-        "use_mlock": False
-    },
-    {
-        "model": "/llama-cpp-model-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
-        "model_alias": "llama-3",
-        "chat_format": "chatml",
-        "n_gpu_layers": 22,
-        "offload_kqv": True,
-        "n_ctx": 8192,
-        "use_mlock": False
-    }
-]
+DEFAULT_CONFIG = {
+    "host": ENV.get("HOST", "0.0.0.0"),
+    "port": int(ENV.get("PORT", "8123")),
+    "models": [
+        {
+            "model": "/llama-cpp-model-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
+            "model_alias": "llama3.1-8B-i1",
+            "chat_format": "chatml",
+            "n_gpu_layers": -1,
+            "offload_kqv": True,
+    #            "n_ctx": 131072,
+            "n_ctx": 65536,
+            "flash_attn": True,
+            "use_mlock": False
+        },
+        {
+            "model": "/llama-cpp-model-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
+            "model_alias": "llama-3",
+            "chat_format": "chatml",
+            "n_gpu_layers": 22,
+            "offload_kqv": True,
+            "n_ctx": 8192,
+            "use_mlock": False
+        }
+    ]
+}
 
 
 """
 Main functionality
 """
-def load_llamacpp_server_subprocess(config: Union[dict, str], wait_for_startup: bool = True) -> subprocess.Popen:
+def load_llamacpp_server_subprocess(config: dict | str, wait_for_startup: bool = True) -> subprocess.Popen:
     """
     Function for loading llamacpp-based server subprocess.
     :param config: Path to config file or config dictionary.
@@ -101,19 +115,24 @@ def terminate_llamacpp_server_subprocess(process: subprocess.Popen) -> None:
 Click-based entrypoint
 """
 @click.command()
-@click.option("--config", default=None, help="Path or name json configuration file for the LlamaCPP server.")
-def run_llama_server(config: str) -> None:
-    """Runner program for LlamaCPP Server."""
-    config_path = get_valid_config_path(config_path=config)
+@click.option("--config", "config", default=None, help="Path or name json configuration file for the LlamaCPP server.")
+@click.option("--fix-paths", "fix_paths", is_flag=True, help="Fix model paths in config.")
+def run_llama_server(config: str, fix_paths: bool) -> None:
+    """Runner program for a configured llama-cpp model server."""
+    config_path = fix_config_path(config_path=config, default_dir=CONFIGS_DIR)
     if config_path:
         print(f"\nValid config path given: {config_path}.")
-        process = load_llamacpp_server_subprocess(config_path)
+        if fix_paths:
+            config = load_json(config_path)
+            fix_model_paths(config=config, default_dir=MODELS_DIR)
+            process = load_llamacpp_server_subprocess(config=config_path)
+        else:
+            print(f"\nRunning without model paths check (add --fix-paths to fix relative paths).")
+            process = load_llamacpp_server_subprocess(config=config)
     else:
         print(f"\nNo valid config path given, using default configuration.")
-        process = load_llamacpp_server_subprocess(get_default_config(
-            fallback_model_configs=DEFAULT_MODEL_CONFIGS,
-            model_path_key="model"
-        ))
+        fix_model_paths(config=DEFAULT_CONFIG)
+        process = load_llamacpp_server_subprocess(config=DEFAULT_CONFIG)
     try:
         while True:
             time.sleep(1)

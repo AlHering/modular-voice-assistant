@@ -8,18 +8,6 @@
 from __future__ import annotations
 import os
 import json
-from typing import List
-from dotenv import dotenv_values
-
-
-"""
-Environment file
-"""
-WORK_DIR = os.path.dirname(__file__)
-CONFIG_DIR = os.path.join(WORK_DIR, "configs")
-MODEL_DIR = os.path.join(WORK_DIR, "models")
-ENV_PATH = os.path.join(WORK_DIR, ".env")
-ENV = dotenv_values(ENV_PATH) if os.path.exists(ENV_PATH) else {}
 
 
 """
@@ -45,32 +33,11 @@ def load_json(path: str) -> dict:
         return json.load(in_file)
 
 
-def get_default_model_configs(fallback_model_configs: List[dict] | None = None, model_path_key: str | None = None) -> list:
-    """
-    Returns default model configs.
-    :param fallback_model_configs: Fallback model configs.
-    :param model_path_key: Config key under which the model path is found.
-    :return: List of model dictionaries.
-    """
-    try:
-        model_configs = load_json(ENV.get("MODEL_CONFIG"))
-        if isinstance(model_configs, dict) and "models" in model_configs:
-            model_configs = model_configs["models"]
-    except:
-        model_configs = fallback_model_configs
-    if model_path_key is not None:
-        for model_config in model_configs:
-            if not os.path.exists(model_config[model_path_key]):
-                rel_path = os.path.join(MODEL_DIR, model_config[model_path_key])
-                if os.path.exists(rel_path):
-                    model_config[model_path_key] = rel_path
-    return model_configs
-
-
-def get_valid_config_path(config_path: str | None) -> str | None:
+def fix_config_path(config_path: str | None, default_dir: str) -> str | None:
     """
     Returns valid config path.
     :param config_path: Base config path.
+    :param default_dir: Default configs directory.
     :return: Valid config path or None.
     """
     if config_path is not None:
@@ -79,22 +46,19 @@ def get_valid_config_path(config_path: str | None) -> str | None:
         if os.path.exists(config_path):
             return config_path
         else:
-            rel_path = os.path.join(CONFIG_DIR, config_path)
+            rel_path = os.path.join(default_dir, config_path)
             if os.path.exists(rel_path):
                 return rel_path
             
 
-def get_default_config(fallback_model_configs: List[dict] | None = None, model_path_key: str | None = None) -> dict:
+def fix_model_paths(config: dict, default_dir: str) ->None:
     """
-    Returns default config.
-    :param fallback_model_configs: Fallback model configs.
-    :param model_path_key: Config key under which the model path is found.
+    Fixes potentially relative model paths.
+    :param config: Config.
+    :param default_dir: Default models directory.
     """
-    return {
-        "host": ENV.get("HOST", "0.0.0.0"),
-        "port": int(ENV.get("PORT", "8123")),
-        "models": get_default_model_configs(
-            fallback_model_configs=fallback_model_configs,
-            model_path_key=model_path_key
-        )
-    }
+    for model_config in config["models"]:
+        if not os.path.exists(model_config["model"]):
+            rel_path = os.path.join(default_dir, model_config["model"])
+            if os.path.exists(rel_path):
+                model_config["model"] = rel_path
