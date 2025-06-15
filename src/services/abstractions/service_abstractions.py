@@ -21,6 +21,9 @@ import json
 from src.utility.time_utility import get_timestamp
 
 
+SOCKET_BUFFER_SIZE = 4096
+
+
 def create_default_metadata() -> List[dict]:
     """
     Creates a default service package metadata stack.
@@ -293,6 +296,38 @@ class Service(object):
         return package.model_dump()
     
 
+def receive_from_socket(receiving_socket: socket.socket, encoding: str = "utf-8") -> str:
+    """
+    Retrieves data from socket.
+    :param receiving_socket: Receiving socket.
+    :param encoding: Data encoding.
+        Defaults to utf-8.
+    :return: Received data as string.
+    """
+    buffer = b""
+    while True:
+        part = receiving_socket.recv(SOCKET_BUFFER_SIZE)
+        if not part:
+            break
+        buffer += part
+        if b"\n" in part:
+            break
+    return buffer.decode(encoding=encoding).strip()
+
+
+def interact_with_service_socket(host: str, port: int, package: ServicePackage) -> ServicePackage:
+    """
+    Sends a request service package to a service socket and returns response. 
+    :param host: Socket server host.
+    :param port: Socket server port.
+    :param package: Package to send to service socket.
+    """
+    with socket.create_connection((host, port)) as sock:
+        sock.sendall((json.dumps(package) + "\n").encode())
+        data = receive_from_socket(receiving_socket=sock)
+    return ServicePackage(**json.loads(data))
+
+
 class SocketService(object):
     def __init__(self, 
                  host: str,
@@ -351,7 +386,7 @@ class SocketService(object):
         :param client_socket: Client socket.
         """
         try:
-            input_package = self.decode_input_package(client_socket=client_socket)
+            input_package = receive_from_socket(receiving_socket=client_socket)
             self.service.add_uuid(self.service.received, input_package.uuid)
 
             def send_back(package: ServicePackage):
@@ -363,22 +398,6 @@ class SocketService(object):
         except Exception as ex:
             client_socket.sendall(json.dumps({"error": str(ex), "trace": format_exc()}).encode("utf-8"))
         client_socket.close()
-
-    def decode_input_package(self, client_socket: socket.socket) -> ServicePackage:
-        """
-        Decodes received input message.
-        :param client_socket: Client socket.
-        :returns: Input service package.
-        """
-        buffer = b""
-        while True:
-            part = client_socket.recv(4096)
-            if not part:
-                break
-            buffer += part
-            if b"\n" in part:
-                break
-        return ServicePackage(**json.loads(buffer.decode("utf-8").strip()))
 
     def iterate(self, callback_function: Callable) -> bool:
         """
@@ -422,3 +441,4 @@ class SocketService(object):
         self.client_threads.clear()
         self.connection_thread = None
         self.service.interrupt.clear()
+        
