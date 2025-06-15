@@ -17,26 +17,26 @@ from src.services.service_registry_client import VoiceAssistantClient
 from src.configuration import configuration as cfg
 
 AVAILABLE_SERVICES: Dict[str, Service] = {
-    "Transcriber": TranscriberService,
-    "Chat": ChatService,
-    "Synthesizer": SynthesizerService
+    "transcriber": TranscriberService,
+    "chat": ChatService,
+    "synthesizer": SynthesizerService
 }
 DEFAULTS = {
-     "Transcriber": {
+     "transcriber": {
         "backends": Transcriber.supported_backends,
         "defaults": Transcriber.default_models
     },
-    "Synthesizer": {
+    "synthesizer": {
         "backends": Synthesizer.supported_backends,
         "defaults": Synthesizer.default_models
     }
 }
 CONFIGURATION_PARAMETERS =  {
-    "Transcriber": {
+    "transcriber": {
         "model_parameters": {"title": "Model Parameters", "type": dict, "default": None}, 
         "transcription_parameters": {"title": "Transcription Parameters", "type": dict, "default": None}
     },
-    "Chat": [
+    "chat": [
         {
             "#option": "local",
             "language_model": {"title": "Language Model", "type": dict}, 
@@ -56,7 +56,7 @@ CONFIGURATION_PARAMETERS =  {
             "history": {"title": "History", "type": str, "default": None}
         }
     ],
-    "Synthesizer": {
+    "synthesizer": {
         "model_parameters": {"title": "Model Parameters", "type": dict, "default": None}, 
         "synthesis_parameters": {"title": "Synthesis Parameters", "type": dict, "default": None}
     }

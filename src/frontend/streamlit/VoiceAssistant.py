@@ -75,7 +75,7 @@ def main_page_content() -> None:
         st.session_state["chat_history"] = []
     st.session_state["loaded_services"] = get_loaded_service() 
     st.session_state["available_services"] = {
-        service_type: [None] + [entry["id"] for entry in get_configs(config_type=service_type) if not entry["inactive"]]
+        service_type: [None] + [entry["uuid"] for entry in get_configs(config_type=service_type) if not entry["inactive"]]
             for service_type in AVAILABLE_SERVICES
         }
     
@@ -108,10 +108,10 @@ def main_page_content() -> None:
         _ = requests.post(st.session_state["API_BASE"] + "/interrupt")
     if chat_flag_columns[3].button("Clear Chat"):
         st.session_state["chat_history"] = []
-        if st.session_state["loaded_services"]["Chat"]:
+        if st.session_state["loaded_services"]["chat"]:
             with st.spinner("Resetting service..."):
-                reset_service("Chat", st.session_state["loaded_services"]["Chat"])
-    if not st.session_state["loaded_services"]["Synthesizer"] and output_as_audio:
+                reset_service("Chat", st.session_state["loaded_services"]["chat"])
+    if not st.session_state["loaded_services"]["synthesizer"] and output_as_audio:
         output_as_audio = False
         st.error("Synthesizer service needs to be loaded.")
 
@@ -126,7 +126,7 @@ def main_page_content() -> None:
     interaction_columns = interaction_box.columns([.8, .2])
 
     # text input
-    active_worker = st.session_state["loaded_services"]["Chat"]
+    active_worker = st.session_state["loaded_services"]["chat"]
     prompt = interaction_columns[0].chat_input("🖊️ Write something")
     if prompt:
         if active_worker:
@@ -142,7 +142,7 @@ def main_page_content() -> None:
             st.error("Chat service needs to be loaded.")
 
     # speech input
-    active_transcriber = st.session_state["loaded_services"]["Transcriber"]
+    active_transcriber = st.session_state["loaded_services"]["transcriber"]
     voice_input = interaction_columns[1].button("🎙️ Say something")
     if voice_input:
         if active_transcriber is not None:

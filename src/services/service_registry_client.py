@@ -214,7 +214,7 @@ class VoiceAssistantClient(ServiceRegistryClient):
         input_package = ServicePackage(content=audio_input.tolist())
         input_package.metadata_stack[-1]["dtype"] = str(audio_input.dtype)
         result = self.process(
-            service="Transcriber", 
+            service="transcriber", 
             input_package=input_package
             )
         return result["content"], result["metadata_stack"][-1]
@@ -226,7 +226,7 @@ class VoiceAssistantClient(ServiceRegistryClient):
         :return: Output file path and metadata.
         """
         result = self.process(
-            service="Synthesizer", 
+            service="synthesizer", 
             input_package=ServicePackage(content=text)
             )
         return np.array(result["content"], dtype=result["metadata_stack"][-1].pop("dtype")), result["metadata_stack"][-1]
@@ -262,7 +262,7 @@ class VoiceAssistantClient(ServiceRegistryClient):
         input_package.metadata_stack[-1]["chat_parameters"] = {"stream": stream}
 
         if stream:
-            for response in self.stream(service="Chat", 
+            for response in self.stream(service="chat", 
                                         input_package=input_package):
                 response_chunk = response.get("content", "") 
                 if response_chunk and output_as_audio:
@@ -270,7 +270,7 @@ class VoiceAssistantClient(ServiceRegistryClient):
                 yield response_chunk, response["metadata_stack"][-1] 
         else:
             response = self.process(
-                service="Chat", 
+                service="chat", 
                 input_package=input_package
             )
             if response and output_as_audio:
