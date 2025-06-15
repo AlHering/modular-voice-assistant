@@ -75,7 +75,7 @@ def interaction_log(func: Any) -> Any | None:
                 "args": str(args),
                 "kwargs": str(kwargs)
             },
-            "response": str(response),
+            "response": json.dumps(response) if isinstance(response, dict) else str(response),
             "requested": requested,
             "responded": responded
         }
