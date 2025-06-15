@@ -365,7 +365,10 @@ class ServiceRegistryServer(object):
         """
         Deconstructs instance.
         """
-        asyncio.run(self.interrupt())
+        for service in self.services[service]:
+            if service.thread is not None and service.thread.is_alive():
+                service.reset()
+                self.service_uuids[service.name] = None
 
 
 """
