@@ -37,19 +37,16 @@ DEFAULT_CONFIG = {
     "port": int(ENV.get("PORT", "8123")),
     "models": [
         {
-            "model": "/llama-cpp-model-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
-            "model_alias": "llama3.1-8B-i1",
-            "chat_format": "chatml",
+            "model": "/llama-cpp-model-server/models/bartowski_Qwen2.5-3B-Instruct-GGUF/Qwen2.5-3B-Instruct-Q8_0.gguf",
+            "model_alias": "qwen-2.5-3b-instruct-q8_0",
             "n_gpu_layers": -1,
             "offload_kqv": True,
-    #            "n_ctx": 131072,
-            "n_ctx": 65536,
-            "flash_attn": True,
+            "n_ctx": 8192,
             "use_mlock": False
         },
         {
             "model": "/llama-cpp-model-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
-            "model_alias": "llama-3",
+            "model_alias": "llama-3.1-8b-instruct-i1",
             "chat_format": "chatml",
             "n_gpu_layers": 22,
             "offload_kqv": True,
@@ -125,7 +122,7 @@ def run_llama_server(config: str) -> None:
     else:
         print(f"\nNo valid config path given, using default configuration.")
         config=DEFAULT_CONFIG
-    fix_model_paths(config=DEFAULT_CONFIG)
+    fix_model_paths(config=DEFAULT_CONFIG, default_dir=MODELS_DIR)
     process = load_llamacpp_server_subprocess(config=config)
     try:
         while True:
