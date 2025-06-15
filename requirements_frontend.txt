@@ -1,4 +1,4 @@
-streamlit==1.32.0
+streamlit==1.45.1
 streamlit-code-editor==0.1.21
 streamlit-extras==0.5.0
 barfi==0.7.0
