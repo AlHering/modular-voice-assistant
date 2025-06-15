@@ -116,23 +116,17 @@ Click-based entrypoint
 """
 @click.command()
 @click.option("--config", "config", default=None, help="Path or name json configuration file for the LlamaCPP server.")
-@click.option("--fix-paths", "fix_paths", is_flag=True, help="Fix model paths in config.")
-def run_llama_server(config: str, fix_paths: bool) -> None:
+def run_llama_server(config: str) -> None:
     """Runner program for a configured llama-cpp model server."""
     config_path = fix_config_path(config_path=config, default_dir=CONFIGS_DIR)
     if config_path:
         print(f"\nValid config path given: {config_path}.")
-        if fix_paths:
-            config = load_json(config_path)
-            fix_model_paths(config=config, default_dir=MODELS_DIR)
-            process = load_llamacpp_server_subprocess(config=config_path)
-        else:
-            print(f"\nRunning without model paths check (add --fix-paths to fix relative paths).")
-            process = load_llamacpp_server_subprocess(config=config)
+        config = load_json(config_path)
     else:
         print(f"\nNo valid config path given, using default configuration.")
-        fix_model_paths(config=DEFAULT_CONFIG)
-        process = load_llamacpp_server_subprocess(config=DEFAULT_CONFIG)
+        config=DEFAULT_CONFIG
+    fix_model_paths(config=DEFAULT_CONFIG)
+    process = load_llamacpp_server_subprocess(config=config)
     try:
         while True:
             time.sleep(1)
