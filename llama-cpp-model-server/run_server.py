@@ -24,7 +24,7 @@ Configuration construction
 """
 DEFAULT_MODEL_CONFIGS = [
     {
-        "model": "/llama-cpp-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
+        "model": "/llama-cpp-model-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
         "model_alias": "llama3.1-8B-i1",
         "chat_format": "chatml",
         "n_gpu_layers": -1,
@@ -35,7 +35,7 @@ DEFAULT_MODEL_CONFIGS = [
         "use_mlock": False
     },
     {
-        "model": "/llama-cpp-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
+        "model": "/llama-cpp-model-server/models/mradermacher_Meta-Llama-3.1-8B-Instruct-i1-GGUF/Meta-Llama-3.1-8B-Instruct.i1-Q4_K_M.gguf",
         "model_alias": "llama-3",
         "chat_format": "chatml",
         "n_gpu_layers": 22,
@@ -112,7 +112,7 @@ def run_llama_server(config: str) -> None:
         print(f"\nNo valid config path given, using default configuration.")
         process = load_llamacpp_server_subprocess(get_default_config(
             fallback_model_configs=DEFAULT_MODEL_CONFIGS,
-            model_path_key="models"
+            model_path_key="model"
         ))
     try:
         while True:

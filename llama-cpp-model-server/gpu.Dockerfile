@@ -9,8 +9,8 @@ ENV TZ=Europe/Berlin
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Setting up working directory
-ADD ./ service/
-WORKDIR /service
+ADD ./ llama-cpp-model-server/
+WORKDIR /llama-cpp-model-server
 
 # Install prerequisites
 RUN apt-get update && apt-get install -y apt-utils \
