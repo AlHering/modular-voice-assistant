@@ -287,7 +287,7 @@ class Service(object):
         """
         pass
 
-    def unpack(self, package: ServicePackage) -> dict:
+    def unpack_package(self, package: ServicePackage) -> dict:
         """
         Unpacks a service package.
         :param package: Service package.
@@ -329,6 +329,9 @@ def interact_with_service_socket(host: str, port: int, package: ServicePackage) 
 
 
 class SocketService(object):
+    """
+    Wrapper class for interacting with services via sockets.
+    """
     def __init__(self, 
                  host: str,
                  port: int,
