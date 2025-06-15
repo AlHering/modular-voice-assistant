@@ -202,7 +202,7 @@ class ServiceRegistryServer(object):
             config_uuid = UUID(config_uuid)
         try:
             if config_uuid != self.service_uuids[service.name] or not service.thread.is_alive():
-                entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service.name], ["id", "==", config_uuid]])])[0])
+                entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service.name], ["uuid", "==", config_uuid]])])[0])
                 service.config = entry["config"]
                 if service.thread is not None and service.thread.is_alive():
                     service.reset(restart_thread=True)
@@ -230,7 +230,7 @@ class ServiceRegistryServer(object):
         if isinstance(config_uuid, str):
             config_uuid = UUID(config_uuid)
         try:
-            entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service], "id", "==", config_uuid])]))
+            entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service], "uuid", "==", config_uuid])]))
             service.config = entry["config"]
             service.reset(restart_thread=True)
             while not service.setup_flag:
@@ -329,8 +329,8 @@ class ServiceRegistryServer(object):
         :param config: Config.
         :return: Response.
         """
-        if "id" in payload.config:
-            payload.config["id"] = UUID(payload.config["id"])
+        if "uuid" in payload.config:
+            payload.config["uuid"] = UUID(payload.config["uuid"])
         result = self.database.obj_as_dict(self.database.put_object(object_type="service_config", service_type=payload.service, **payload.config))
         return BaseResponse(status="success", results=[result])
     
@@ -342,9 +342,9 @@ class ServiceRegistryServer(object):
         :param config: Config.
         :return: Response.
         """
-        if "id" in payload.config:
-            payload.config["id"] = UUID(payload.config["id"])
-        result = self.database.obj_as_dict(self.database.patch_object(object_type="service_config", object_id=payload.config["id"], service_type=payload.service, **payload.config))
+        if "uuid" in payload.config:
+            payload.config["uuid"] = UUID(payload.config["uuid"])
+        result = self.database.obj_as_dict(self.database.patch_object(object_type="service_config", object_id=payload.config["uuid"], service_type=payload.service, **payload.config))
         return BaseResponse(status="success", results=[result])
     
     @interaction_log

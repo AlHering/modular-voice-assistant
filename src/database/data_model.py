@@ -6,7 +6,8 @@
 ****************************************************
 """
 from sqlalchemy.orm import declarative_base
-from sqlalchemy import Engine, Column, String, JSON, Integer, DateTime, func, Boolean, UUID
+from sqlalchemy import Engine, Column, String, JSON, DateTime, func, Boolean
+from sqlalchemy_utils import UUIDType
 from uuid import uuid4
 from src.configuration import configuration as cfg
 
@@ -31,8 +32,8 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
         __table_args__ = {
             "comment": "Log table.", "extend_existing": True}
 
-        id = Column(Integer, primary_key=True, autoincrement=True, unique=True, nullable=False,
-                    comment="ID of the logging entry.")
+        uuid = Column(UUIDType(binary=False), primary_key=True, unique=True, nullable=False, default=uuid4,
+                    comment="UUID of the logging entry.")
         request = Column(JSON, nullable=False,
                          comment="Request, sent to the backend.")
         response = Column(JSON, comment="Response, given by the backend.")
@@ -49,8 +50,8 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
         __table_args__ = {
             "comment": "Pipeline service config table.", "extend_existing": True}
 
-        id = Column(UUID(as_uuid=True), primary_key=True, unique=True, nullable=False, default=uuid4,
-                    comment="ID of an instance.")
+        uuid = Column(UUIDType(binary=False), primary_key=True, unique=True, nullable=False, default=uuid4,
+                    comment="UUID of an instance.")
         service_type = Column(String,
                          comment="Service type.")
         config = Column(JSON,
@@ -73,8 +74,8 @@ def populate_data_infrastructure(engine: Engine, schema: str, model: dict) -> No
         __table_args__ = {
             "comment": "Pipeline module config table.", "extend_existing": True}
 
-        id = Column(Integer, autoincrement=True, primary_key=True, unique=True, nullable=False, 
-                    comment="ID of a model.")
+        uuid = Column(UUIDType(binary=False), primary_key=True, unique=True, nullable=False, default=uuid4,
+                    comment="UUID of a model.")
         model_type = Column(String,
                          comment="Target model type.")
         backend = Column(String,
