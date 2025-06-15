@@ -1,18 +1,18 @@
 FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONUNBUFFERED=1
 
 # Setting up basic repo 
 ARG DEBIAN_FRONTEND noninteractive
-ENV NVIDIA_VISIBLE_DEVICES all
-ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
-ENV TZ Europe/Berlin
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+ENV TZ=Europe/Berlin
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Setting up working directory
 ADD ./ modular-voice-assistant/
 WORKDIR /modular-voice-assistant
-ENV RUNNING_IN_DOCKER True
-ENV CUDA_SUPPORT True
+ENV RUNNING_IN_DOCKER=True
+ENV CUDA_SUPPORT=True
 
 # Install prerequisites
 RUN apt-get update && apt-get install -y apt-utils \
