@@ -1,0 +1,3 @@
+gpt-sovits-python==1.0.0
+fish_speech_lib==0.1.0.1
+tts-with-rvc==0.1.9.1
