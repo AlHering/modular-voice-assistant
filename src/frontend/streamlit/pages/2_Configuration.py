@@ -178,7 +178,7 @@ def render_header_buttons(parent_widget: Any,
                     config_type=object_type,
                     config_data=gather_config(object_type),
                     config_id=st.session_state[f"{object_type}_config_selectbox"]
-                ).get("id")
+                ).get("uuid")
                 st.info(f"Updated {object_title} configuration {obj_id}.")
 
     header_button_columns[2].write("#####")
@@ -188,7 +188,7 @@ def render_header_buttons(parent_widget: Any,
         obj_id = put_config(
             config_type=object_type,
             config_data=gather_config(object_type)
-        ).get("id")
+        ).get("uuid")
         if obj_id in st.session_state[f"{tab_key}_available"]:
             st.info(f"Configuration already found under ID {obj_id}.")
         else:
@@ -205,9 +205,9 @@ def render_header_buttons(parent_widget: Any,
                 obj_id = delete_config(
                     config_type=object_type,
                     config_id=st.session_state[f"{object_type}_config_selectbox"]
-                ).get("id")
+                ).get("uuid")
                 st.info(f"Deleted {object_title} configuration {obj_id}.")
-                ids = [st.session_state[f"{tab_key}_available"][elem]["id"] 
+                ids = [st.session_state[f"{tab_key}_available"][elem]["uuid"] 
                        for elem in st.session_state[f"{tab_key}_available"]]
                 deleted_index = ids.index(st.session_state[f"{object_type}_config_selectbox"])
                 if len(ids) > deleted_index+1:
@@ -228,7 +228,7 @@ def render_config(object_type: str) -> None:
     """
     tab_key = f"new_{object_type}"
     st.session_state[f"{tab_key}_available"] = {
-        entry["id"]: entry for entry in get_configs(config_type=object_type)
+        entry["uuid"]: entry for entry in get_configs(config_type=object_type)
         if not entry["inactive"]}
     options = [">> New <<"] + list(st.session_state[f"{tab_key}_available"].keys())
     default = st.session_state.get(f"{tab_key}_overwrite_config_id", st.session_state.get(f"{object_type}_config_selectbox", ">> New <<"))

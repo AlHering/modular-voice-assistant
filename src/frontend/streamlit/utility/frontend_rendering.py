@@ -95,7 +95,7 @@ def render_pipeline_node_plane(parent_widget: Any, block_dict: dict, session_sta
     if "flow_modules" not in st.session_state:
         st.session_state["flow_modules"] = {key: {
             "title": key,
-            "available": {entry["id"]: entry for entry in get_configs(config_type=key)
+            "available": {entry["uuid"]: entry for entry in get_configs(config_type=key)
                         if not  entry["inactive"]},
             "active": []
             } for key in AVAILABLE_SERVICES

@@ -58,7 +58,8 @@ CONFIGURATION_PARAMETERS =  {
     ],
     "synthesizer": {
         "model_parameters": {"title": "Model Parameters", "type": dict, "default": None}, 
-        "synthesis_parameters": {"title": "Synthesis Parameters", "type": dict, "default": None}
+        "synthesis_parameters": {"title": "Synthesis Parameters", "type": dict, "default": None},
+        "replace_symbols": {"title": "Replace Symbols", "type": dict, "default": None}
     }
 }
 
