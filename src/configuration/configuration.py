@@ -121,6 +121,10 @@ DEFAULT_SYNTHESIZER = {
     "synthesis_parameters": {
         "speaker_wav": os.path.join(PATHS.MODEL_PATH, "sound_generation/models/text_to_speech/coqui_xtts/examples/female.wav"),
         "language": "en"
+    },
+    "replace_symbols": {
+        "*": "",
+        "#": ""
     }
 }
 DEFAULT_AUDIO_PLAYER = {
