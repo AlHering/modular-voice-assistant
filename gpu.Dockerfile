@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y \
 
 # Project prerequisites
 RUN apt-get update && apt-get install -y \
-    portaudio19-dev libportaudio2 python3-pyaudio \
+    portaudio19-dev libportaudio2 python3-pyaudio libsox-dev \
     libssl-dev libasound2 libsndfile1 espeak \
     libcudnn8 libcudnn8-dev && apt-get clean -y
 
