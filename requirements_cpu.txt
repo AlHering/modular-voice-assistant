@@ -2,6 +2,7 @@
 llama-cpp-python[server]==0.3.9
 coqui-tts==0.24.3
 gpt-sovits-python==1.0.0
+fish_speech_lib==0.1.0.1
 chromadb==0.6.3
 click==8.1.7
 openai-whisper==20240930
