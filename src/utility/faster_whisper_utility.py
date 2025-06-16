@@ -14,7 +14,6 @@ import faster_whisper
 def get_available_models() -> dict:
     """
     Fetches available models.
-    Coqui-TTS organizes and identifies models under <model_type>/<language>/<dataset>/<model_name>.
     :return: Dictionary with models and their metadata.
     """
     return faster_whisper.utils._MODELS
