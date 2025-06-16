@@ -15,7 +15,7 @@ from typing import List, Dict, Generator
 import traceback
 import time
 from uuid import UUID
-from src.services.abstractions.service_abstractions import Service, ServicePackage, EndOfStreamPackage
+from src.services.service_abstractions import Service, ServicePackage, EndOfStreamPackage
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
 from src.configuration import configuration as cfg

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ****************************************************
-*          Basic Language Model Backend            *
-*            (c) 2023 Alexander Hering             *
+*             Modular Voice Assistant              *
+*            (c) 2024 Alexander Hering             *
 ****************************************************
 """

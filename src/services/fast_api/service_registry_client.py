@@ -14,9 +14,9 @@ from uuid import UUID
 import time
 import json
 from src.configuration import configuration as cfg
-from src.services.abstractions.service_abstractions import ServicePackage
+from src.services.service_abstractions import ServicePackage
 from src.model.abstractions.sound_model_abstractions import SpeechRecorder, AudioPlayer
-from src.services.service_registry_server import BaseResponse, ServicePackage, Endpoints
+from src.services.fast_api.service_registry_server import BaseResponse, ServicePackage, Endpoints
 
 
 class ServiceRegistryClient(object):

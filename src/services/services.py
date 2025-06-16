@@ -10,7 +10,7 @@ from typing import Generator, Tuple
 import numpy as np
 import requests
 from src.configuration import configuration as cfg
-from src.services.abstractions.service_abstractions import Service, ServicePackage, FinalPackage
+from src.services.service_abstractions import Service, ServicePackage, FinalPackage
 from src.model.abstractions.sound_model_abstractions import Transcriber, Synthesizer
 from src.model.abstractions.language_model_abstractions import LanguageModelInstance, ChatModelInstance, RemoteChatModelInstance
 
