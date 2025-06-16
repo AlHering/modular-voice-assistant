@@ -22,7 +22,7 @@ def get_available_models() -> dict:
 def download_whisper_model(model_id: str,
                            output_folder: str) -> None:
     """
-    Function for downloading faster whisper models.
+    Function for downloading whisper models.
     :param model_id: Target model ID.
     :param output_folder: Output folder path.
     """    
