@@ -9,6 +9,7 @@ import os
 from typing import Generator, Tuple
 import numpy as np
 import requests
+from copy import deepcopy
 from src.configuration import configuration as cfg
 from src.services.service_abstractions import Service, ServicePackage, FinalPackage
 from src.model.abstractions.sound_model_abstractions import Transcriber, Synthesizer
@@ -212,7 +213,11 @@ class SynthesizerService(Service):
         Sets up service.
         :returns: True, if successful else False.
         """
+        config = deepcopy(self.config)
+        clean_symbols = config.pop("clean_symbols") if "clean_symbols" in config else []
+
         self.cache = {
+            "clean_symbols": clean_symbols,
             "synthesizer": Synthesizer(**self.config)
         }
         return True
@@ -228,9 +233,15 @@ class SynthesizerService(Service):
                 self.add_uuid(self.received, input_package.uuid)
                 self.log_info(f"Received input:\n'{input_package.content}'")
                 self.log_info(f"Received metadata:\n'{input_package.metadata_stack[-1]}'")
-                
+
+                input_package_content = input_package.content
+                if self.cache["clean_symbols"]:
+                    for to_remove in self.cache["clean_symbols"]:
+                        input_package_content.replace(to_remove, "")
+                    self.log_info(f"Cleaned input:\n'{input_package_content}'")
+
                 result = self.cache["synthesizer"].synthesize(
-                        text=input_package.content,
+                        text=input_package_content,
                         synthesis_parameters=input_package.metadata_stack[-1].get("synthesis_parameters"))
                 self.log_info(f"Received response\n'{result[0]}'.") 
                 synthesis_metadata = result[1]
