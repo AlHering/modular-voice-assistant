@@ -6,7 +6,7 @@
 ****************************************************
 """
 import os
-from typing import Any, Tuple, List
+from typing import Tuple, List
 import os
 import pyaudio
 from .pyaudio_utility import play_wave
@@ -14,6 +14,36 @@ import numpy as np
 import torch
 from TTS.api import TTS
 from TTS.utils.manage import ModelManager
+
+
+def get_available_models() -> dict:
+    """
+    Fetches available models.
+    Coqui-TTS organizes and identifies models under <model_type>/<language>/<dataset>/<model_name>.
+    :return: Dictionary with models and their metadata.
+    """
+    models_dict = TTS().manager.models_dict
+    flattened_model_dict = {}
+    for model_type in models_dict:
+        for language in models_dict[model_type]:
+            for dataset in models_dict[model_type][language]:
+                for model_name in models_dict[model_type][language][dataset]:
+                    model_id = f"{model_type}/{language}/{dataset}/{model_name}"
+                    flattened_model_dict[model_id] = {"metadata": models_dict[model_type][language][dataset][model_name]}
+                    flattened_model_dict[model_id]["metadata"]["dataset"] = dataset
+                    flattened_model_dict[model_id].update({
+                        "model_type": {"tts_models": "tts", "vocoder_models": "vocoder", "voice_conversion_models": "vc"}[model_type],
+                        "language": language,
+                        "model_name": model_name,
+                        "download_urls": models_dict[model_type][language][dataset][model_name].get(
+                            "hf_url", models_dict[model_type][language][dataset][model_name].get("github_rls_url", [])
+                        )
+                    })
+                    if not isinstance(flattened_model_dict[model_id]["download_urls"], list):
+                        flattened_model_dict[model_id]["download_urls"] = [
+                            flattened_model_dict[model_id]["download_urls"]
+                        ]
+    return flattened_model_dict
 
 
 def load_coqui_tts_model(model_path: str,
