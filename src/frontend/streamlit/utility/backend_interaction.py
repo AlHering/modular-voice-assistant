@@ -13,7 +13,7 @@ from inspect import getfullargspec
 from uuid import UUID
 from src.services.services import TranscriberService, ChatService, SynthesizerService, Service
 from src.services.services import Transcriber, Synthesizer
-from src.services.fast_api.service_registry_client import VoiceAssistantClient
+from src.services.fastapi.service_registry_client import VoiceAssistantClient
 from src.configuration import configuration as cfg
 
 AVAILABLE_SERVICES: Dict[str, Service] = {
