@@ -122,6 +122,10 @@ class Service(object):
             None and validation report in case of warnings. 
         """
         return None, "Validation method is not implemented."
+    
+    """
+    Utility methods
+    """
 
     def add_uuid(self, store: dict, uuid: str) -> None:
         """
@@ -175,6 +179,10 @@ class Service(object):
             else:
                 self.logger.info(text)
 
+    """
+    Thread and process control
+    """
+
     def to_thread(self) -> Thread:
         """
         Returns a thread for running service process in loop.
@@ -193,6 +201,17 @@ class Service(object):
         self.process = Process(target=self.setup_and_loop)
         self.process.daemon = True
         return self.process
+    
+    def setup_and_loop(self) -> None:
+        """
+        Method for setting up service and running processing loop.
+        """
+        if self.setup():
+            self.setup_flag = True
+            self.log_info(text="Setup succeeded, running loop.")
+            self.loop()
+        else:
+            self.log_info(text="Setup failed.")
     
     def reset(self, restart_thread: bool = False, restart_process: bool = False) -> None:
         """
@@ -228,6 +247,10 @@ class Service(object):
             self.process.start()
         self.interrupt.clear()
 
+    """
+    Processing methods
+    """
+
     def loop(self) -> None:
         """
         Starts processing cycle loop.
@@ -256,17 +279,6 @@ class Service(object):
                     self.add_uuid(self.sent, elem.uuid)
                     return True
         return False
-    
-    def setup_and_loop(self) -> None:
-        """
-        Method for setting up service and running processing loop.
-        """
-        if self.setup():
-            self.setup_flag = True
-            self.log_info(text="Setup succeeded, running loop.")
-            self.loop()
-        else:
-            self.log_info(text="Setup failed.")
     
     """
     Methods to potentially overwrite
