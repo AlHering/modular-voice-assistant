@@ -5,11 +5,18 @@
 *            (c) 2024 Alexander Hering             *
 ****************************************************
 """
-import os
-from typing import Any, Union, Tuple, List
+from typing import Union, Tuple
 import numpy as np
 import torch
 import whisper
+
+
+def get_available_models() -> dict:
+    """
+    Fetches available models.
+    :return: Dictionary with models and their metadata.
+    """
+    return whisper._MODELS
 
 
 def download_whisper_model(model_id: str,
