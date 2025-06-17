@@ -18,6 +18,7 @@ from threading import Thread
 from traceback import format_exc
 from typing import Any, List, Callable
 import json
+from gc import collect as collect_garbage
 from src.utility.time_utility import get_timestamp
 
 
@@ -225,6 +226,7 @@ class Service(object):
         self.input_queue.put(InterruptPackage())
         self.flush_inputs()
         self.flush_outputs()
+        self.teardown()
         self.log_info(text="Stopping workers.")
         try:
             for worker in [self.thread, self.process]:
@@ -236,6 +238,7 @@ class Service(object):
                 self.process.join(.5) 
         self.setup_flag = False
         self.pause.clear()
+        self.interrupt.clear()
         if restart_thread or restart_process:
             self.log_info(text="Restarting as thread...")
             if restart_thread:
@@ -245,7 +248,6 @@ class Service(object):
             self.log_info(text="Restarting as process...")
             self.to_process()
             self.process.start()
-        self.interrupt.clear()
 
     """
     Processing methods
@@ -289,6 +291,20 @@ class Service(object):
         Sets up service.
         :returns: True, if successful else False.
         """
+        return True
+    
+    def teardown(self) -> bool:
+        """
+        Cleans up service cache.
+        :returns: True, if successful else False.
+        """
+        for key in self.cache:
+            try:
+                del self.cache[key]
+            except Exception as ex:
+                self.service.log_info(f"Failed to clean up service cache: {ex}\nTrace: {format_exc()}", as_warning=True)
+                return False
+        collect_garbage()
         return True
 
     @abstractmethod
@@ -372,69 +388,13 @@ class SocketService(object):
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(5)
             self.service.log_info(f"Listening on {self.host}:{self.port}.")
-            self.connection_thread = Thread(target=self.connection_loop)
+            self.connection_thread = Thread(target=self._connection_loop)
             self.connection_thread.daemon = True
             self.connection_thread.start()
             return True
         except Exception as ex:
             self.service.log_info(f"Failed to set up socket server: {ex}\nTrace: {format_exc()}", as_warning=True)
             return False
-
-    def connection_loop(self) -> None:
-        """
-        Runs connection accept loop.
-        """
-        while not self.service.interrupt.is_set():
-            try:
-                client_socket, addr = self.server_socket.accept()
-                self.service.log_info(f"Accepted connection from {addr}.")
-                thread = Thread(target=self.handle_client, args=(client_socket,))
-                thread.daemon = True
-                thread.start()
-                self.client_threads.append(thread)
-            except socket.error as ex:
-                self.service.log_info(f"Failed to set up socket server: {ex}\nTrace: {format_exc()}", as_warning=True)
-
-    def handle_client(self, client_socket: socket.socket) -> None:
-        """
-        Handles client interaction.
-        :param client_socket: Client socket.
-        """
-        try:
-            input_package = receive_from_socket(receiving_socket=client_socket)
-            self.service.add_uuid(self.service.received, input_package.uuid)
-
-            def send_back(package: ServicePackage):
-                serialized = json.dumps(package.model_dump()) + "\n"
-                client_socket.sendall(serialized.encode("utf-8"))
-
-            self.service.input_queue.put(input_package)
-            self.iterate(callback_function=send_back)
-        except Exception as ex:
-            client_socket.sendall(json.dumps({"error": str(ex), "trace": format_exc()}).encode("utf-8"))
-        client_socket.close()
-
-    def iterate(self, callback_function: Callable) -> bool:
-        """
-        Runs a single processing cycle.
-        :param callback_function: Callback function for returning results.
-        :returns: True if an element was forwarded, else False. 
-            (Note, that a service does not have to forward an element.)
-        """    
-        result = self.service.run()
-        if result is not None:
-            if isinstance(result, ServicePackage):
-                callback_function(result)
-                self.service.add_uuid(self.service.sent, elem.uuid)
-                return True
-            elif isinstance(result, Generator):
-                elem = None
-                for elem in result:
-                    callback_function(elem)
-                if elem is not None:
-                    self.service.add_uuid(self.service.sent, elem.uuid)
-                    return True
-        return False
         
     def shutdown_socket(self) -> None:
         """
@@ -456,4 +416,60 @@ class SocketService(object):
         self.client_threads.clear()
         self.connection_thread = None
         self.service.interrupt.clear()
+
+    def _connection_loop(self) -> None:
+        """
+        Runs connection accept loop.
+        """
+        while not self.service.interrupt.is_set():
+            try:
+                client_socket, addr = self.server_socket.accept()
+                self.service.log_info(f"Accepted connection from {addr}.")
+                thread = Thread(target=self._handle_client, args=(client_socket,))
+                thread.daemon = True
+                thread.start()
+                self.client_threads.append(thread)
+            except socket.error as ex:
+                self.service.log_info(f"Failed to set up socket server: {ex}\nTrace: {format_exc()}", as_warning=True)
+
+    def _handle_client(self, client_socket: socket.socket) -> None:
+        """
+        Handles client interaction.
+        :param client_socket: Client socket.
+        """
+        try:
+            input_package = receive_from_socket(receiving_socket=client_socket)
+            self.service.add_uuid(self.service.received, input_package.uuid)
+
+            def send_back(package: ServicePackage):
+                serialized = json.dumps(package.model_dump()) + "\n"
+                client_socket.sendall(serialized.encode("utf-8"))
+
+            self.service.input_queue.put(input_package)
+            self._iterate(callback_function=send_back)
+        except Exception as ex:
+            client_socket.sendall(json.dumps({"error": str(ex), "trace": format_exc()}).encode("utf-8"))
+        client_socket.close()
+
+    def _iterate(self, callback_function: Callable) -> bool:
+        """
+        Runs a single processing cycle.
+        :param callback_function: Callback function for returning results.
+        :returns: True if an element was forwarded, else False. 
+            (Note, that a service does not have to forward an element.)
+        """    
+        result = self.service.run()
+        if result is not None:
+            if isinstance(result, ServicePackage):
+                callback_function(result)
+                self.service.add_uuid(self.service.sent, elem.uuid)
+                return True
+            elif isinstance(result, Generator):
+                elem = None
+                for elem in result:
+                    callback_function(elem)
+                if elem is not None:
+                    self.service.add_uuid(self.service.sent, elem.uuid)
+                    return True
+        return False
         
