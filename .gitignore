@@ -172,7 +172,7 @@ Untitled*.ipynb
 tmp*
 .desktop
 link_local_models.sh
-docs/
+docs/*
 
 # Exceptions
 !models/mount_machine_learning_model_folders_here.txt
