@@ -302,7 +302,7 @@ class Service(object):
             try:
                 del self.cache[key]
             except Exception as ex:
-                self.service.log_info(f"Failed to clean up service cache: {ex}\nTrace: {format_exc()}", as_warning=True)
+                self.log_info(f"Failed to clean up service cache: {ex}\nTrace: {format_exc()}", as_warning=True)
                 return False
         collect_garbage()
         return True
