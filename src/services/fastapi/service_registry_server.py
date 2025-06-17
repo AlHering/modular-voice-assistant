@@ -24,7 +24,7 @@ from uuid import UUID
 from functools import wraps
 import logging
 from src.services.services import TranscriberService, ChatService, SynthesizerService
-from src.services.service_abstractions import Service, ServicePackage, FinalPackage
+from src.services.service_abstractions import Service, ConcurrentService, ConcurrencyType, ServicePackage, FinalPackage
 from src.database.basic_sqlalchemy_interface import BasicSQLAlchemyInterface, FilterMask
 from src.database.data_model import populate_data_infrastructure, get_default_entries
 from src.configuration import configuration as cfg
@@ -142,6 +142,7 @@ class ServiceRegistryServer(object):
         :param services: Services.
         """
         self.services: Dict[str, Service] = {service.name: service for service in services}
+        self.workers: Dict[str, ConcurrentService] = {service.name: None for service in services}
         self.service_uuids = {key: None for key in self.services}
         self.working_directory = os.path.join(cfg.PATHS.DATA_PATH, "service_registry")
         self.database = BasicSQLAlchemyInterface(
@@ -162,7 +163,7 @@ class ServiceRegistryServer(object):
         self.router.add_api_route(path="/service/process", endpoint=self.process, methods=["POST"])
         self.router.add_api_route(path="/service/stream", endpoint=self.process_as_stream, methods=["POST"])
         self.router.add_api_route(path="/service/run", endpoint=self.setup_and_run_service, methods=["POST"])
-        self.router.add_api_route(path="/service/reset", endpoint=self.reset_service, methods=["POST"])
+        self.router.add_api_route(path="/service/reset", endpoint=self.reset_and_run_service, methods=["POST"])
         self.router.add_api_route(path="/service/stop", endpoint=self.stop_service, methods=["POST"])
         self.router.add_api_route(path="/configs/get", endpoint=self.get_configs, methods=["POST"])
         self.router.add_api_route(path="/configs/add", endpoint=self.add_config, methods=["POST"])
@@ -177,7 +178,7 @@ class ServiceRegistryServer(object):
         """
         Interrupt available services.
         """
-        tasks = [asyncio.create_task(self.reset_service(service=service, config_uuid=self.service_uuids[service])) for service in self.service_uuids if self.service_uuids[service] is not None]
+        tasks = [asyncio.create_task(self.reset_and_run_service(service=service, config_uuid=self.service_uuids[service])) for service in self.service_uuids if self.service_uuids[service] is not None]
         # wait for tasks to complete
         _ = await asyncio.wait(tasks)
         return BaseResponse(status="success", results=[self.service_uuids])
@@ -190,11 +191,12 @@ class ServiceRegistryServer(object):
         return BaseResponse(status="success", results=[self.service_uuids])
 
     @interaction_log
-    async def setup_and_run_service(self, service: str, config_uuid: str | UUID) -> BaseResponse:
+    async def setup_and_run_service(self, service: str, config_uuid: str | UUID, concurrency_type: ConcurrencyType = ConcurrencyType.as_thread) -> BaseResponse:
         """
         Sets up and runs a service.
         :param service: Target service name.
         :param config_uuid: Config UUID.
+        :param concurrency_type: Concurrency type.
         :return: Response.
         """
         service = self.services[service]
@@ -204,11 +206,11 @@ class ServiceRegistryServer(object):
             if config_uuid != self.service_uuids[service.name] or not service.thread.is_alive():
                 entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service.name], ["uuid", "==", config_uuid]])])[0])
                 service.config = entry["config"]
-                if service.thread is not None and service.thread.is_alive():
-                    service.reset(restart_thread=True)
+                if self.workers[service.name]:
+                    self.workers[service.name].reset_service()
                 else:
-                    thread = service.to_thread()
-                    thread.start()
+                    self.workers[service.name] = ConcurrentService(service=service, concurrency_type=concurrency_type)
+                self.workers[service.name].run()
                 self.service_uuids[service.name] = config_uuid
             while not service.setup_flag:
                await asyncio.sleep(.5)
@@ -219,7 +221,7 @@ class ServiceRegistryServer(object):
             })
     
     @interaction_log
-    async def reset_service(self, service: str, config_uuid: str | UUID) -> BaseResponse:
+    async def reset_and_run_service(self, service: str, config_uuid: str | UUID) -> BaseResponse:
         """
         Resets a service.
         :param service: Target service name.
@@ -232,7 +234,8 @@ class ServiceRegistryServer(object):
         try:
             entry = self.database.obj_as_dict(self.database.get_objects_by_filtermasks(object_type="service_config", filtermasks=[FilterMask([["service_type", "==", service], "uuid", "==", config_uuid])]))
             service.config = entry["config"]
-            service.reset(restart_thread=True)
+            self.workers[service.name].reset_service()
+            self.workers[service.name].run()
             while not service.setup_flag:
                 await asyncio.sleep(.5)
             service.flush_inputs()
@@ -253,8 +256,7 @@ class ServiceRegistryServer(object):
         """
         service = self.services[service]
         try:
-            if service.thread is not None and service.thread.is_alive():
-                service.reset()
+            self.workers[service.name].reset_service()
             self.service_uuids[service.name] = None
             return BaseResponse(status="success", results=[{"service": service.name}])
         except Exception as ex:
@@ -365,10 +367,12 @@ class ServiceRegistryServer(object):
         """
         Deconstructs instance.
         """
-        for service in self.services[service]:
-            if service.thread is not None and service.thread.is_alive():
-                service.reset()
-                self.service_uuids[service.name] = None
+        for service in self.services:
+            if self.workers[service]:
+                self.workers[service].reset_service()
+                del self.workers[service]
+            del self.services[service]
+            del self.service_uuids[service.name]
 
 
 """
