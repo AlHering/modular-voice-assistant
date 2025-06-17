@@ -18,6 +18,8 @@ from threading import Thread
 from traceback import format_exc
 from typing import Any, List, Callable
 import json
+from time import sleep
+from copy import deepcopy
 from enum import Enum
 from gc import collect as collect_garbage
 from src.utility.time_utility import get_timestamp
@@ -65,7 +67,6 @@ class InterruptPackage(BaseModel):
     Interrupt service package for sending an interrupt command.
     """
     uuid: str = Field(default_factory=create_uuid)
-    content: None = None
     metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
 
 
@@ -74,7 +75,9 @@ class ResetPackage(BaseModel):
     Reset service package for resetting the service (to an optionally given config).
     """
     uuid: str = Field(default_factory=create_uuid)
-    content: None = None
+    content: dict | None = None
+    restart_thread: bool = False
+    restart_process: bool = False
     metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
 
 
@@ -277,20 +280,38 @@ class Service(object):
         :returns: True if an element was forwarded, else False. 
             (Note, that a service does not have to forward an element.)
         """
-        result = self.run()
-        if result is not None:
-            if isinstance(result, ServicePackage):
-                self.output_queue.put(result)
-                self.add_uuid(self.sent, elem.uuid)
-                return True
-            elif isinstance(result, Generator):
-                elem = None
-                for elem in result:
-                    self.output_queue.put(elem)
-                if elem is not None:
-                    self.add_uuid(self.sent, elem.uuid)
-                    return True
-        return False
+        if not self.pause.is_set():
+            input_package = self.input_queue.get(block=True)
+            if isinstance(input_package, ResetPackage):
+                self.log_info("Received Reset Package.")
+                if input_package.content:
+                    if self.validate_configuration(input_package.content):
+                        self.log_info(f"Adjusting config: {input_package.content}.")
+                        self.config = deepcopy(input_package.content)
+                    else:
+                        self.log_info(f"Config validation failed: {input_package.content}.\nResetting with old config.", as_warning=True)
+                self.reset(restart_thread=input_package.restart_thread, restart_process=input_package.restart_process)
+            elif isinstance(input_package, InterruptPackage):
+                self.log_info("Received Interrupt Package.")
+                self.interrupt.set()
+            else:
+                self.log_info("Received Input Package.")
+                result = self.run(input_package=input_package)
+                if result is not None:
+                    if isinstance(result, ServicePackage):
+                        self.output_queue.put(result)
+                        self.add_uuid(self.sent, elem.uuid)
+                        return True
+                    elif isinstance(result, Generator):
+                        elem = None
+                        for elem in result:
+                            self.output_queue.put(elem)
+                        if elem is not None:
+                            self.add_uuid(self.sent, elem.uuid)
+                            return True
+            return False
+        else:
+            sleep(.1)
     
     """
     Methods to potentially overwrite
@@ -318,9 +339,10 @@ class Service(object):
         return True
 
     @abstractmethod
-    def run(self) -> ServicePackage | Generator[ServicePackage, None, None] | None:
+    def run(self, input_package: ServicePackage) -> ServicePackage | Generator[ServicePackage, None, None] | None:
         """
         Processes queued input.
+        :param input_package: Input package.
         :returns: Service package, a service package generator or None.
         """
         pass
