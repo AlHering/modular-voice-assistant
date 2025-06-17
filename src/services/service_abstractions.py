@@ -18,6 +18,7 @@ from threading import Thread
 from traceback import format_exc
 from typing import Any, List, Callable
 import json
+from enum import Enum
 from gc import collect as collect_garbage
 from src.utility.time_utility import get_timestamp
 
@@ -61,7 +62,16 @@ class FinalPackage(ServicePackage):
 
 class InterruptPackage(BaseModel):
     """
-    Interrupt service package for exchanging data between services.
+    Interrupt service package for sending an interrupt command.
+    """
+    uuid: str = Field(default_factory=create_uuid)
+    content: None = None
+    metadata_stack: List[dict] = Field(default_factory=create_default_metadata)
+
+
+class ResetPackage(BaseModel):
+    """
+    Reset service package for resetting the service (to an optionally given config).
     """
     uuid: str = Field(default_factory=create_uuid)
     content: None = None
@@ -322,6 +332,29 @@ class Service(object):
         :returns: Unpacked content.
         """
         return package.model_dump()
+    
+
+"""
+Socket wrappers
+"""
+
+
+class PackageType(str, Enum):
+    """
+    Socket service package type.
+    """
+    service_package: str = "service_package"
+    final_package: str = "final_package"
+    interrupt_package: str = "interrupt_package"
+    reset_package: str = "reset_package"
+
+
+class SocketServicePackage(BaseModel):
+    """
+    Service package for exchanging data between services.
+    """
+    package_type: PackageType = PackageType.service_package
+    package: ServicePackage | FinalPackage | InterruptPackage | ResetPackage
     
 
 def receive_from_socket(receiving_socket: socket.socket, encoding: str = "utf-8") -> str:
