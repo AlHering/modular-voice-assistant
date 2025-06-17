@@ -55,9 +55,9 @@ class TranscriberService(Service):
         }
         return True
 
-    def run(self, input_package: ServicePackage) -> ServicePackage | Generator[ServicePackage, None, None] | None:
+    def process(self, input_package: ServicePackage) -> ServicePackage | Generator[ServicePackage, None, None] | None:
         """
-        Processes queued input.
+        Processes an input package.
         :param input_package: Input package.
         :returns: Service package, a service package generator or None.
         """
@@ -147,9 +147,9 @@ class ChatService(Service):
         }
         return True
 
-    def run(self, input_package: ServicePackage) -> ServicePackage | Generator[ServicePackage, None, None] | None:
+    def process(self, input_package: ServicePackage) -> ServicePackage | Generator[ServicePackage, None, None] | None:
         """
-        Processes queued input.
+        Processes an input package.
         :param input_package: Input package.
         :returns: Service package, a service package generator or None.
         """
@@ -220,9 +220,9 @@ class SynthesizerService(Service):
         }
         return True
 
-    def run(self, input_package: ServicePackage) -> ServicePackage | Generator[ServicePackage, None, None] | None:
+    def process(self, input_package: ServicePackage) -> ServicePackage | Generator[ServicePackage, None, None] | None:
         """
-        Processes queued input.
+        Processes an input package.
         :param input_package: Input package.
         :returns: Service package, a service package generator or None.
         """
