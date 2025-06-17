@@ -93,8 +93,8 @@ class Service(object):
         self.config = config
         self.cache = {}
 
-        self.interrupt = Event()
-        self.pause = Event()
+        self.interrupt = Event() # setting the interrupt event leaves the processing loop on next iteration
+        self.pause = Event() # setting the pause event can be used to pause a single process run and return on clearing
         self.input_queue = Queue() if input_queue is None else input_queue
         self.output_queue = Queue() if output_queue is None else output_queue
         self.logger = logger
