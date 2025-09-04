@@ -128,7 +128,7 @@ class Knowledgebase(ABC):
         pass
 
 
-class ChromaKnowledgeBase(ChromaStorage):
+class ChromaKnowledgeBase(ChromaStorage, Knowledgebase):
     """
     Chroma based knowledgebase.
     """
@@ -240,7 +240,7 @@ class ChromaKnowledgeBase(ChromaStorage):
         return self.query_result_conversion(self.collection.get(include=["embeddings", "metadatas", "entries", "distances"])) 
 
 
-class Neo4jKnowledgebase(Neo4jStorage):
+class Neo4jKnowledgebase(Neo4jStorage, Knowledgebase):
     """
     Neo4j based knowledgebase.
     """
@@ -252,7 +252,7 @@ class Neo4jKnowledgebase(Neo4jStorage):
         :param filtermasks: List of retrieval filter masks.
         :return: List of entries.
         """
-        return []
+        pass
 
     def store_entry(self, 
                     entry: Entry) -> None:
